@@ -1,0 +1,242 @@
+# make Kitty the primary terminal and multiplexer with one coherent shortcut layer.
+# kitty — configured as the only multiplexer. No tmux accommodations.
+#
+# Chords are spelled `super`, which is what kitty calls Cmd on macOS and the
+# Windows/Super key on Linux — `cmd+t` and `super+t` parse to the identical
+# SingleKey(mods=8), so this file is one layout, not two. On a Linux desktop
+# expect the compositor to grab some Super chords before kitty sees them;
+# rebind those in local.d rather than here.
+
+include themes.conf
+
+# ── Font and text rendering ───────────────────────────────────────────────
+font_family       JetBrainsMono NF
+font_size         19
+# Ligatures on, but broken apart under the cursor so you see real characters.
+disable_ligatures cursor
+{{- if eq .chezmoi.os "darwin" }}
+# macOS renders thin at this size; thicken strokes.
+text_composition_strategy 1.7 0
+{{- end }}
+# Force readable contrast when a theme puts fg too close to bg.
+text_fg_override_threshold 4.0
+# Dim inactive splits so the focused one is obvious.
+inactive_text_alpha 0.75
+
+# ── Performance ───────────────────────────────────────────────────────────
+# Default repaint_delay is 10ms (~100fps). Lower it for ProMotion displays.
+repaint_delay   6
+input_delay     2
+sync_to_monitor yes
+
+# ── Window chrome and layout ──────────────────────────────────────────────
+hide_window_decorations no
+window_padding_width    8
+window_border_width     1pt
+draw_minimal_borders    yes
+# "splits" gives tmux-style dynamic splitting; "stack" is the zoom target.
+enabled_layouts         splits:split_axis=horizontal,stack
+confirm_os_window_close 2
+{{- if eq .chezmoi.os "darwin" }}
+macos_quit_when_last_window_closed no
+# macos_titlebar_color               background
+{{- end }}
+
+# ── Tab bar ───────────────────────────────────────────────────────────────
+tab_bar_edge top
+
+# ── Scrollback ────────────────────────────────────────────────────────────
+# kitty stores scrollback compressed; 100k lines is cheap and means build
+# output survives. Overflow spills to a temp file up to 64MB.
+scrollback_lines                100000
+scrollback_pager_history_size   64
+scrollback_fill_enlarged_window yes
+scrollback_pager less --chop-long-lines --RAW-CONTROL-CHARS +INPUT_LINE_NUMBER
+# Keep Kitty's interactive scrollbar visible whenever this window has history.
+scrollbar                       always
+
+# ── Cursor ────────────────────────────────────────────────────────────────
+cursor_shape         block
+cursor_blink_interval 0
+
+# No cursor trail/smear. 0 disables it (kitty's own default).
+#
+# This was `cursor_trail 3`, which reads like "trail on jumps of 3+ cells" but
+# is not: the value is a number of *milliseconds*, and the trail is drawn for
+# any cursor that held its position longer than that. At 3ms it fired on
+# essentially every movement. The cells-based knob is a separate option,
+# cursor_trail_start_threshold (default 2). If the trail is ever wanted again,
+# a sane pair is `cursor_trail 30` plus `cursor_trail_start_threshold 5`, so it
+# only appears on real jumps rather than ordinary typing.
+cursor_trail         0
+
+# ── Mouse ─────────────────────────────────────────────────────────────────
+copy_on_select      yes
+focus_follows_mouse yes
+mouse_hide_wait     3.0
+detect_urls         yes
+underline_hyperlinks hover
+show_hyperlink_targets cmd
+
+# ── Shell integration ─────────────────────────────────────────────────────
+# Gives prompt/command boundaries: prompt jumping, cwd inheritance in new
+# splits, and completion notifications.
+shell_integration    enabled
+notify_on_cmd_finish invisible 10.0
+
+# ── Remote control ────────────────────────────────────────────────────────
+# Enables `kitty @` scripting: send text to splits, drive layouts, etc.
+allow_remote_control yes
+listen_on            unix:/tmp/kitty-{kitty_pid}
+
+{{- if eq .chezmoi.os "darwin" }}
+
+# ── Environment ───────────────────────────────────────────────────────────
+# GUI launches need Homebrew on PATH; shell functions still require `zsh -ic`.
+env PATH={{ template "homebrew-prefix.tmpl" . }}/bin:{{ template "homebrew-prefix.tmpl" . }}/sbin:${PATH}
+
+# ── Keyboard ──────────────────────────────────────────────────────────────
+# Both Options act as Alt/Meta, so Meta keybindings work in shell and nvim.
+macos_option_as_alt both
+{{- end }}
+
+# ── Bell ──────────────────────────────────────────────────────────────────
+enable_audio_bell    no
+window_alert_on_bell yes
+bell_on_tab          "🔔 "
+
+# ══ Keybindings ═══════════════════════════════════════════════════════════
+
+# ── Splits ────────────────────────────────────────────────────────────────
+# Spell Super+| as its physical chord so Kitty sees the Shift modifier.
+map super+backslash       launch --location=vsplit --cwd=current
+map super+shift+backslash launch --location=hsplit --cwd=current
+
+# Super+k completes the hjkl family; Super+c handles clearing below.
+map super+h neighboring_window left
+map super+j neighboring_window down
+map super+k neighboring_window up
+map super+l neighboring_window right
+
+map super+shift+h move_window left
+map super+shift+j move_window down
+map super+shift+k move_window up
+map super+shift+l move_window right
+
+# Resize mode: press, then arrows/hjkl, Esc to exit.
+map super+r start_resizing_window
+# Zoom the focused split to fill the tab, and back.
+map super+z toggle_layout stack
+# Cycle splits without thinking about direction.
+map super+grave_accent next_window
+
+# ── Tabs ──────────────────────────────────────────────────────────────────
+# Always start a local shell in $HOME. `new_tab_with_cwd` asks the ssh kitten
+# to clone a remote cwd when the focused window is an ssh session.
+map super+t     launch --type=tab --cwd={{ .chezmoi.homeDir }}
+map super+w     close_window
+map super+alt+w close_tab
+map super+]     next_tab
+map super+[     previous_tab
+map super+shift+] move_tab_forward
+map super+shift+[ move_tab_backward
+map super+1 goto_tab 1
+map super+2 goto_tab 2
+map super+3 goto_tab 3
+map super+4 goto_tab 4
+map super+5 goto_tab 5
+map super+6 goto_tab 6
+map super+7 goto_tab 7
+map super+8 goto_tab 8
+map super+9 goto_tab 9
+
+map super+n new_os_window_with_cwd
+
+# tmux session picker, on demand. The picker no longer runs at shell startup
+# (see dot_config/zsh/tmux.zsh); this is the only way in besides `tmux-picker`.
+map super+shift+t launch --type=tab --title tmux zsh -i -c tmux-picker
+
+# `sshm` is a shell function; omit --title so the remote can rename the tab.
+map super+shift+m launch --type=tab zsh -i -c sshm
+
+# ── Scrollback and prompts ────────────────────────────────────────────────
+# Ask Zsh to clear through its Ctrl+L widget. Unlike Kitty's
+# `to_cursor_scroll`, the widget also discards text at the current prompt,
+# clears retained scrollback, and redraws a fresh prompt. This takes over
+# Kitty's own default for this chord on macOS (copy_to_clipboard) —
+# copy_on_select already puts selections on the clipboard, and explicit copy
+# moves to Super+Shift+c.
+map super+c       send_key ctrl+l
+map super+shift+c copy_to_clipboard
+map super+f    show_scrollback
+map super+up   scroll_to_prompt -1
+map super+down scroll_to_prompt 1
+map super+home scroll_home
+map super+end  scroll_end
+# Page or copy OSC 133-delimited command output.
+map super+shift+y show_last_command_output
+map super+y launch --type=clipboard --stdin-source=@last_visited_cmd_output
+# The same selection by mouse: click any prompt line to select that command's
+# output. copy_on_select (set above) puts it on the clipboard.
+mouse_map ctrl+shift+right press ungrabbed mouse_select_command_output
+
+# ── Hints kitten — keyboard-driven selection, no mouse ─────────────────────
+# Open a URL by keyboard.
+map super+p>u kitten hints --type url
+# Insert a file path from the screen at the prompt.
+map super+p>f kitten hints --type path --program -
+# Open a path in the editor.
+map super+p>e kitten hints --type path --program nvim
+# Insert a line from the screen.
+map super+p>l kitten hints --type line --program -
+# Insert a word.
+map super+p>w kitten hints --type word --program -
+# Grab a git hash.
+map super+p>h kitten hints --type hash --program -
+
+# ── Overlay popups ────────────────────────────────────────────────────────
+# Portable defaults. The private macOS overlay replaces e/g/shift+g/i with
+# ssh-aware versions (and adds shift+e and o) through local.d: a later `map`
+# for the same chord wins, and local.d is globincluded at the end of this file.
+map super+e       launch --type=overlay --cwd=current yazi
+map super+g       launch --type=overlay --cwd=current zsh -ic lazygit
+map super+shift+g launch --type=overlay --cwd=current serie
+
+# Process explorer, whole machine rather than this window: btop has no PID-list
+# filter (only `-f`, which matches on the command string), and the machine-wide
+# view is the one worth having anyway.
+map super+i launch --type=overlay btop
+
+# Local repository summary, paged.
+map super+shift+i launch --type=overlay --cwd=current {{ .chezmoi.homeDir }}/.config/kitty/repo-stats.sh
+
+# Browse/import from Gogh as the source of truth, then apply the selection
+# across the dotfiles theme integrations (Kitty, shell, Neovim, and borders).
+map super+a launch --type=overlay zsh -ic "theme gogh"
+
+# Rename the current tab (the analogue of tmux's rename-session).
+map super+shift+comma set_tab_title
+
+# ── Misc kittens ──────────────────────────────────────────────────────────
+# Search the scrollback interactively.
+map super+shift+f launch --type=overlay --stdin-source=@screen_scrollback less --chop-long-lines --RAW-CONTROL-CHARS
+# Unicode / emoji picker.
+map super+shift+u kitten unicode_input
+# Pick a Kitty-only theme. Keep runtime edits in themes.conf, not kitty.conf.
+map super+shift+p kitten themes --config-file-name themes.conf
+
+# ── Font size ─────────────────────────────────────────────────────────────
+map super+equal change_font_size all +1.0
+map super+minus change_font_size all -1.0
+map super+0     change_font_size all 0
+
+# ── Config ────────────────────────────────────────────────────────────────
+map super+shift+r load_config_file
+map super+shift+delete clear_terminal reset active
+
+# ── Machine-local additions ───────────────────────────────────────────────
+# Whatever a private overlay or a single machine wants on top of this file:
+# extra bindings, platform-only actions, per-host overrides. `globinclude`
+# rather than `include`, so a machine with no local.d is not an error, and it
+# comes last so a `map` there overrides the same chord above.
+globinclude local.d/*.conf
