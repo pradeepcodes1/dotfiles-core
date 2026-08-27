@@ -16,20 +16,23 @@ if rg -l -i --hidden --glob '!.git/**' "$private_pattern" "$repo_dir"; then
   exit 1
 fi
 
-packages=$(mktemp)
-trap 'rm -f "$packages"' EXIT HUP INT TERM
-chezmoi --source="$repo_dir" execute-template \
-  --override-data '{"chezmoi":{"os":"linux"}}' \
-  <"$repo_dir/dot_config/pacman/packages.tmpl" >"$packages"
+rendered=$(mktemp)
+trap 'rm -f "$rendered"' EXIT HUP INT TERM
 
-if rg -i "$private_pattern" "$packages"; then
-  echo "private reference found in rendered public output" >&2
-  exit 1
-fi
+for manifest in dot_config/pacman/packages.tmpl dot_config/pacman/aur-packages.tmpl; do
+  chezmoi --source="$repo_dir" execute-template \
+    --override-data '{"chezmoi":{"os":"linux"}}' \
+    <"$repo_dir/$manifest" >"$rendered"
 
-duplicates=$(awk 'NF && $1 !~ /^#/' "$packages" | sort | uniq -d)
-if [ -n "$duplicates" ]; then
-  echo "duplicate public packages:" >&2
-  echo "$duplicates" >&2
-  exit 1
-fi
+  if rg -i "$private_pattern" "$rendered"; then
+    echo "private reference found in rendered public output: $manifest" >&2
+    exit 1
+  fi
+
+  duplicates=$(awk 'NF && $1 !~ /^#/' "$rendered" | sort | uniq -d)
+  if [ -n "$duplicates" ]; then
+    echo "duplicate public packages in $manifest:" >&2
+    echo "$duplicates" >&2
+    exit 1
+  fi
+done

@@ -1,0 +1,72 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env zsh
+# Install the AUR packages this source's shell config reaches for. Everything
+# else comes from the official repositories, but carapace and fzf-tab have no
+# repo package at all, and plugins.zsh gates on both: without them completion
+# silently degrades to plain zsh rather than failing, which is exactly the kind
+# of gap nobody notices for weeks.
+set -e
+
+source "${HOME}/.config/zsh/00-logging.zsh"
+
+if [ -n "$CHEZMOI_SKIP_AUR" ]; then
+	info_log "aur" "Skipping AUR package install for this apply"
+	exit 0
+fi
+
+package_file="$HOME/.config/pacman/aur-packages"
+
+if [[ ! -f "$package_file" ]]; then
+	debug_log "aur" "No AUR package list at ${package_file}"
+	exit 0
+fi
+
+typeset -a packages missing helper
+packages=(${(f)"$(awk 'NF && $1 !~ /^#/' "$package_file")"})
+
+if ((${#packages} == 0)); then
+	debug_log "aur" "No AUR packages listed in ${package_file}"
+	exit 0
+fi
+
+# pacman -T answers for AUR packages too: it tests what is installed by name and
+# never consults a sync database, so the gate is exact and costs nothing on a
+# machine with no helper at all.
+missing=(${(f)"$(pacman -T -- "${packages[@]}" || true)"})
+
+if ((${#missing} == 0)); then
+	info_log "aur" "All ${#packages} AUR packages are already installed"
+	exit 0
+fi
+
+# Helpers refuse to run as root: they build in a user directory and call sudo
+# themselves for the install step. Under root this is a skip, not a fallback.
+if ((EUID == 0)); then
+	warn_log "aur" "Running as root, so skipping the AUR install of: ${(j: :)missing}"
+	exit 0
+fi
+
+for candidate in paru yay; do
+	if command -v "$candidate" >/dev/null 2>&1; then
+		helper=("$candidate")
+		break
+	fi
+done
+
+if ((${#helper} == 0)); then
+	warn_log "aur" "No AUR helper (paru or yay) found; install one and re-apply to get: ${(j: :)missing}"
+	exit 0
+fi
+
+info_log "aur" "Installing ${#missing} missing AUR packages with ${helper[1]}: ${(j: :)missing}"
+
+# --noconfirm keeps the build non-interactive, but the helper still shells out
+# to sudo for the final pacman step, so an apply without a cached sudo timestamp
+# prompts for a password here.
+if ! "${helper[@]}" -S --needed --noconfirm -- "${missing[@]}"; then
+	warn_log "aur" "${helper[1]} failed while installing: ${(j: :)missing}"
+	exit 0
+fi
+
+info_log "aur" "AUR package install complete"
+{{- end }}

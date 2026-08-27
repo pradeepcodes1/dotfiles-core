@@ -12,8 +12,11 @@ The package list is assembled from:
 The installer uses `pacman -T` to identify missing packages. If any are absent,
 it runs `pacman -Syu --needed --noconfirm` so database refresh, full system
 upgrade and package installation happen in one supported Arch transaction. It
-does nothing when every managed package is already installed. AUR packages
-remain outside this repository.
+does nothing when every managed package is already installed. AUR packages are
+listed separately, in `.chezmoitemplates/packages/aur/common.tmpl`, and
+installed by paru or yay rather than pacman. The helper is not bootstrapped
+here: without one the step warns and skips. Only packages with no official
+repository build belong in that list.
 
 ## Yazi packages
 

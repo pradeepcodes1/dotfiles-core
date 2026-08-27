@@ -37,6 +37,14 @@ and fix it by re-running `./bootstrap.sh`, or by hand with
 `chsh -s "$(command -v zsh)"`. Either way it applies to new sessions only — log
 out and back in, or open a new terminal.
 
+Two things `dot_config/zsh/plugins.zsh` reaches for have no official repository
+build at all — `carapace-bin` and `fzf-tab` — so they are listed apart from the
+pacman manifest, in `.chezmoitemplates/packages/aur/common.tmpl`, and installed
+with paru or yay. That step is best-effort by design: it warns and skips when no
+helper is installed, when the apply is running as root, and when a build fails,
+because both call sites are guarded and their absence degrades completion
+quietly rather than breaking the shell.
+
 Apply also installs the runtimes pinned in `dot_config/mise/config.toml`.
 Activating mise only puts installed tools on PATH, so without this step a
 machine has mise and no node, which is enough to break mason's LSP installs. It

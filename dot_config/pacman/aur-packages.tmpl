@@ -1,0 +1,3 @@
+{{- if eq .chezmoi.os "linux" -}}
+{{ template "packages/aur/common.tmpl" . }}
+{{- end -}}
