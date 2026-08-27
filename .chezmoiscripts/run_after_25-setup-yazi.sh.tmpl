@@ -1,0 +1,64 @@
+#!/usr/bin/env zsh
+# Fetch the Yazi plugins and flavors pinned in package.toml. This source deploys
+# that manifest and an init.lua that calls require("git"), but nothing installs
+# the packages themselves, so a machine applying this source alone gets a Yazi
+# that fails at launch with "failed to load plugin from .../plugins/git.yazi".
+set -e
+
+source "${HOME}/.config/zsh/00-logging.zsh"
+
+if [ -n "$CHEZMOI_SKIP_YAZI_PACKAGES" ]; then
+	info_log "yazi" "Skipping Yazi package install for this apply"
+	exit 0
+fi
+
+# ya ships with yazi itself, so its absence just means the package backend has
+# not installed yazi yet. On macOS this source is applied before Homebrew runs.
+if ! command -v ya >/dev/null 2>&1; then
+	debug_log "yazi" "ya is unavailable, skipping Yazi package install"
+	exit 0
+fi
+
+yazi_config="${XDG_CONFIG_HOME:-$HOME/.config}/yazi"
+manifest="${yazi_config}/package.toml"
+
+if [[ ! -f "$manifest" ]]; then
+	warn_log "yazi" "No Yazi package manifest at ${manifest}"
+	exit 0
+fi
+
+typeset -a declared missing
+declared=(${(f)"$(sed -n 's/^[[:space:]]*use[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$manifest")"})
+
+if ((${#declared} == 0)); then
+	debug_log "yazi" "No packages declared in ${manifest}"
+	exit 0
+fi
+
+# `use = "owner/repo:name"` deploys as <name>.yazi, `use = "owner/repo"` as
+# <repo>.yazi. Plugins and flavors land in sibling directories, so check both
+# rather than tracking which manifest section each dep came from. Test for the
+# entry point rather than the directory so a half-deployed package counts as
+# missing: ya pkg install refetches every package on every run, which costs
+# ~9s and a network round trip per apply, so it is worth gating.
+for dep in "${declared[@]}"; do
+	name="${dep##*[:/]}"
+	[[ -f "${yazi_config}/plugins/${name}.yazi/main.lua" ]] && continue
+	[[ -f "${yazi_config}/flavors/${name}.yazi/flavor.toml" ]] && continue
+	missing+=("$name")
+done
+
+if ((${#missing} == 0)); then
+	info_log "yazi" "All ${#declared} pinned Yazi packages are already installed"
+	exit 0
+fi
+
+info_log "yazi" "Installing ${#missing} missing Yazi packages: ${(j: :)missing}"
+
+if ! output=$(ya pkg install 2>&1); then
+	warn_log "yazi" "ya pkg install failed: ${output}"
+	exit 0
+fi
+
+debug_log "yazi" "${output}"
+info_log "yazi" "Yazi package install complete"
