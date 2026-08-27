@@ -37,6 +37,11 @@ and fix it by re-running `./bootstrap.sh`, or by hand with
 `chsh -s "$(command -v zsh)"`. Either way it applies to new sessions only — log
 out and back in, or open a new terminal.
 
+Apply also installs the runtimes pinned in `dot_config/mise/config.toml`.
+Activating mise only puts installed tools on PATH, so without this step a
+machine has mise and no node, which is enough to break mason's LSP installs. It
+gates on `mise ls --missing` and does nothing when every runtime is present.
+
 Run `scripts/check-public.sh` before every commit. The check scans source paths,
 contents and rendered Linux package output for material outside the public
 boundary.

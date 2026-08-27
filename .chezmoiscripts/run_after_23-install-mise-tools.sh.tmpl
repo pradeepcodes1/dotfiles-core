@@ -1,0 +1,49 @@
+#!/usr/bin/env zsh
+# Install the runtimes pinned in mise's config. This source deploys
+# dot_config/mise/config.toml and has .zshrc run `mise activate`, but activation
+# only puts *installed* tools on PATH — it never installs one. A machine
+# applying this source alone therefore ended up with mise and no runtimes: no
+# node, so mason's LSP installs fail the first time a matching file is opened,
+# and no go, rust, java or zig either. Only the private macOS overlay ran
+# `mise install`, so the gap was invisible there.
+set -e
+
+source "${HOME}/.config/zsh/00-logging.zsh"
+
+if [ -n "$CHEZMOI_SKIP_MISE_TOOLS" ]; then
+	info_log "mise" "Skipping mise runtime install for this apply"
+	exit 0
+fi
+
+# On macOS this source is applied before Homebrew installs mise, so an absent
+# binary here means the package backend has not run yet rather than anything
+# wrong; the overlay still covers that machine.
+if ! command -v mise >/dev/null 2>&1; then
+	debug_log "mise" "mise is unavailable, skipping runtime install"
+	exit 0
+fi
+
+# `mise install` downloads or builds every pinned runtime, so gate it rather
+# than paying that on every apply. `mise ls --missing` answers offline in ~70ms
+# and prints one `tool version (missing) …` line per uninstalled runtime,
+# nothing at all when everything is present.
+typeset -a missing
+missing=(${(f)"$(mise ls --missing 2>/dev/null | awk 'NF {print $1 "@" $2}')"})
+
+if ((${#missing} == 0)); then
+	info_log "mise" "All pinned runtimes are already installed"
+	exit 0
+fi
+
+info_log "mise" "Installing ${#missing} missing runtimes: ${(j: :)missing}"
+
+# Log mise's own output on failure instead of discarding it: a runtime that
+# fails to build is the kind of thing that otherwise goes unnoticed until
+# something reaches for the binary much later.
+if ! output=$(mise install 2>&1); then
+	warn_log "mise" "mise install failed: ${output}"
+	exit 0
+fi
+
+debug_log "mise" "${output}"
+info_log "mise" "mise runtime install complete"
