@@ -1,0 +1,14 @@
+# keep local tools and private agent state out of the dotfiles history.
+# Binaries installed by chezmoi tooling
+bin/
+
+.claude/
+.codex/
+.DS_Store
+.ruff_cache/
+node_modules/
+**/__pycache__/
+*.pyc
+*.bak
+*.log
+.nvimlog

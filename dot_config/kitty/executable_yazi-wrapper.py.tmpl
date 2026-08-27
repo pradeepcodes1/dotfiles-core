@@ -1,0 +1,45 @@
+#!{{ template "python-interpreter.tmpl" . }}
+# let a Kitty-launched Yazi session return its directory to the calling shell.
+# Opens yazi and cds the calling shell to yazi's exit directory.
+#
+# Works under both multiplexers:
+#   tmux  - pass the calling pane id as $1 (see tmux.conf `bind e`)
+#   kitty - no argument; the parent window is found via remote control
+
+import os
+import shlex
+import subprocess
+import sys
+import tempfile
+
+pane_id = sys.argv[1] if len(sys.argv) > 1 else ""
+kitty_target_id = os.environ.get("YAZI_KITTY_TARGET_ID", "")
+
+fd, tmp = tempfile.mkstemp(prefix="yazi-cwd.")
+os.close(fd)
+
+try:
+    subprocess.run(["yazi", f"--cwd-file={tmp}"])
+
+    if os.path.getsize(tmp) > 0:
+        with open(tmp) as f:
+            cwd = f.read().rstrip("\n")
+
+        command = "cd -- " + shlex.quote(cwd)
+
+        if os.environ.get("TMUX") and pane_id:
+            subprocess.run(["tmux", "send-keys", "-t", pane_id, f" {command}", "Enter"])
+        elif kitty_target_id:
+            # remote-context.py captures the exact underlying shell before
+            # Yazi starts. --stdin avoids escape-sequence interpretation of
+            # the path.
+            subprocess.run(
+                ["kitty", "@", "send-text", "--match", f"id:{kitty_target_id}", "--stdin"],
+                input=f" {command}\n",
+                text=True,
+            )
+finally:
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass

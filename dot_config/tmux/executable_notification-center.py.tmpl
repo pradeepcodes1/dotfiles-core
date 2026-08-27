@@ -1,0 +1,47 @@
+#!{{ template "python-interpreter.tmpl" . }}
+# identify which tmux window rang when Kitty can report only the session.
+# Notification center — shows windows with unread bells via display-menu
+
+import fnmatch
+import subprocess
+import sys
+
+bell_windows = subprocess.run(
+    [
+        "tmux",
+        "list-windows",
+        "-a",
+        "-f",
+        "#{window_bell_flag}",
+        "-F",
+        "#{session_name}:#{window_index}",
+    ],
+    capture_output=True,
+    text=True,
+).stdout.rstrip("\n")
+
+if not bell_windows:
+    subprocess.run(["tmux", "display-message", "No notifications"])
+    sys.exit(0)
+
+# Pane titles matching any of these (default shell prompt, empty, or a bare
+# hostname) aren't worth showing next to the window target.
+IGNORE_PATTERNS = ["zsh", "bash", "fish", "", "*.[Ll]ocal", "*-[Mm]ac[Bb]ook*"]
+
+args = ["-T", "Notifications (bells)"]
+for i, target in enumerate(bell_windows.split("\n"), start=1):
+    shortcut = str(i) if i <= 9 else ""
+    title = subprocess.run(
+        ["tmux", "display-message", "-t", target, "-p", "#{pane_title}"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    show_title = not any(fnmatch.fnmatchcase(title, pat) for pat in IGNORE_PATTERNS)
+    win_label = f" {title}" if show_title else ""
+    args += [
+        f"{shortcut}  {target}{win_label}",
+        shortcut,
+        f"switch-client -t '{target}'",
+    ]
+
+subprocess.run(["tmux", "display-menu"] + args)

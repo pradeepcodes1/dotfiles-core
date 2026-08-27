@@ -1,0 +1,4 @@
+# Let navi parse tealdeer's raw Markdown output for `navi --tldr <command>`.
+# Native cheatsheets remain the default source used by the ^G shell widget.
+client:
+  tealdeer: true

@@ -1,0 +1,42 @@
+# keep Neovim's generated state out of the hand-maintained configuration.
+# .gitignore for Neovim configuration
+
+# General
+.DS_Store
+*.swp
+*.swo
+*~
+*.bak
+*.pyc
+
+# Plugin Managers
+# Ignore the directories where plugin source code is cloned.
+# Your plugin spec files (e.g., in lua/plugins/) should be committed.
+
+# For lazy.nvim
+/lazy/
+
+# For packer.nvim
+/pack/
+/plugin/packer_compiled.lua
+
+# For vim-plug
+/plugged/
+
+# Data, State, and Cache
+# These directories contain session files, undo history, downloaded LSPs, etc.
+/data/
+/state/
+/cache/
+/.cache/
+
+# User-specific files
+# A common pattern is to have a local file for machine-specific settings.
+local.lua
+local_*.lua
+custom/local.lua
+
+# Environment-specific
+/node_modules/
+__pycache__/
+*.gem

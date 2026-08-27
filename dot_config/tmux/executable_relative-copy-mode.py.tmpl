@@ -1,0 +1,78 @@
+#!{{ template "python-interpreter.tmpl" . }}
+# navigate tmux scrollback that Kitty's own pager cannot see.
+# Tmux copy mode with relative line numbers
+# Shows scrollback in a popup with relative line numbers for easy vim-style navigation
+
+import re
+import subprocess
+import sys
+
+# Get the pane ID that triggered this popup (passed as argument)
+if len(sys.argv) < 2 or not sys.argv[1]:
+    print("relative-copy-mode.py: Pane ID required", file=sys.stderr)
+    sys.exit(1)
+target_pane = sys.argv[1]
+
+# Get pane height to limit capture to visible + reasonable scrollback
+scroll_limit = 3 * int(
+    subprocess.run(
+        ["tmux", "display-message", "-t", target_pane, "-p", "#{pane_height}"],
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+)
+
+# Get pane content with ANSI colors (limited to recent history)
+pane_content = subprocess.run(
+    ["tmux", "capture-pane", "-t", target_pane, "-e", "-p", "-S", f"-{scroll_limit}"],
+    capture_output=True,
+    text=True,
+).stdout.rstrip("\n")
+
+lines = pane_content.split("\n")
+total_lines = len(lines)
+
+# ANSI color codes
+YELLOW, DIM, RESET = "\033[33m", "\033[2m", "\033[0m"
+
+# Current line is at the bottom (line 0 in relative terms)
+# Lines above are negative (going back in history)
+numbered_content = "\n".join(
+    f"{YELLOW}{idx - total_lines:+5d}{RESET} {DIM}│{RESET} {line}"
+    for idx, line in enumerate(lines, start=1)
+)
+
+# Use fzf to select a line, starting from bottom (most recent)
+result = subprocess.run(
+    [
+        "fzf",
+        "--ansi",
+        "--no-sort",
+        "--tac",
+        "--prompt=Jump to line (relative): ",
+        "--header=Select line to jump to in copy mode",
+        "--preview-window=hidden",
+        "--bind=ctrl-u:half-page-up,ctrl-d:half-page-down",
+    ],
+    input=numbered_content + "\n",
+    capture_output=True,
+    text=True,
+)
+if result.returncode != 0:
+    sys.exit(0)
+selected = result.stdout.rstrip("\n")
+
+# Extract the relative line number from selection (strip ANSI codes first)
+plain = re.sub(r"\x1b\[[0-9;]*m", "", selected)
+rel_line = int(plain.split()[0])
+
+# Enter copy mode on the target pane and jump to the selected line
+# Copy mode starts at the bottom of visible area (our line 0)
+subprocess.run(["tmux", "copy-mode", "-t", target_pane])
+
+# Move up by the absolute value of relative line
+if rel_line < 0:
+    lines_up = -rel_line
+    subprocess.run(
+        ["tmux", "send-keys", "-t", target_pane, "-X", "-N", str(lines_up), "cursor-up"]
+    )

@@ -1,0 +1,106 @@
+#!/bin/sh
+# restore expected shell context for logins initiated through `kitten ssh`.
+# Remote login shell for connections made through `kitten ssh`.
+#
+# kitty copies this to ~/.local/bin/kitty-remote-login on the remote host and
+# execs it in place of the login shell (see ~/.config/kitty/ssh.conf). It runs
+# on whatever the remote has, so: POSIX sh only, no bashisms, no local tooling.
+#
+# It is exec'd as `-kitty-remote-login` with no arguments — kitty passes the
+# leading dash via argv[0] and does not pass -l — so do not rely on "$@".
+#
+# Contract: this script must always end in an interactive shell or a clean exit.
+# If it dies, the connection dies with it. `command ssh host` bypasses it
+# entirely and is the escape hatch if this ever goes wrong.
+
+# Attach tmux only where it makes sense: a Linux host that actually has it.
+# Deliberately not exec'd — if tmux fails to start (missing terminfo, unwritable
+# socket dir, server mismatch) we fall through to a shell instead of dropping
+# the connection.
+if [ "$(uname -s)" = Linux ] && command -v tmux >/dev/null 2>&1; then
+  # -A: attach to `main` if it exists, create it otherwise. This is the whole
+  # point of remote-side tmux — the session survives a dropped connection.
+  if tmux -u new-session -A -s main; then
+    exit 0
+  fi
+  printf 'kitty-remote-login: tmux failed to start, falling back to a login shell\n' >&2
+fi
+
+# Resolve the real login shell from passwd rather than $SHELL: if anything ever
+# sets SHELL to this script, `exec "$SHELL"` would loop forever. The case guard
+# below is a second belt on the same braces.
+real_shell=""
+if command -v getent >/dev/null 2>&1; then
+  real_shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
+fi
+[ -n "$real_shell" ] || real_shell="$SHELL"
+
+case "$real_shell" in
+  "" | *kitty-remote-login) real_shell=/bin/sh ;;
+esac
+
+# Hand off to the login shell the way kitty itself would.
+#
+# Overriding login_shell is what costs us shell integration: kitty only injects
+# it when the basename of login_shell is bash/zsh/fish (exec_with_shell_integration
+# in shell-integration/ssh/bootstrap-utils.sh), and ours is kitty-remote-login.
+# Without it there are no OSC 133 prompt marks and no OSC 7 cwd reporting, which
+# is what breaks Cmd+Up/Down, Cmd+Shift+g, and `launch --cwd=current`.
+#
+# The steps below are kitty's own, reproduced from bootstrap-utils.sh. The
+# kitten has already copied its shell-integration tree to the path below, so
+# there is nothing extra to ship — we just point the shell at it.
+#
+# Only for the non-tmux path. Inside tmux the inner shells are spawned by the
+# tmux server rather than by us, so this would not reach them, and kitty's own
+# docs warn that shell integration through a multiplexer is unreliable anyway.
+si_dir="$HOME/.local/share/kitty-ssh-kitten/shell-integration"
+
+# Gate on the directory existing, NOT on $KITTY_SHELL_INTEGRATION. That variable
+# looks like the right signal but is always empty by the time we run: kitty's
+# exec_login_shell unsets it on the path we land on, immediately before exec'ing
+# this script. The directory is an equivalent signal — the kitten only ships the
+# shell-integration tree when integration is enabled for the connection.
+[ -d "$si_dir" ] || si_dir=""
+
+# Put KITTY_SHELL_INTEGRATION back. Both integration scripts return immediately
+# on an empty value (kitty.bash line 4), so without this they load and do
+# nothing — the symptom is a bare `bash-5.2#` prompt with no prompt marks.
+# KITTY_SSH_KSI carries the value past kitty's unset; see ~/.config/kitty/ssh.conf.
+if [ -n "$si_dir" ]; then
+  KITTY_SHELL_INTEGRATION="${KITTY_SSH_KSI:-enabled}"
+  export KITTY_SHELL_INTEGRATION
+  unset KITTY_SSH_KSI
+fi
+
+if [ -n "$si_dir" ]; then
+  case "$(basename "$real_shell")" in
+    zsh)
+      zdotdir="$ZDOTDIR"
+      [ -n "$zdotdir" ] || zdotdir="$HOME"
+      # Only redirect ZDOTDIR if the user actually has zsh rc files; otherwise
+      # this would suppress zsh-newuser-install, same as kitty's check.
+      if [ -f "$zdotdir/.zshrc" ] || [ -f "$zdotdir/.zshenv" ] \
+        || [ -f "$zdotdir/.zprofile" ] || [ -f "$zdotdir/.zlogin" ]; then
+        [ -n "$ZDOTDIR" ] && export KITTY_ORIG_ZDOTDIR="$ZDOTDIR"
+        ZDOTDIR="$si_dir/zsh"
+        export ZDOTDIR
+        exec "$real_shell" -l
+      fi
+      ;;
+    bash)
+      ENV="$si_dir/bash/kitty.bash"
+      KITTY_BASH_INJECT=1
+      export ENV KITTY_BASH_INJECT
+      if [ -z "$HISTFILE" ]; then
+        HISTFILE="$HOME/.bash_history"
+        KITTY_BASH_UNEXPORT_HISTFILE=1
+        export HISTFILE KITTY_BASH_UNEXPORT_HISTFILE
+      fi
+      exec "$real_shell" --login --posix
+      ;;
+  esac
+fi
+
+# fish, sh, and anything unrecognised: plain login shell, no marks.
+exec "$real_shell" -l

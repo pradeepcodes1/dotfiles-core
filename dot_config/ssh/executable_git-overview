@@ -1,0 +1,76 @@
+#!/bin/sh
+# summarize remote repositories where the full local Git UI is unavailable.
+# One-screen summary of a git repository's current state.
+#
+# Bound to Cmd+g inside an ssh session, where Lazygit is not an option: kitty
+# copies this to ~/.local/bin/git-overview on the remote (see
+# ~/.config/kitty/ssh.conf) and the binding types the path into the session, so
+# it runs in whatever directory that shell is in.
+#
+# POSIX sh, and nothing beyond git itself — it has to run on whatever the remote
+# happens to have.
+
+if ! command -v git >/dev/null 2>&1; then
+  printf 'git-overview: git is not installed on this host\n' >&2
+  exit 1
+fi
+
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  printf 'git-overview: not inside a git repository (%s)\n' "$(pwd)" >&2
+  exit 1
+fi
+
+# Headings only; the git commands below bring their own colour.
+if [ -t 1 ]; then
+  H=$(printf '\033[1;34m')
+  R=$(printf '\033[0m')
+else
+  H=""
+  R=""
+fi
+
+section() { printf '\n%s── %s %s\n' "$H" "$1" "$R"; }
+
+root=$(git rev-parse --show-toplevel 2>/dev/null)
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)
+
+printf '%srepo%s   %s\n' "$H" "$R" "$root"
+printf '%sbranch%s %s' "$H" "$R" "$branch"
+
+if [ -n "$upstream" ]; then
+  # Two numbers: commits ahead of and behind the upstream branch.
+  counts=$(git rev-list --left-right --count "$upstream...HEAD" 2>/dev/null)
+  behind=$(printf '%s' "$counts" | cut -f1)
+  ahead=$(printf '%s' "$counts" | cut -f2)
+  printf ' → %s (ahead %s, behind %s)' "$upstream" "${ahead:-0}" "${behind:-0}"
+else
+  printf ' (no upstream)'
+fi
+printf '\n'
+
+section "status"
+if [ -z "$(git status --porcelain 2>/dev/null)" ]; then
+  printf 'clean\n'
+else
+  git -c color.status=always status --short --branch
+fi
+
+section "recent commits"
+git -c color.ui=always log --oneline --graph --decorate --max-count=12
+
+section "branches"
+git -c color.ui=always branch --sort=-committerdate \
+  --format='%(HEAD) %(color:yellow)%(refname:short)%(color:reset) %(color:dim)%(committerdate:relative)%(color:reset) %(contents:subject)' \
+  | head -8
+
+stashes=$(git stash list 2>/dev/null)
+if [ -n "$stashes" ]; then
+  section "stashes"
+  printf '%s\n' "$stashes"
+fi
+
+section "remotes"
+git remote -v | awk '$3 == "(fetch)" { printf "%-10s %s\n", $1, $2 }'
+
+printf '\n'

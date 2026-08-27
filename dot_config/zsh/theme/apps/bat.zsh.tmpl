@@ -1,0 +1,23 @@
+# keep syntax highlighting aligned with the active terminal palette.
+# Bat theme integration
+# Theme name comes from `bat_theme` in the active color file.
+
+local bat_config="{{ .chezmoi.homeDir }}/.config/bat/config"
+local resolved_bat_theme="$bat_theme"
+
+# Gogh imports normally set `bat_theme=ansi`, which makes syntax colors follow
+# their terminal palette. This mode-aware fallback only covers missing mappings.
+if [[ -z "$resolved_bat_theme" ]]; then
+  if [[ "$_DOTFILES_THEME_MODE" == "light" ]]; then
+    resolved_bat_theme="OneHalfLight"
+  else
+    resolved_bat_theme="TwoDark"
+  fi
+fi
+
+local bat_content="--theme=\"$resolved_bat_theme\""
+
+mkdir -p "$(dirname "$bat_config")"
+if [[ ! -f "$bat_config" ]] || [[ "$(< "$bat_config")" != "$bat_content" ]]; then
+  print -r -- "$bat_content" > "$bat_config"
+fi

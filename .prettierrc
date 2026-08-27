@@ -1,0 +1,12 @@
+# keep prose and machine-readable files stable across editors and hooks.
+semi: false
+singleQuote: false
+tabWidth: 2
+useTabs: false
+trailingComma: es5
+printWidth: 100
+proseWrap: preserve
+overrides:
+  - files: "*.md"
+    options:
+      proseWrap: preserve

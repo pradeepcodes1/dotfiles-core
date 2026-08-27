@@ -1,0 +1,70 @@
+#!{{ template "python-interpreter.tmpl" . }}
+# sanitize, reuse, and correctly size sessions created from a tmux prompt.
+# New tmux session, named at a command-prompt (Shift+ROpt+c -> bind C).
+# Called by tmux's command-prompt with the typed name as $1, which is empty
+# when the prompt is accepted without input.
+
+import re
+import subprocess
+import sys
+
+
+def tmux(*args):
+    return subprocess.run(
+        ["tmux", *args], capture_output=True, text=True
+    )
+
+
+def capture(*args):
+    return tmux(*args).stdout.strip()
+
+
+def fail(message):
+    tmux("display-message", message)
+    sys.exit(1)
+
+
+def next_number():
+    """Smallest positive integer not already leading a session name."""
+    taken = set()
+    for name in capture("list-sessions", "-F", "#{session_name}").splitlines():
+        leading = re.match(r"\d+", name)
+        if leading:
+            taken.add(int(leading.group()))
+    n = 1
+    while n in taken:
+        n += 1
+    return str(n)
+
+
+requested = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
+
+# tmux accepts "." and ":" in a session name but then cannot address it: both
+# are target separators, so `has-session -t 'a.b:c'` fails even with the "="
+# exact prefix (measured on 3.7b). Fold them rather than creating a session
+# that can never be switched to or killed by name.
+name = re.sub(r"[.:]", "-", requested)
+
+# An accepted-but-empty prompt keeps the old numbering behavior. Note tmux
+# takes `new-session -s ""` literally and creates a nameless session, so this
+# cannot be left to tmux.
+if not name:
+    name = next_number()
+
+# Attach-or-create: plain `new-session` errors with "duplicate session".
+if tmux("has-session", "-t", f"={name}").returncode == 0:
+    tmux("switch-client", "-t", f"={name}")
+    sys.exit(0)
+
+# A detached session defaults to 80x24, so the first pane's shell would start
+# at that size and only get resized on the switch-client below.
+width = capture("display-message", "-p", "#{client_width}") or "80"
+height = capture("display-message", "-p", "#{client_height}") or "24"
+
+created = tmux("new-session", "-d", "-x", width, "-y", height, "-s", name)
+if created.returncode != 0:
+    fail(created.stderr.strip() or f"could not create session '{name}'")
+
+switched = tmux("switch-client", "-t", f"={name}")
+if switched.returncode != 0:
+    fail(switched.stderr.strip() or f"created '{name}' but could not switch")

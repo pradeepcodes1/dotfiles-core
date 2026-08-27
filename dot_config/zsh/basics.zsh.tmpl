@@ -1,0 +1,81 @@
+# establish quiet interactive defaults and portable command-line conveniences.
+setopt NO_BEEP
+alias vi=nvim
+
+# Clear the current edit buffer, visible terminal, retained scrollback, and
+# transient command numbering, then redraw a fresh prompt. Kitty maps Cmd+C to
+# this widget via Ctrl+L.
+_clear_zsh_screen() {
+  BUFFER=''
+  CURSOR=0
+  _prompt_cmd_num=0
+  builtin print -rn -- $'\e[H\e[2J\e[3J' >"$TTY"
+  zle .reset-prompt
+  zle -R
+}
+zle -N _clear_zsh_screen
+bindkey -M emacs '^L' _clear_zsh_screen
+bindkey -M viins '^L' _clear_zsh_screen
+bindkey -M vicmd '^L' _clear_zsh_screen
+
+# Let ZLE receive Ctrl+C while editing, then restore the terminal interrupt
+# character before a command runs so foreground processes still receive SIGINT.
+_clear_zsh_line() {
+  BUFFER=''
+  CURSOR=0
+  REGION_ACTIVE=0
+  POSTDISPLAY=''
+  zle redisplay
+  # Some ZLE/plugin redraw paths restore the tty's interrupt character.
+  # Re-disable it so repeated Ctrl+C presses remain prompt-local.
+  _zle_disable_intr
+}
+_zle_disable_intr() { stty intr undef < /dev/tty }
+_zle_restore_intr() { stty intr '^C' < /dev/tty }
+
+zle -N _clear_zsh_line
+bindkey -M emacs '^C' _clear_zsh_line
+bindkey -M viins '^C' _clear_zsh_line
+bindkey -M vicmd '^C' _clear_zsh_line
+
+autoload -Uz add-zle-hook-widget
+add-zle-hook-widget line-init _zle_disable_intr
+add-zle-hook-widget line-finish _zle_restore_intr
+
+# bat only pages/colors on interactive terminals, so pipes still get plain bytes
+alias cat='bat'
+# -Q silences less's end-of-file bell so it does not mark Kitty/tmux as alerting;
+# -R/-F are bat's defaults (colors, quit if one screen)
+export BAT_PAGER="less -RFQ"
+# follow a file with syntax highlighting; -l log because bat can't detect
+# language from a pipe, --paging=never because a pager would block the stream
+tailf() { tail -f "$@" | bat --paging=never -l log }
+dev() { builtin cd "$DOTFILES_DEV_ROOT"; }
+
+# One-screen repository summary: onefetch's git facts above tokei's line
+# counts, paged. Kitty's Cmd+Shift+I runs the same script directly; this only
+# puts it on the prompt, since ~/.config/kitty is not on PATH.
+repo-stats() { {{ .chezmoi.homeDir }}/.config/kitty/repo-stats.sh "$@" }
+
+# Go up N directories
+# Usage: up [N] (default: 1)
+function up() {
+  local levels=${1:-1}
+  local path=""
+  for ((i = 0; i < levels; i++)); do
+    path="../$path"
+  done
+  builtin cd "$path"
+}
+
+# Go binaries
+export PATH="$HOME/go/bin:$PATH"
+
+# Eza configuration - use ~/.config/eza for theme files
+export EZA_CONFIG_DIR="{{ .chezmoi.homeDir }}/.config/eza"
+
+# Eza aliases
+alias ls='eza --icons -la --hyperlink'
+alias lt='eza --icons --tree --hyperlink'
+alias lg='lazygit'
+export EDITOR="nvim"

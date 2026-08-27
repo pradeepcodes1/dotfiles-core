@@ -1,0 +1,18 @@
+# generate tmux colors from the same palette used by Kitty and the prompt.
+# Tmux theme integration
+
+local current_file="{{ .chezmoi.homeDir }}/.config/tmux/themes/current.conf"
+local tmux_content="# Tmux theme: $_DOTFILES_THEME_NAME
+set -g status-style \"fg=$ui_fg,bg=$ui_inactive\"
+set -g window-status-format \"#[bg=$ui_border,fg=$ui_fg]  #I #{?#{==:#{pane_current_command},zsh},zsh,#{=25:pane_title}}  \"
+set -g window-status-current-format \"#[bg=$ui_active,fg=$ui_bg,bold]  #I #{?#{==:#{pane_current_command},zsh},zsh,#{=25:pane_title}}  \"
+set -g pane-border-style \"fg=$ui_border\"
+set -g pane-active-border-style \"fg=$ui_active\"
+set -g message-style \"fg=$ui_fg,bg=$ui_inactive\"
+set -g mode-style \"fg=$ui_bg,bg=$ui_active\""
+
+mkdir -p "$(dirname "$current_file")"
+if [[ ! -f "$current_file" ]] || [[ "$(< "$current_file")" != "$tmux_content" ]]; then
+  print -r -- "$tmux_content" > "$current_file"
+  [[ -n "$TMUX" ]] && tmux source-file "$current_file" 2>/dev/null
+fi

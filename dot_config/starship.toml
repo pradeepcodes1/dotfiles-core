@@ -1,0 +1,58 @@
+# render concise Git context while the custom Zsh layer owns transient prompts.
+# Starship draws the active prompt line only:
+#
+#   ~/path ( main  3/8 ⇡2 +1 ~3 ?2 ≡1) ❯ _
+#
+# The executed (transient) form — numbered path, `>` command, `⏱` timer — is
+# drawn by zsh-prompt.zsh, which owns PROMPT and calls `starship prompt` once
+# per precmd.
+#
+# Colors are ANSI palette names, never hex: the palette is whatever the current
+# dotfiles theme installed into kitty, so a `theme` switch recolors the prompt
+# with no starship config of its own.
+
+format = "$directory$git_branch$git_commit$git_state$git_status $character"
+add_newline = false
+
+[directory]
+# `%~` equivalent: the whole path, no truncation, no repo-root rewriting.
+format = "[$path]($style)"
+style = "blue"
+truncation_length = 0
+truncate_to_repo = false
+
+# The opening paren lives on both git_branch and git_commit because exactly one
+# of them renders: git_commit is `only_detached` by default, and `ignore_branches`
+# suppresses git_branch's literal "HEAD" in that same detached state.
+[git_branch]
+format = ' [\(](bright-black)[$symbol$branch]($style)'
+symbol = " "
+style = "cyan"
+ignore_branches = ["HEAD"]
+
+[git_commit]
+format = ' [\(](bright-black)[@$hash]($style)'
+style = "cyan"
+
+[git_state]
+format = " [$state( $progress_current/$progress_total)](yellow)"
+
+# The closing paren is unconditional text inside the module, so it renders
+# whenever there is a repo at all, clean or not.
+[git_status]
+format = '[$all_status$ahead_behind]($style)[\)](bright-black)'
+style = "bright-black"
+conflicted = " [!$count](bold red)"
+ahead = " [⇡$count](cyan)"
+behind = " [⇣$count](red)"
+diverged = " [⇡$ahead_count⇣$behind_count](red)"
+staged = " [+$count](yellow)"
+modified = " [~$count](red)"
+untracked = " [?$count](red)"
+renamed = " [»$count](yellow)"
+deleted = " [✘$count](red)"
+stashed = " [≡$count](bright-black)"
+
+[character]
+success_symbol = "[❯](purple)"
+error_symbol = "[❯](red)"

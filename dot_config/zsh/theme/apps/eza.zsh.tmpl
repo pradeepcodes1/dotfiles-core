@@ -1,0 +1,14 @@
+# keep file-list colors synchronized without hard-coding one palette.
+# Eza theme integration
+# Themes from: https://github.com/eza-community/eza-themes
+# Theme name comes from `eza_theme` in the active color file.
+# Gogh imports set `gogh_theme=1` and `eza_theme=default`; that theme uses ANSI
+# names, so it follows the generated Kitty/Gogh terminal palette without hex
+# config duplication.
+
+local eza_config_dir="{{ .chezmoi.homeDir }}/.config/eza"
+local eza_themes_dir="$eza_config_dir/eza-themes/themes"
+local eza_theme_file="$eza_config_dir/theme.yml"
+local source_theme="$eza_themes_dir/${eza_theme:-default}.yml"
+
+[[ -f "$source_theme" ]] && ! cmp -s "$source_theme" "$eza_theme_file" && cp "$source_theme" "$eza_theme_file"

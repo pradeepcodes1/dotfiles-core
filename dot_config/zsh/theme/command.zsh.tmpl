@@ -1,0 +1,99 @@
+# apply one palette atomically across every supported terminal tool.
+# Theme command and apply orchestration
+
+# Defines the on-demand Gogh catalog/import functions. Sourcing this file does
+# no I/O and never contacts the network.
+source "$_theme_dir/gogh.zsh"
+
+_apply_theme() {
+  for f in "$_theme_dir/apps"/*.zsh; do
+    [[ -f "$f" ]] && source "$f"
+  done
+}
+
+_apply_theme_for() {
+  local reason="${1:-init}"
+  local previous_reason="${_DOTFILES_THEME_APPLY_REASON:-}"
+
+  export _DOTFILES_THEME_APPLY_REASON="$reason"
+  _apply_theme
+
+  if [[ -n "$previous_reason" ]]; then
+    export _DOTFILES_THEME_APPLY_REASON="$previous_reason"
+  else
+    unset _DOTFILES_THEME_APPLY_REASON
+  fi
+}
+
+theme() {
+  local arg="${1:-}"
+  local theme_name
+
+  case "$arg" in
+    "")
+      theme_name="$(_theme_fzf_pick all)"
+      [[ -z "$theme_name" ]] && return 0
+      ;;
+    toggle)
+      if [[ "$_DOTFILES_THEME_MODE" == "dark" ]]; then
+        theme_name="$_DOTFILES_LIGHT_THEME"
+      else
+        theme_name="$_DOTFILES_DARK_THEME"
+      fi
+      ;;
+    light)
+      theme_name="$(_theme_fzf_pick light)"
+      [[ -z "$theme_name" ]] && return 0
+      ;;
+    dark)
+      theme_name="$(_theme_fzf_pick dark)"
+      [[ -z "$theme_name" ]] && return 0
+      ;;
+    gogh)
+      _gogh_pick_and_import "${@:2}" || return $?
+      theme_name="$REPLY"
+      [[ -z "$theme_name" ]] && return 0
+      ;;
+    list)
+      echo "Available themes:"
+      for t in $(_get_available_themes); do
+        local color_file
+        color_file="$(_theme_color_file "$t")" || continue
+        local mode=$(_get_theme_field "$color_file" "Mode")
+        local current=""
+        [[ "$t" == "$_DOTFILES_THEME_NAME" ]] && current=" (current)"
+        echo "  $t [$mode]$current"
+      done
+      return 0
+      ;;
+    status)
+      echo "Theme: $_DOTFILES_THEME_NAME"
+      echo "Mode: $_DOTFILES_THEME_MODE"
+      echo "Transparent: $_DOTFILES_THEME_TRANSPARENT"
+      [[ -f "$_DOTFILES_THEME_FILE" ]] && echo "Persisted: yes" || echo "Persisted: no (using system)"
+      return 0
+      ;;
+    reset)
+      rm -f "$_DOTFILES_THEME_FILE"
+      _init_theme
+      info_log "theme" "Reset to system theme: $_DOTFILES_THEME_NAME ($_DOTFILES_THEME_MODE mode)"
+      return 0
+      ;;
+    *)
+      theme_name="$arg"
+      ;;
+  esac
+
+  if ! _load_theme_colors "$theme_name"; then
+    error_log "theme" "Failed to load theme '$theme_name'"
+    return 1
+  fi
+
+  mkdir -p "$(dirname "$_DOTFILES_THEME_FILE")"
+  echo "$theme_name" > "$_DOTFILES_THEME_FILE"
+
+  _apply_theme_for command
+
+  info_log "theme" "Switched to: $_DOTFILES_THEME_NAME ($_DOTFILES_THEME_MODE mode)"
+  info_log "theme" "Note: Restart nvim/yazi for full effect."
+}

@@ -1,0 +1,301 @@
+# import arbitrary terminal palettes safely without making Gogh a runtime dependency.
+# Gogh catalog browser and importer
+
+_gogh_require_command() {
+  if ! command -v "$1" &>/dev/null; then
+    error_log "theme" "Gogh import requires '$1' on PATH"
+    return 1
+  fi
+}
+
+_gogh_validate_catalog() {
+  local catalog_file="$1"
+
+  jq -e '
+    def hex: type == "string" and test("^#[0-9A-Fa-f]{6}$");
+    def valid_theme:
+      type == "object"
+      and (.name | type == "string" and length > 0 and length <= 200
+        and (explode | all(.[]; . >= 32 and . != 127)))
+      and (.variant == "dark" or .variant == "light")
+      and (.background | hex)
+      and (.foreground | hex)
+      and ([
+        .color_01, .color_02, .color_03, .color_04,
+        .color_05, .color_06, .color_07, .color_08,
+        .color_09, .color_10, .color_11, .color_12,
+        .color_13, .color_14, .color_15, .color_16
+      ] | all(.[]; hex));
+    type == "array" and length > 0 and all(.[]; valid_theme)
+  ' "$catalog_file" >/dev/null 2>&1
+}
+
+_gogh_fetch_catalog() {
+  local catalog_file="$_DOTFILES_GOGH_CATALOG_FILE"
+  local temp_file
+
+  _gogh_require_command curl || return 1
+  _gogh_require_command jq || return 1
+
+  if ! mkdir -p "$_DOTFILES_GOGH_CACHE_DIR"; then
+    error_log "theme" "Could not create Gogh cache directory"
+    return 1
+  fi
+  chmod 700 "$_DOTFILES_GOGH_CACHE_DIR" 2>/dev/null
+
+  temp_file=$(mktemp "$_DOTFILES_GOGH_CACHE_DIR/.themes.json.XXXXXX") || {
+    error_log "theme" "Could not create a temporary Gogh catalog"
+    return 1
+  }
+
+  if curl \
+    --fail --silent --show-error --location \
+    --proto '=https' --proto-redir '=https' --tlsv1.2 \
+    --connect-timeout 10 --max-time 45 --retry 2 \
+    --output "$temp_file" \
+    "$_DOTFILES_GOGH_CATALOG_URL" \
+    && _gogh_validate_catalog "$temp_file"; then
+    chmod 600 "$temp_file" 2>/dev/null
+    if mv -f "$temp_file" "$catalog_file"; then
+      return 0
+    fi
+  fi
+
+  rm -f -- "$temp_file"
+
+  # A failed refresh must never destroy a previously validated catalog.
+  if [[ -f "$catalog_file" ]] && _gogh_validate_catalog "$catalog_file"; then
+    warn_log "theme" "Could not refresh Gogh; using the cached catalog"
+    return 0
+  fi
+
+  error_log "theme" "Could not download a valid Gogh catalog"
+  return 1
+}
+
+_gogh_ensure_catalog() {
+  local refresh="${1:-0}"
+
+  _gogh_require_command jq || return 1
+
+  if [[ "$refresh" != "1" ]] \
+    && [[ -f "$_DOTFILES_GOGH_CATALOG_FILE" ]] \
+    && _gogh_validate_catalog "$_DOTFILES_GOGH_CATALOG_FILE"; then
+    return 0
+  fi
+
+  _gogh_fetch_catalog
+}
+
+_gogh_slug() {
+  LC_ALL=C print -r -- "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+_gogh_mapping_value() {
+  local color_file="$1"
+  local key="$2"
+
+  (
+    unset "$key"
+    source "$color_file" >/dev/null 2>&1 || return 1
+    local value="${(P)key}"
+    [[ -n "$value" ]] || return 1
+
+    # Imported files are sourced by interactive shells. Keep copied registry
+    # names within a conservative quoted-string alphabet.
+    [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || return 1
+    [[ "$value" != *[\\\"\$\`\!]* ]] || return 1
+    print -r -- "$value"
+  )
+}
+
+_gogh_write_mapping() {
+  local output_file="$1"
+  local key="$2"
+  local value="$3"
+
+  printf '%s="%s"\n' "$key" "$value" >> "$output_file"
+}
+
+_gogh_import_index() {
+  local index="$1"
+  local catalog_file="$_DOTFILES_GOGH_CATALOG_FILE"
+  local name mode slug theme_name target_file temp_file curated_file
+  local -a palette
+
+  [[ "$index" == <-> ]] || {
+    error_log "theme" "Gogh returned an invalid selection"
+    return 1
+  }
+
+  if ! jq -e --argjson index "$index" '
+    .[$index]
+    | type == "object"
+      and (.name | type == "string" and length > 0 and length <= 200
+        and (explode | all(.[]; . >= 32 and . != 127)))
+      and (.variant == "dark" or .variant == "light")
+      and ([.background, .foreground,
+        .color_01, .color_02, .color_03, .color_04,
+        .color_05, .color_06, .color_07, .color_08,
+        .color_09, .color_10, .color_11, .color_12,
+        .color_13, .color_14, .color_15, .color_16]
+        | all(.[]; type == "string" and test("^#[0-9A-Fa-f]{6}$")))
+  ' "$catalog_file" >/dev/null 2>&1; then
+    error_log "theme" "Selected Gogh palette failed validation"
+    return 1
+  fi
+
+  name=$(jq -er --argjson index "$index" '.[$index].name' "$catalog_file") || return 1
+  mode=$(jq -er --argjson index "$index" '.[$index].variant' "$catalog_file") || return 1
+  palette=("${(@f)$(jq -er --argjson index "$index" '
+    .[$index]
+    | [.background, .foreground,
+      .color_01, .color_02, .color_03, .color_04,
+      .color_05, .color_06, .color_07, .color_08,
+      .color_09, .color_10, .color_11, .color_12,
+      .color_13, .color_14, .color_15, .color_16][]
+  ' "$catalog_file")}") || return 1
+
+  [[ ${#palette} -eq 18 ]] || {
+    error_log "theme" "Selected Gogh palette is incomplete"
+    return 1
+  }
+
+  slug="$(_gogh_slug "$name")"
+  [[ -n "$slug" ]] || slug="theme-$index"
+  theme_name="gogh-$slug"
+  target_file="$_DOTFILES_GOGH_THEMES_DIR/${theme_name}.sh"
+  curated_file="$_DOTFILES_COLORS_DIR/${slug}.sh"
+
+  if ! mkdir -p "$_DOTFILES_GOGH_THEMES_DIR"; then
+    error_log "theme" "Could not create the Gogh themes directory"
+    return 1
+  fi
+  chmod 700 "$_DOTFILES_GOGH_DATA_DIR" "$_DOTFILES_GOGH_THEMES_DIR" 2>/dev/null
+
+  temp_file=$(mktemp "$_DOTFILES_GOGH_THEMES_DIR/.${theme_name}.XXXXXX") || {
+    error_log "theme" "Could not create a temporary Gogh theme"
+    return 1
+  }
+
+  {
+    printf '# Theme: %s\n' "$theme_name"
+    printf '# Mode: %s\n' "$mode"
+    printf '# Transparent: 0\n'
+    printf '# Source: Gogh (%s)\n\n' "$name"
+
+    printf 'gogh_theme=1\n\n'
+    printf '# Terminal colors\n'
+    printf 'bg="%s"\nfg="%s"\n\n' "$palette[1]" "$palette[2]"
+
+    printf '# Normal ANSI colors\n'
+    printf 'black="%s"\nred="%s"\ngreen="%s"\nyellow="%s"\n' \
+      "$palette[3]" "$palette[4]" "$palette[5]" "$palette[6]"
+    printf 'blue="%s"\nmagenta="%s"\ncyan="%s"\nwhite="%s"\n\n' \
+      "$palette[7]" "$palette[8]" "$palette[9]" "$palette[10]"
+
+    printf '# Bright ANSI colors\n'
+    printf 'bright_black="%s"\nbright_red="%s"\nbright_green="%s"\nbright_yellow="%s"\n' \
+      "$palette[11]" "$palette[12]" "$palette[13]" "$palette[14]"
+    printf 'bright_blue="%s"\nbright_magenta="%s"\nbright_cyan="%s"\nbright_white="%s"\n\n' \
+      "$palette[15]" "$palette[16]" "$palette[17]" "$palette[18]"
+
+    printf '# Prompt colors\n'
+    printf 'prompt_dir="%s"\nprompt_branch="%s"\nprompt_unstaged="%s"\n' \
+      "$palette[7]" "$palette[5]" "$palette[4]"
+    printf 'prompt_staged="%s"\nprompt_arrow="%s"\nprompt_path="%s"\n\n' \
+      "$palette[6]" "$palette[8]" "$palette[11]"
+
+    printf '# UI colors\n'
+    printf 'ui_bg="%s"\nui_fg="%s"\nui_accent="%s"\n' \
+      "$palette[1]" "$palette[2]" "$palette[7]"
+    printf 'ui_border="%s"\nui_active="%s"\nui_inactive="%s"\n\n' \
+      "$palette[11]" "$palette[9]" "$palette[11]"
+
+    printf '# Neovim and foreign theme registries\n'
+    printf 'nvim_background="%s"\n' "$mode"
+  } >| "$temp_file" || {
+    rm -f -- "$temp_file"
+    error_log "theme" "Could not write imported Gogh theme"
+    return 1
+  }
+
+  local key value
+  local mapping_failed=0
+  if [[ -f "$curated_file" ]]; then
+    for key in nvim_colorscheme nvim_lualine bat_theme eza_theme yazi_flavor; do
+      value="$(_gogh_mapping_value "$curated_file" "$key")" || continue
+      _gogh_write_mapping "$temp_file" "$key" "$value" || mapping_failed=1
+    done
+  else
+    _gogh_write_mapping "$temp_file" nvim_colorscheme dotfiles-gogh || mapping_failed=1
+    _gogh_write_mapping "$temp_file" nvim_lualine dotfiles-gogh || mapping_failed=1
+    _gogh_write_mapping "$temp_file" bat_theme ansi || mapping_failed=1
+    _gogh_write_mapping "$temp_file" eza_theme default || mapping_failed=1
+  fi
+
+  if [[ $mapping_failed -ne 0 ]]; then
+    rm -f -- "$temp_file"
+    error_log "theme" "Could not write imported Gogh app mappings"
+    return 1
+  fi
+
+  chmod 600 "$temp_file" 2>/dev/null
+  if ! mv -f "$temp_file" "$target_file"; then
+    rm -f -- "$temp_file"
+    error_log "theme" "Could not install imported Gogh theme"
+    return 1
+  fi
+
+  REPLY="$theme_name"
+}
+
+_gogh_pick_and_import() {
+  local option="${1:-}"
+  local refresh=0 selected index preview_command
+
+  REPLY=""
+  case "$option" in
+    "") ;;
+    refresh|--refresh) refresh=1 ;;
+    *)
+      error_log "theme" "Usage: theme gogh [refresh|--refresh]"
+      return 1
+      ;;
+  esac
+
+  [[ $# -le 1 ]] || {
+    error_log "theme" "Usage: theme gogh [refresh|--refresh]"
+    return 1
+  }
+
+  _gogh_require_command fzf || return 1
+  _gogh_ensure_catalog "$refresh" || return 1
+
+  printf -v preview_command 'zsh %q %q {1}' \
+    "$_theme_dir/gogh-preview.zsh" "$_DOTFILES_GOGH_CATALOG_FILE"
+
+  selected=$(jq -r 'to_entries[] | [.key, .value.name, .value.variant] | @tsv' \
+    "$_DOTFILES_GOGH_CATALOG_FILE" \
+    | fzf \
+      --prompt='Gogh theme: ' \
+      --height=80% --reverse --border \
+      --delimiter=$'\t' --with-nth=2,3 \
+      --header='Enter: import and apply  ·  Esc: cancel' \
+      --preview="$preview_command" \
+      --preview-window='right,55%,border-left,wrap')
+  local picker_status=$?
+
+  if [[ $picker_status -ne 0 ]]; then
+    # fzf returns 1 for no match and 130 for an explicit cancel.
+    [[ $picker_status -eq 1 || $picker_status -eq 130 ]] && return 0
+    error_log "theme" "Gogh picker failed"
+    return $picker_status
+  fi
+
+  [[ -n "$selected" ]] || return 0
+  index="${selected%%$'\t'*}"
+  _gogh_import_index "$index"
+}

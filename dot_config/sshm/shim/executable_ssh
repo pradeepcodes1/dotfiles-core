@@ -1,0 +1,151 @@
+#!/bin/sh
+# preserve Kitty SSH integration when sshm invokes an `ssh` binary by PATH.
+# PATH shim that routes sshm's connections through `kitten ssh`.
+#
+# Why this exists: sshm resolves the ssh binary with exec.LookPath("ssh") and
+# then syscall.Exec's it (cmd/root.go). There is no setting to point it at a
+# different binary, so intercepting the PATH lookup is the only hook available.
+#
+# This directory is only ever on PATH for the duration of the sshm() wrapper in
+# dot_config/zsh/ssh.zsh — it is not on the global PATH, so git, rsync, ansible
+# and friends never see it.
+#
+# Upstream fix, if it lands, deletes this file: add an `ssh_command` key to
+# sshm's AppConfig (internal/config/appconfig.go) and honour it in
+# connectToHost (cmd/root.go).
+
+# Strip this directory from PATH before doing anything else. The ssh kitten
+# finds the real ssh the same way we were just found — utils.FindExe("ssh") in
+# kittens/ssh/utils.go — so leaving it in place makes this script re-exec
+# itself forever. Hardcoded rather than derived from $0: sshm sets argv[0] to
+# the bare string "ssh", so $0 carries no directory.
+shim_dir="$HOME/.config/sshm/shim"
+PATH=$(printf '%s' "$PATH" | sed \
+  -e "s|^${shim_dir}$||" \
+  -e "s|^${shim_dir}:||" \
+  -e "s|:${shim_dir}:|:|g" \
+  -e "s|:${shim_dir}$||")
+export PATH
+
+# If that left PATH empty (or it never had anything else), fall back to a sane
+# default rather than exec'ing ourselves.
+[ -n "$PATH" ] || PATH=/usr/bin:/bin:/usr/sbin:/sbin
+
+# Drop `-F <our host list>` from the arguments.
+#
+# sshm turns its own -c flag into ssh's -F, and -F *replaces* the config chain
+# rather than adding to it. Left alone, every sshm connection would silently
+# lose the `Host *` block in ~/.ssh/config — IdentityFile, ServerAliveInterval,
+# ControlMaster. Dropping the flag falls back to ~/.ssh/config, which already
+# includes the host list via `Include ~/.ssh/config.d/*.conf`, so the host
+# entries still resolve and the defaults come back.
+#
+# Only our own pinned path is stripped: an explicit `sshm -c somewhere-else`
+# still gets the file the user asked for.
+hosts_conf="$HOME/.ssh/config.d/hosts.conf"
+remaining=$#
+while [ "$remaining" -gt 0 ]; do
+  arg=$1
+  shift
+  remaining=$((remaining - 1))
+  case "$arg" in
+    -F)
+      # Separate-argument form: -F /path/to/hosts.conf
+      if [ "$remaining" -gt 0 ] && [ "$1" = "$hosts_conf" ]; then
+        shift
+        remaining=$((remaining - 1))
+        continue
+      fi
+      ;;
+    -F*)
+      # Attached form: -F/path/to/hosts.conf
+      if [ "${arg#-F}" = "$hosts_conf" ]; then
+        continue
+      fi
+      ;;
+  esac
+  # Keep it: append to the end, past the args still waiting to be examined.
+  set -- "$@" "$arg"
+done
+
+# Name the window after the destination.
+#
+# The Cmd+Shift+m binding sets no --title (that would be a permanent override
+# and would block this), so the tab is otherwise left showing the local
+# directory until the remote's prompt sets a title. Most prompts do — Debian's
+# default PS1 emits `host: ~` — but this covers the ones that do not, and it
+# labels the tab during the connection handshake either way. A later OSC title
+# from the remote simply wins, which is what we want.
+dest=""
+skip_value=0
+for arg in "$@"; do
+  if [ "$skip_value" = 1 ]; then
+    skip_value=0
+    continue
+  fi
+  case "$arg" in
+    --) continue ;;
+    # Exactly these short options consume the next argument; see ssh(1).
+    -[BbcDEeFIiJLlmOopQRSWw]) skip_value=1 ;;
+    -*) ;;
+    *)
+      dest="$arg"
+      break
+      ;;
+  esac
+done
+
+if [ -n "$dest" ] && [ -t 1 ]; then
+  printf '\033]2;%s\007' "$dest"
+fi
+
+# Tint the tab for the duration of the session, so a remote tab is obvious at a
+# glance. Foreground only: the tab bar background comes from whichever theme the
+# themes kitten last applied, and tinting that would fight it.
+#
+# This is set once at connect and cleared once at exit — no timer, nothing
+# watching. It cannot indicate whether the connection is still *healthy*; see
+# docs/TOOLS.md for why that is not obtainable without polling.
+SSH_TAB_COLOR="${SSH_TAB_COLOR:-#d79921}"
+
+in_kitty=0
+if [ -n "$KITTY_WINDOW_ID" ] && command -v kitten >/dev/null 2>&1; then
+  in_kitty=1
+fi
+
+set_tab_color() {
+  [ "$in_kitty" = 1 ] || return 0
+  # Match the tab holding this window rather than "the active tab": by the time
+  # a slow connection finishes the user may have switched away.
+  kitten @ set-tab-color --match "window_id:$KITTY_WINDOW_ID" \
+    "active_fg=$1" "inactive_fg=$1" >/dev/null 2>&1 || true
+}
+
+if [ "$in_kitty" = 1 ] && [ -n "$dest" ]; then
+  set_tab_color "$SSH_TAB_COLOR"
+  # Restore on the way out. This is why ssh is run as a child rather than
+  # exec'd: after an exec there is no "us" left to undo the colour, which would
+  # strand the tint on a tab that outlives the session (running `sshm` from an
+  # ordinary long-lived window rather than from Cmd+Shift+m).
+  trap 'set_tab_color NONE' EXIT INT TERM HUP
+
+  if [ "$in_kitty" = 1 ]; then
+    kitten ssh "$@"
+  else
+    ssh "$@"
+  fi
+  exit $?
+fi
+
+# No tab to tint (not in kitty, or no destination parsed): hand off directly and
+# keep the process chain as short as possible.
+#
+# The kitten only runs inside a kitty window — outside one it exits with "The
+# SSH kitten is meant to run inside a kitty window" — so this check is what
+# keeps sshm working from a non-kitty terminal, a script, or an agent session.
+# Failing open to plain ssh costs terminfo and file push, not access.
+if [ "$in_kitty" = 1 ]; then
+  exec kitten ssh "$@"
+fi
+
+exec ssh "$@"

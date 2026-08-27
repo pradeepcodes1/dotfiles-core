@@ -1,0 +1,79 @@
+# keep portable Git behavior consistent while leaving identity machine-local.
+
+[init]
+	defaultBranch = main
+
+[core]
+	editor = nvim
+	# Override Git's LESS=FRX: X leaks paged diffs into terminal scrollback.
+	pager = LESS=FRQ delta
+	excludesfile = ~/.gitignore_global
+
+[interactive]
+	diffFilter = delta --color-only
+
+[delta]
+	navigate = true
+	side-by-side = false
+	line-numbers = true
+
+[include]
+	path = ~/.config/delta/themes.gitconfig
+	path = ~/.config/git/local.inc
+
+[merge]
+	conflictstyle = zdiff3
+
+[rerere]
+	enabled = true
+
+[diff]
+	colorMoved = default
+	# delta stays the pager for `git diff`/`show`/`log -p`; kitten diff cannot
+	# read a unified diff stream, it takes two paths. Reach for it via
+	# `git difftool` when you want side-by-side, image diffs, or directory
+	# comparison. Note difftool opens once per file, sequentially.
+	tool = kitty
+
+[difftool]
+	prompt = false
+
+[difftool "kitty"]
+	# Quoted: git runs this through sh, so an unquoted path containing a space
+	# would be split into two arguments.
+	cmd = kitten diff "$LOCAL" "$REMOTE"
+
+[pull]
+	rebase = false
+
+[rebase]
+	autostash = true
+	autoSquash = true
+
+[credential]
+{{ if eq .chezmoi.os "darwin" }}
+	helper = osxkeychain
+{{ else }}
+	helper = store
+{{ end }}
+
+[push]
+	default = simple
+	autoSetupRemote = true
+
+[fetch]
+	prune = true
+	pruneTags = true
+
+[branch]
+	sort = -committerdate
+
+[tag]
+	sort = version:refname
+
+[alias]
+	graph = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(auto)%d%C(reset)' --all
+	# Side-by-side diff of a whole changeset in one kitten diff session.
+	# --dir-diff copies both sides into temp directories and launches the tool
+	# once, instead of once per file pair as plain difftool does.
+	dt = difftool --dir-diff

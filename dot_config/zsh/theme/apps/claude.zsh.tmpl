@@ -1,0 +1,11 @@
+# keep Claude's light/dark mode aligned with the terminal palette.
+# Claude CLI theme integration
+
+[[ ! -f "{{ .chezmoi.homeDir }}/.claude.json" ]] && return
+grep -Eq '"theme"[[:space:]]*:[[:space:]]*"'"$_DOTFILES_THEME_MODE"'"' "{{ .chezmoi.homeDir }}/.claude.json" && return
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  sed -i '' 's/"theme": *"[^"]*"/"theme": "'"$_DOTFILES_THEME_MODE"'"/' "{{ .chezmoi.homeDir }}/.claude.json"
+else
+  sed -i 's/"theme": *"[^"]*"/"theme": "'"$_DOTFILES_THEME_MODE"'"/' "{{ .chezmoi.homeDir }}/.claude.json"
+fi

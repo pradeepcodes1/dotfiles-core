@@ -1,0 +1,4 @@
+{{- if eq .chezmoi.os "linux" -}}
+{{ template "packages/pacman/common.tmpl" . }}
+{{ template "packages/pacman/minimal-linux.tmpl" . }}
+{{- end -}}

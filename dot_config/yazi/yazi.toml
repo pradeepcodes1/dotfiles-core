@@ -1,0 +1,31 @@
+# show dotfiles and attach Git metadata because Yazi doubles as a project navigator.
+[mgr]
+show_hidden = true
+# right-hand column of the center pane; renders at order 1000, ahead of the
+# git plugin's sign at 1500, so both share the line. `m n` clears it for the session.
+linemode = "size_permissions"
+
+# Launch the app bundle as a detached GUI process. The default editor opener
+# runs $EDITOR in blocking mode, which makes Yazi (and its Kitty window) wait
+# for Neovide to exit.
+[[opener.edit]]
+run = "/usr/bin/open -na Neovide --args %s"
+desc = "Edit in Neovide"
+orphan = true
+for = "macos"
+
+[[opener.edit]]
+run = "$EDITOR %s"
+desc = "$EDITOR"
+block = true
+for = "linux"
+
+[[plugin.prepend_fetchers]]
+url = "*"
+run = "git"
+group = "git"
+
+[[plugin.prepend_fetchers]]
+url = "*/"
+run = "git"
+group = "git"

@@ -1,0 +1,2 @@
+{{- /* GUI hotkeys need an absolute interpreter because macOS omits Homebrew from PATH. */ -}}
+{{- if eq .chezmoi.os "darwin" -}}{{ template "homebrew-prefix.tmpl" . }}/bin/python3{{- else -}}/usr/bin/env python3{{- end -}}

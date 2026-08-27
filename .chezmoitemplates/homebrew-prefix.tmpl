@@ -1,0 +1,2 @@
+{{- /* resolve GUI-launched helpers without relying on an inherited shell PATH. */ -}}
+{{- index .paths.homebrewPrefix (printf "%s-%s" .chezmoi.os .chezmoi.arch) -}}

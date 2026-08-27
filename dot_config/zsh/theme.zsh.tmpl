@@ -1,0 +1,9 @@
+# load theme state and adapters as one shell module.
+# Theme management for CLI tools
+
+_theme_dir="{{ .chezmoi.homeDir }}/.config/zsh/theme"
+
+source "$_theme_dir/config.zsh"
+source "$_theme_dir/core.zsh"
+source "$_theme_dir/command.zsh"
+source "$_theme_dir/init.zsh"

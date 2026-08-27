@@ -1,0 +1,29 @@
+# ensure edits happen in chezmoi source and applies pass through bootstrap.
+# Config edit environment
+# Drops into the chezmoi source directory for editing
+
+config-apply() {
+  local chezmoi_source="{{ .chezmoi.sourceDir }}"
+  "${chezmoi_source}/bootstrap.sh" "$@"
+}
+
+config-edit() {
+  local chezmoi_source="{{ .chezmoi.sourceDir }}"
+
+  if [[ ! -d "$chezmoi_source" ]]; then
+    error_log "config-edit" "Chezmoi source directory not found at $chezmoi_source"
+    return 1
+  fi
+
+  info_log "config-edit" "Entering chezmoi source directory..."
+  echo ""
+  echo "Available commands:"
+  echo "  - Edit files directly in this directory"
+  echo "  - Run './bootstrap.sh' to apply changes"
+  echo "  - Run 'chezmoi diff' to preview what would change"
+  echo "  - Run 'chezmoi status' to check file status"
+  echo "  - Use 'git' for version control"
+  echo ""
+
+  cd "$chezmoi_source"
+}

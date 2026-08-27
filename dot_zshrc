@@ -1,0 +1,63 @@
+# assemble the interactive shell from reproducible, mostly lazy-loaded modules.
+[[ -f "$HOME/.env" ]] && source "$HOME/.env"
+
+# Homebrew (prepend so brew tools win over the system versions)
+export HOMEBREW_NO_ENV_HINTS=1
+if [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
+  eval "$("$HOMEBREW_PREFIX/bin/brew" shellenv)"
+fi
+
+# bun
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+
+export XDG_CONFIG_HOME="$HOME/.config"
+
+# Initialize completion system
+autoload -Uz compinit
+compinit -C
+setopt PROMPT_SUBST
+
+# History
+HISTFILE=~/.zsh_history
+HISTSIZE=50000
+SAVEHIST=50000
+setopt HIST_IGNORE_ALL_DUPS HIST_FIND_NO_DUPS HIST_SAVE_NO_DUPS
+setopt INC_APPEND_HISTORY HIST_REDUCE_BLANKS
+
+# Enable JSON logging
+export DOTFILES_JSON_LOG=1
+
+# Force Kitty graphics protocol for timg (auto-detect fails inside tmux)
+export TIMG_PIXELATION=kitty
+
+# Source custom zsh files (lazy-load rarely used modules)
+_lazy_modules=(log-viewer.zsh diagram.zsh)
+for file in "$HOME/.config/zsh/"*.zsh; do
+  [ -f "$file" ] || continue
+  local basename="${file:t}"
+  if (( ${_lazy_modules[(Ie)$basename]} )); then
+    continue  # skip, loaded via stubs below
+  fi
+  source "$file"
+done
+unset _lazy_modules
+
+# Lazy-load stubs: source on first invocation
+_lazy_source() {
+  local file="$1"; shift
+  for cmd in "$@"; do
+    eval "${cmd}() { unfunction ${cmd} 2>/dev/null; source \"$file\"; ${cmd} \"\$@\" }"
+  done
+}
+_lazy_source "$HOME/.config/zsh/log-viewer.zsh" dotlog dotlog-stats dotlog-search dotlog-clean
+_lazy_source "$HOME/.config/zsh/diagram.zsh" diagram
+unfunction _lazy_source
+
+command -v mise &>/dev/null && eval "$(mise activate zsh)"
+
+# Colorful man pages
+export MANPAGER="sh -c 'col -bx | bat -l man -p --paging=always'"
+
+# Default to dev volume if available and at home
+[[ "$PWD" == "$HOME" && -d "$DOTFILES_DEV_ROOT" ]] && cd "$DOTFILES_DEV_ROOT"

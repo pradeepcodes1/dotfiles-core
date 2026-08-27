@@ -1,0 +1,40 @@
+# Repository-only files.
+.DS_Store
+**/.DS_Store
+.gitignore
+bootstrap.sh
+docs/
+scripts/
+*.md
+**/*.md
+
+# Runtime-owned and generated state.
+node_modules/
+**/node_modules/
+__pycache__/
+**/__pycache__/
+.config/yazi/flavors/
+.config/kitty/current-theme.conf
+.config/kitty/*.bak
+
+# Pacman is the package backend for the minimal Linux profile only.
+{{ if ne .chezmoi.os "linux" }}
+.config/pacman/
+.chezmoiscripts/21-install-pacman-packages.sh
+{{ end }}
+
+# Deploy only the palettes referenced by the tracked color files.
+.config/eza/eza-themes/.github/
+.config/eza/eza-themes/imgs/
+.config/eza/eza-themes/test_dir/
+.config/eza/eza-themes/README.md
+.config/eza/eza-themes/.gitignore
+.config/eza/eza-themes/themes/black.yml
+.config/eza/eza-themes/themes/catppuccin-frappe.yml
+.config/eza/eza-themes/themes/catppuccin-macchiato.yml
+.config/eza/eza-themes/themes/frosty.yml
+.config/eza/eza-themes/themes/one_dark.yml
+.config/eza/eza-themes/themes/rose-pine-moon.yml
+.config/eza/eza-themes/themes/rose-pine.yml
+.config/eza/eza-themes/themes/solarized-dark.yml
+.config/eza/eza-themes/themes/white.yml

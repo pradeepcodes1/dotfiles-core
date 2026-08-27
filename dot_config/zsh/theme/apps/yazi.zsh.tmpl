@@ -1,0 +1,130 @@
+# keep file-manager colors synchronized with curated and imported palettes.
+# Yazi theme integration
+# Curated themes set `yazi_flavor`. Imported Gogh themes set `gogh_theme=1`
+# and omit the flavor so Yazi can consume their literal palette instead.
+
+local yazi_config="{{ .chezmoi.homeDir }}/.config/yazi/theme.toml"
+local yazi_content
+
+if [[ -n "$yazi_flavor" ]]; then
+  [[ ! -d "{{ .chezmoi.homeDir }}/.config/yazi/flavors/${yazi_flavor}.yazi" ]] && return
+
+  yazi_content="[flavor]
+$_DOTFILES_THEME_MODE = \"$yazi_flavor\""
+elif [[ -n "$gogh_theme" ]]; then
+  # This is intentionally a direct theme.toml override rather than a generated
+  # flavor directory: flavors also require package metadata and a tmTheme file.
+  yazi_content="#:schema https://yazi-rs.github.io/schemas/theme.json
+# Generated from the Gogh palette in $_DOTFILES_THEME_NAME.sh.
+
+[app]
+overall = { bg = \"$bg\" }
+
+[mgr]
+cwd = { fg = \"$cyan\" }
+find_keyword = { fg = \"$yellow\", bold = true, italic = true, underline = true }
+find_position = { fg = \"$magenta\", bg = \"$bg\", bold = true, italic = true }
+symlink_target = { fg = \"$cyan\", italic = true }
+marker_copied = { fg = \"$bright_green\", bg = \"$bright_green\" }
+marker_cut = { fg = \"$bright_red\", bg = \"$bright_red\" }
+marker_marked = { fg = \"$bright_cyan\", bg = \"$bright_cyan\" }
+marker_selected = { fg = \"$bright_yellow\", bg = \"$bright_yellow\" }
+count_copied = { fg = \"$bg\", bg = \"$green\" }
+count_cut = { fg = \"$bg\", bg = \"$red\" }
+count_selected = { fg = \"$bg\", bg = \"$yellow\" }
+border_symbol = \"│\"
+border_style = { fg = \"$bright_black\" }
+
+[tabs]
+active = { fg = \"$bg\", bg = \"$blue\", bold = true }
+inactive = { fg = \"$fg\", bg = \"$black\" }
+
+[mode]
+normal_main = { fg = \"$bg\", bg = \"$blue\", bold = true }
+normal_alt = { fg = \"$blue\", bg = \"$black\" }
+select_main = { fg = \"$bg\", bg = \"$magenta\", bold = true }
+select_alt = { fg = \"$magenta\", bg = \"$black\" }
+unset_main = { fg = \"$bg\", bg = \"$red\", bold = true }
+unset_alt = { fg = \"$red\", bg = \"$black\" }
+
+[indicator]
+parent = { reversed = true }
+current = { reversed = true }
+preview = { underline = true }
+
+[status]
+overall = { fg = \"$fg\", bg = \"$bg\" }
+perm_sep = { fg = \"$bright_black\" }
+perm_type = { fg = \"$green\" }
+perm_read = { fg = \"$yellow\" }
+perm_write = { fg = \"$red\" }
+perm_exec = { fg = \"$cyan\" }
+progress_label = { fg = \"$fg\", bold = true }
+progress_normal = { fg = \"$green\", bg = \"$black\" }
+progress_error = { fg = \"$yellow\", bg = \"$red\" }
+
+[which]
+mask = { bg = \"$black\" }
+cand = { fg = \"$bright_cyan\" }
+rest = { fg = \"$bright_black\" }
+desc = { fg = \"$bright_magenta\" }
+separator_style = { fg = \"$bright_black\" }
+
+[confirm]
+border = { fg = \"$blue\" }
+title = { fg = \"$blue\" }
+btn_yes = { fg = \"$green\", reversed = true }
+btn_no = { fg = \"$red\" }
+
+[spot]
+border = { fg = \"$blue\" }
+title = { fg = \"$blue\" }
+tbl_col = { fg = \"$cyan\" }
+tbl_cell = { fg = \"$yellow\", reversed = true }
+
+[notify]
+title_info = { fg = \"$green\" }
+title_warn = { fg = \"$yellow\" }
+title_error = { fg = \"$red\" }
+
+[pick]
+border = { fg = \"$blue\" }
+active = { fg = \"$magenta\", bold = true }
+inactive = { fg = \"$fg\" }
+
+[input]
+border = { fg = \"$blue\" }
+title = { fg = \"$fg\" }
+value = { fg = \"$fg\" }
+selected = { reversed = true }
+
+[cmp]
+border = { fg = \"$blue\" }
+active = { fg = \"$fg\", reversed = true }
+inactive = { fg = \"$bright_black\" }
+
+[tasks]
+border = { fg = \"$blue\" }
+title = { fg = \"$fg\" }
+hovered = { fg = \"$magenta\", bold = true }
+
+[filetype]
+rules = [
+  { mime = \"**/image/*\", fg = \"$yellow\" },
+  { mime = \"**/{audio,video}/*\", fg = \"$magenta\" },
+  { mime = \"**/application/{zip,rar,7z*,tar,gzip,xz,zstd,bzip*,lzma,compress,archive,cpio,arj,xar,ms-cab*}\", fg = \"$red\" },
+  { mime = \"**/application/{pdf,doc,rtf,vnd.*}\", fg = \"$cyan\" },
+  { mime = \"vfs/{absent,stale}\", fg = \"$bright_black\" },
+  { url = \"*\", is = \"orphan\", fg = \"$bright_red\" },
+  { url = \"*\", is = \"exec\", fg = \"$green\" },
+  { url = \"*\", fg = \"$fg\" },
+  { url = \"*/\", fg = \"$blue\" },
+]"
+else
+  return
+fi
+
+mkdir -p "$(dirname "$yazi_config")"
+if [[ ! -f "$yazi_config" ]] || [[ "$(< "$yazi_config")" != "$yazi_content" ]]; then
+  print -r -- "$yazi_content" > "$yazi_config"
+fi

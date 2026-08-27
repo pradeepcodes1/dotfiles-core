@@ -1,0 +1,49 @@
+# keep searchable history local, workspace-scoped, and safe to review before execution.
+# Atuin configuration
+# https://atuin.sh/docs/config
+
+## where to store the database
+# db_path = "~/.local/share/atuin/history.db"
+
+## where to store the session file
+# session_path = "~/.local/share/atuin/session"
+
+## date format for the history list
+## there's also a "relative" setting, which will show "5m ago", etc
+# date_format = "%Y-%m-%d %H:%M:%S"
+
+## whether or not to use the filter mode by default
+## Search commands from anywhere in the current Git repository. Outside a Git
+## repository, Atuin skips workspace mode and falls back to another filter.
+workspaces = true
+filter_mode = "workspace"
+
+## search mode
+## "prefix", "fulltext", "fuzzy", "skims"
+# search_mode = "fuzzy"
+
+## exit mode
+## "return-query", "return-original"
+# exit_mode = "return-original"
+
+## Insert the selected command for review instead of executing it immediately.
+enter_accept = false
+
+## Keep high-volume navigation/display commands out of searchable history.
+history_filter = ["^clear$", "^ls$", "^pwd$", "^exit$"]
+
+## sync configuration
+auto_sync = false
+update_check = false
+
+## keymap
+# keymap_mode = "emacs"
+
+## style
+# style = "compact"
+
+## inline height
+inline_height = 10
+
+## show help
+# show_help = true

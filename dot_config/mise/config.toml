@@ -1,0 +1,14 @@
+# pin core runtimes in one cross-platform toolchain manifest.
+[settings]
+# Auto-approve all prompts (fixes trust issues in flake environments)
+yes = true
+
+[tools]
+bun = "latest"
+go = "latest"
+java = "latest"
+node = "24"
+protobuf = "latest"
+python = "3.14"
+rust = "latest"
+zig = "latest"

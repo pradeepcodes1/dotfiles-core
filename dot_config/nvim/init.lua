@@ -1,0 +1,111 @@
+-- load one modular editor configuration for terminal, GUI, and preview modes.
+-- Set by nvim-float.py for the read-only Neovide preview window; checked
+-- by core.neovide (font size) and plugins/lazy specs (barbar, dashboard).
+vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
+
+require("core.options")
+require("core.keymaps")
+require("core.neovide")
+
+local theme_config = require("core.theme").sync_env_from_state()
+
+-- Log terminal and exit lifecycle events to dotlog
+local log = require("core.logging")
+vim.api.nvim_create_autocmd("TermClose", {
+	callback = function(ev)
+		local wins = {}
+		for _, w in ipairs(vim.api.nvim_list_wins()) do
+			local b = vim.api.nvim_win_get_buf(w)
+			local cfg = vim.api.nvim_win_get_config(w)
+			table.insert(wins, string.format("win=%d buf=%d float=%s", w, b, tostring(cfg.relative ~= "")))
+		end
+		log.debug("lifecycle", "TermClose", {
+			buf = ev.buf,
+			bufname = vim.api.nvim_buf_get_name(ev.buf),
+			windows = table.concat(wins, "; "),
+		})
+	end,
+})
+vim.api.nvim_create_autocmd("VimLeavePre", {
+	callback = function()
+		log.info("lifecycle", "VimLeavePre")
+	end,
+})
+
+-- Bootstrap lazy.nvim if missing
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.uv.fs_stat(lazypath) then
+	vim.fn.system({
+		"git",
+		"clone",
+		"--filter=blob:none",
+		"https://github.com/folke/lazy.nvim",
+		lazypath,
+	})
+end
+vim.opt.rtp:prepend(lazypath)
+
+require("lazy").setup({ import = "plugins" })
+
+require("core.cmp")
+require("core.notes")
+
+-- Resolve theme from persisted dotfiles state, with env vars as fallback.
+local nvim_colorscheme = theme_config.colorscheme
+local nvim_background = theme_config.background -- nil, "dark", or "light"
+local theme_transparent = theme_config.transparent
+
+-- Only enable transparent background if theme metadata says it's ok
+if theme_transparent and not vim.g.neovide then
+	vim.api.nvim_create_augroup("TransparentBG", { clear = true })
+	vim.api.nvim_create_autocmd("ColorScheme", {
+		pattern = "*",
+		group = "TransparentBG",
+		callback = function()
+			-- nvim_set_hl() replaces a group's whole definition rather than
+			-- merging into it, so passing only {bg=...} would silently drop
+			-- fg and any other attributes the colorscheme set. Fetch the
+			-- resolved highlight first and clear just bg.
+			for _, name in ipairs({ "Normal", "NormalNC", "LineNr", "SignColumn", "EndOfBuffer" }) do
+				local hl = vim.api.nvim_get_hl(0, { name = name, link = false })
+				hl.bg = nil
+				vim.api.nvim_set_hl(0, name, hl)
+			end
+		end,
+	})
+end
+
+-- When Neovim starts with a directory argument, cd into it and show dashboard
+vim.api.nvim_create_autocmd("VimEnter", {
+	desc = "Replace directory buffer with dashboard",
+	pattern = "*",
+	once = true,
+	callback = function()
+		if vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
+			vim.cmd.cd(vim.fn.argv(0))
+			local buf = vim.api.nvim_get_current_buf()
+			vim.schedule(function()
+				vim.api.nvim_buf_delete(buf, { force = true })
+				_show_dashboard()
+			end)
+		end
+	end,
+})
+
+local readonly_libs = vim.api.nvim_create_augroup("readonly_libs", { clear = true })
+local library_paths = require("core.library_paths")
+
+vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+	group = readonly_libs,
+	pattern = library_paths.autocmd_patterns,
+	callback = function()
+		vim.opt_local.modifiable = false
+		vim.opt_local.readonly = true
+	end,
+})
+
+-- Apply resolved theme
+if nvim_background then
+	vim.o.background = nvim_background
+end
+vim.cmd.colorscheme(nvim_colorscheme)

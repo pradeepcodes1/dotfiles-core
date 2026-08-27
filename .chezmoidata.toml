@@ -1,0 +1,9 @@
+[paths.homebrewPrefix]
+darwin-arm64 = "/opt/homebrew"
+darwin-amd64 = "/usr/local"
+linux-arm64 = "/home/linuxbrew/.linuxbrew"
+linux-amd64 = "/home/linuxbrew/.linuxbrew"
+
+[paths.applicationsDir]
+darwin = "/Applications"
+linux = ""
