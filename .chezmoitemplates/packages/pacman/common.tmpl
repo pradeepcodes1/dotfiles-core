@@ -9,6 +9,12 @@ pinentry
 wget
 zsh
 neovim
+# nvim-treesitter tracks its `main` branch, which builds parsers with the
+# tree-sitter CLI and a C compiler. Neovim pulls in neither, and both are
+# in the Homebrew list the private macOS overlay carries, so a Linux-only
+# machine had no way to compile a parser.
+tree-sitter-cli
+gcc
 tmux
 ripgrep
 fd
