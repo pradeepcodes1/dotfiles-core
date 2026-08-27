@@ -18,11 +18,23 @@ fi
 
 package_file="$HOME/.config/pacman/packages"
 typeset -a packages missing privilege
-packages=("${(@f)$(awk 'NF && $1 !~ /^#/' "$package_file")}")
-missing=("${(@f)$(pacman -T -- "${packages[@]}" || true)}")
+# Split with unquoted ${(f)...}, which drops empty fields. The quoted
+# "${(@f)$(...)}" form yields an array holding one empty string when the command
+# prints nothing, so an up-to-date machine used to skip the early exit, report
+# "1 missing package", and hand pacman an empty target ("error: target not
+# found") instead of saying everything was already installed.
+packages=(${(f)"$(awk 'NF && $1 !~ /^#/' "$package_file")"})
 
-if ((${#missing[@]} == 0)); then
-	info_log "pacman" "All managed packages are already installed"
+if ((${#packages} == 0)); then
+	error_log "pacman" "No packages listed in ${package_file}"
+	exit 1
+fi
+
+debug_log "pacman" "Managed packages (${#packages}): ${(j: :)packages}"
+missing=(${(f)"$(pacman -T -- "${packages[@]}" || true)"})
+
+if ((${#missing} == 0)); then
+	info_log "pacman" "All ${#packages} managed packages are already installed"
 	exit 0
 fi
 
@@ -37,7 +49,13 @@ else
 	exit 1
 fi
 
-info_log "pacman" "Installing ${#missing[@]} missing packages with a full system upgrade..."
-"${privilege[@]}" pacman -Syu --needed --noconfirm -- "${missing[@]}"
+info_log "pacman" "Installing ${#missing} missing packages with a full system upgrade: ${(j: :)missing}"
+debug_log "pacman" "Running: ${(j: :)privilege} pacman -Syu --needed --noconfirm -- ${(j: :)missing}"
+
+if ! "${privilege[@]}" pacman -Syu --needed --noconfirm -- "${missing[@]}"; then
+	error_log "pacman" "pacman failed while installing: ${(j: :)missing}"
+	exit 1
+fi
+
 info_log "pacman" "pacman package install complete"
 {{- end }}
