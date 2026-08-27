@@ -31,7 +31,9 @@ install_arch_prerequisites() {
   command -v zsh >/dev/null 2>&1 || missing="$missing zsh"
   if [ -n "$missing" ]; then
     # shellcheck disable=SC2086
-    run_as_root pacman -S --needed --noconfirm -- $missing
+    # Arch does not support partial upgrades. Refresh databases and upgrade the
+    # system in the same transaction whenever bootstrap packages are missing.
+    run_as_root pacman -Syu --needed --noconfirm -- $missing
   fi
 }
 

@@ -10,8 +10,9 @@ hotkeys are intentionally outside this repository.
 ./bootstrap.sh
 ```
 
-Bootstrap installs only missing packages. It does not refresh pacman databases
-or perform a full system upgrade; run normal Arch maintenance separately.
+Bootstrap first checks for missing packages. When it finds any, it refreshes
+pacman databases, performs a full system upgrade, and installs them in one
+transaction. If everything is installed, it does not run pacman.
 
 Run `scripts/check-public.sh` before every commit. The check scans source paths,
 contents and rendered Linux package output for material outside the public

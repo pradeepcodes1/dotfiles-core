@@ -1,7 +1,7 @@
 {{- if eq .chezmoi.os "linux" -}}
 #!/usr/bin/env zsh
-# Install missing Arch packages without refreshing databases or upgrading the
-# rest of the system. Full Arch upgrades remain an explicit maintenance step.
+# Install missing Arch packages as part of a full system upgrade. Arch does not
+# support installing packages against stale sync databases (partial upgrades).
 set -e
 
 source "${HOME}/.config/zsh/00-logging.zsh"
@@ -17,8 +17,14 @@ if ! command -v pacman >/dev/null 2>&1; then
 fi
 
 package_file="$HOME/.config/pacman/packages"
-typeset -a packages privilege
+typeset -a packages missing privilege
 packages=("${(@f)$(awk 'NF && $1 !~ /^#/' "$package_file")}")
+missing=("${(@f)$(pacman -T -- "${packages[@]}" || true)}")
+
+if ((${#missing[@]} == 0)); then
+	info_log "pacman" "All managed packages are already installed"
+	exit 0
+fi
 
 if ((EUID == 0)); then
 	privilege=()
@@ -31,7 +37,7 @@ else
 	exit 1
 fi
 
-info_log "pacman" "Installing missing packages from $package_file..."
-"${privilege[@]}" pacman -S --needed --noconfirm -- "${packages[@]}"
+info_log "pacman" "Installing ${#missing[@]} missing packages with a full system upgrade..."
+"${privilege[@]}" pacman -Syu --needed --noconfirm -- "${missing[@]}"
 info_log "pacman" "pacman package install complete"
 {{- end }}
