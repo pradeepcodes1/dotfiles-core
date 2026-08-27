@@ -35,6 +35,28 @@ install_arch_prerequisites() {
     # system in the same transaction whenever bootstrap packages are missing.
     run_as_root pacman -Syu --needed --noconfirm -- $missing
   fi
+
+  set_zsh_as_login_shell
+}
+
+# Arch installs zsh but leaves the account on its default shell, so ~/.zshrc is
+# never read and every module in this source stays dormant. macOS already
+# defaults to zsh and uses a different mechanism, so this is Linux-only.
+set_zsh_as_login_shell() {
+  zsh_path=$(command -v zsh) || return 0
+  current_shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
+  [ "$current_shell" = "$zsh_path" ] && return 0
+
+  # chsh refuses any shell missing from /etc/shells.
+  if ! grep -qxF "$zsh_path" /etc/shells 2>/dev/null; then
+    printf '%s\n' "$zsh_path" | run_as_root tee -a /etc/shells >/dev/null
+  fi
+
+  if run_as_root chsh -s "$zsh_path" "$(id -un)"; then
+    echo "Login shell set to $zsh_path. New sessions pick it up; existing ones do not."
+  else
+    echo "Could not set the login shell. Run: chsh -s $zsh_path" >&2
+  fi
 }
 
 install_macos_prerequisites() {

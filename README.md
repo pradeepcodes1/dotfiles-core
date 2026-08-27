@@ -14,10 +14,28 @@ Bootstrap first checks for missing packages. When it finds any, it refreshes
 pacman databases, performs a full system upgrade, and installs them in one
 transaction. If everything is installed, it does not run pacman.
 
+On Linux it then makes zsh the login shell if it is not already. Installing the
+package does not switch the account to it, so `~/.zshrc` would never be read and
+every module here would stay dormant. New sessions pick the change up; existing
+ones do not.
+
 Apply then fetches the Yazi plugins and flavors pinned in
 `dot_config/yazi/package.toml`. `init.lua` loads the `git` plugin, so Yazi fails
 at launch without it. Like the package step, it does nothing when every pinned
 package is already deployed.
+
+## If the shell looks unconfigured
+
+No atuin on `^R`, no zoxide, a plain prompt: the account is still on its old
+login shell, so `~/.zshrc` was never read and nothing here loaded. Check with
+
+```sh
+getent passwd "$USER" | cut -d: -f7
+```
+
+and fix it by re-running `./bootstrap.sh`, or by hand with
+`chsh -s "$(command -v zsh)"`. Either way it applies to new sessions only — log
+out and back in, or open a new terminal.
 
 Run `scripts/check-public.sh` before every commit. The check scans source paths,
 contents and rendered Linux package output for material outside the public
