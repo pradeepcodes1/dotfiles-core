@@ -17,7 +17,7 @@ _gogh_validate_catalog() {
       type == "object"
       and (.name | type == "string" and length > 0 and length <= 200
         and (explode | all(.[]; . >= 32 and . != 127)))
-      and (.variant == "dark" or .variant == "light")
+      and (.variant | type == "string" and (ascii_downcase == "dark" or ascii_downcase == "light"))
       and (.background | hex)
       and (.foreground | hex)
       and ([
@@ -135,7 +135,7 @@ _gogh_import_index() {
     | type == "object"
       and (.name | type == "string" and length > 0 and length <= 200
         and (explode | all(.[]; . >= 32 and . != 127)))
-      and (.variant == "dark" or .variant == "light")
+      and (.variant | type == "string" and (ascii_downcase == "dark" or ascii_downcase == "light"))
       and ([.background, .foreground,
         .color_01, .color_02, .color_03, .color_04,
         .color_05, .color_06, .color_07, .color_08,
@@ -148,7 +148,7 @@ _gogh_import_index() {
   fi
 
   name=$(jq -er --argjson index "$index" '.[$index].name' "$catalog_file") || return 1
-  mode=$(jq -er --argjson index "$index" '.[$index].variant' "$catalog_file") || return 1
+  mode=$(jq -er --argjson index "$index" '.[$index].variant | ascii_downcase' "$catalog_file") || return 1
   palette=("${(@f)$(jq -er --argjson index "$index" '
     .[$index]
     | [.background, .foreground,
