@@ -14,7 +14,7 @@ _init_theme() {
   fi
 
   # Fall back to system detection
-  local system_mode="$(_detect_macos_theme)"
+  local system_mode="$(_detect_system_theme)"
   if [[ "$system_mode" == "dark" ]]; then
     theme_name="$_DOTFILES_DARK_THEME"
   else

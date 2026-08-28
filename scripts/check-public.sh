@@ -3,7 +3,9 @@
 set -eu
 
 repo_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-private_pattern='mull''vad|tail''scale|cp[.]zsh|cpp[.]zsh|cp''t|cpp''-env|personal''-mac'
+# Names are split with '' so this pattern cannot match its own source file
+# when the content scan below reaches scripts/.
+private_pattern='mull''vad|tail''scale|cp[.]zsh|cpp[.]zsh|cp''t|cpp''-env|personal''-mac|riced''-linux'
 
 if find "$repo_dir" -path "$repo_dir/.git" -prune -o -print \
   | sed "s#^$repo_dir/##" | rg -i "$private_pattern"; then

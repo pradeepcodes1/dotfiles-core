@@ -1,12 +1,37 @@
 # share theme detection, parsing, and persistence across every adapter.
 # Core theme functions
 
-_detect_macos_theme() {
-  if defaults read -g AppleInterfaceStyle &>/dev/null; then
-    echo "dark"
-  else
-    echo "light"
+# Report the desktop's light/dark preference. Only reached before a theme has
+# ever been chosen on this machine: _init_theme reads the persisted theme file
+# first, and a `theme` switch writes one.
+#
+# This used to be _detect_macos_theme and ran `defaults` unconditionally. On
+# Linux that command does not exist, the &>/dev/null swallowed the failure, and
+# every fresh machine silently took the light branch.
+_detect_system_theme() {
+  if [[ "$OSTYPE" == darwin* ]]; then
+    # macOS writes this key only in dark mode; in light mode it is absent.
+    if defaults read -g AppleInterfaceStyle &>/dev/null; then
+      echo "dark"
+    else
+      echo "light"
+    fi
+    return
   fi
+
+  # Linux has no single source of truth. gsettings answers wherever something
+  # honours the freedesktop appearance key -- a desktop's settings daemon, or a
+  # portal under a bare compositor -- and is simply absent otherwise.
+  if (( $+commands[gsettings] )); then
+    case "$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null)" in
+      *prefer-dark*) echo "dark"; return ;;
+      *prefer-light*) echo "light"; return ;;
+    esac
+  fi
+
+  # No gsettings, or it reported "default", which expresses no preference.
+  # Dark is this configuration's default pick.
+  echo "dark"
 }
 
 # Extract a metadata field from a theme color file header comment
