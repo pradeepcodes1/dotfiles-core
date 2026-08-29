@@ -4,8 +4,7 @@
 # only puts *installed* tools on PATH — it never installs one. A machine
 # applying this source alone therefore ended up with mise and no runtimes: no
 # node, so mason's LSP installs fail the first time a matching file is opened,
-# and no go, rust, java or zig either. Only the private macOS overlay ran
-# `mise install`, so the gap was invisible there.
+# and no go, rust, java or zig either. Core owns installation for every profile.
 set -e
 
 source "${HOME}/.config/zsh/00-logging.zsh"
@@ -15,20 +14,25 @@ if [ -n "$CHEZMOI_SKIP_MISE_TOOLS" ]; then
 	exit 0
 fi
 
-# On macOS this source is applied before Homebrew installs mise, so an absent
-# binary here means the package backend has not run yet rather than anything
-# wrong; the overlay still covers that machine.
+# Applying the source without its runtime manager would otherwise report
+# success while leaving every configured tool absent. The controller/bootstrap
+# must install mise before applying core (or explicitly set the skip flag).
 if ! command -v mise >/dev/null 2>&1; then
-	debug_log "mise" "mise is unavailable, skipping runtime install"
-	exit 0
+	error_log "mise" "mise is unavailable; install it before applying core or set CHEZMOI_SKIP_MISE_TOOLS=1"
+	exit 1
 fi
 
 # `mise install` downloads or builds every pinned runtime, so gate it rather
 # than paying that on every apply. `mise ls --missing` answers offline in ~70ms
 # and prints one `tool version (missing) …` line per uninstalled runtime,
 # nothing at all when everything is present.
+typeset missing_output output
 typeset -a missing
-missing=(${(f)"$(mise ls --missing 2>/dev/null | awk 'NF {print $1 "@" $2}')"})
+if ! missing_output=$(mise ls --missing 2>&1); then
+	error_log "mise" "Could not inspect configured runtimes: ${missing_output}"
+	exit 1
+fi
+missing=(${(f)"$(print -r -- "$missing_output" | awk 'NF {print $1 "@" $2}')"})
 
 if ((${#missing} == 0)); then
 	info_log "mise" "All pinned runtimes are already installed"
@@ -41,8 +45,8 @@ info_log "mise" "Installing ${#missing} missing runtimes: ${(j: :)missing}"
 # fails to build is the kind of thing that otherwise goes unnoticed until
 # something reaches for the binary much later.
 if ! output=$(mise install 2>&1); then
-	warn_log "mise" "mise install failed: ${output}"
-	exit 0
+	error_log "mise" "mise install failed: ${output}"
+	exit 1
 fi
 
 debug_log "mise" "${output}"

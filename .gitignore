@@ -1,6 +1,8 @@
 # keep local tools and private agent state out of the dotfiles history.
 # Binaries installed by chezmoi tooling
 bin/
+!dot_local/bin/
+!dot_local/bin/executable_dotfiles
 
 .claude/
 .codex/

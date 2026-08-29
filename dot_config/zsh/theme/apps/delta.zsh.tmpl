@@ -7,8 +7,8 @@ local delta_light="false"
 [[ "$_DOTFILES_THEME_MODE" == "light" ]] && delta_light="true"
 local resolved_delta_theme="$bat_theme"
 
-# Gogh imports normally set `bat_theme=ansi`; delta renders through bat and
-# therefore inherits the exact terminal palette. Only absent mappings fall back.
+# Generated Gogh themes set `bat_theme=ansi`; delta renders through bat and
+# therefore inherits the exact terminal palette. Only older files fall back.
 if [[ -z "$resolved_delta_theme" ]]; then
   if [[ "$_DOTFILES_THEME_MODE" == "light" ]]; then
     resolved_delta_theme="OneHalfLight"

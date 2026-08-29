@@ -35,13 +35,19 @@ vim.api.nvim_create_autocmd("VimLeavePre", {
 -- Bootstrap lazy.nvim if missing
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.uv.fs_stat(lazypath) then
-	vim.fn.system({
+	local clone_output = vim.fn.system({
 		"git",
 		"clone",
 		"--filter=blob:none",
+		"--branch=v11.17.5",
+		"--single-branch",
 		"https://github.com/folke/lazy.nvim",
 		lazypath,
 	})
+	if vim.v.shell_error ~= 0 then
+		vim.fn.delete(lazypath, "rf")
+		error("Failed to clone lazy.nvim v11.17.5:\n" .. clone_output)
+	end
 end
 vim.opt.rtp:prepend(lazypath)
 

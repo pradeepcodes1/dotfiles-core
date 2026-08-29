@@ -1,37 +1,30 @@
-# apply curated and imported palettes to the running terminal immediately.
+# apply the active Gogh palette to the running terminal immediately.
 # Kitty theme integration
-# Curated themes set `kitty_theme`. Imported Gogh themes set `gogh_theme=1`
-# and omit `kitty_theme`, which makes this adapter write their literal palette.
 
-local use_gogh_palette=0
-[[ -n "$gogh_theme" && -z "$kitty_theme" ]] && use_gogh_palette=1
-[[ -z "$kitty_theme" && "$use_gogh_palette" == 0 ]] && return
+[[ -z "$gogh_theme" ]] && return
 
 local kitty_config_dir="{{ .chezmoi.homeDir }}/.config/kitty"
 local current_theme_file="$kitty_config_dir/current-theme.conf"
 local state_dir="${XDG_STATE_HOME:-{{ .chezmoi.homeDir }}/.local/state}/dotfiles"
 local state_file="$state_dir/kitty-theme"
 local apply_reason="${_DOTFILES_THEME_APPLY_REASON:-init}"
-local expected_state="$kitty_theme"
+local expected_state="gogh:${_DOTFILES_THEME_NAME}"
+local color_name
+local -a required_colors=(
+  bg fg
+  black red green yellow blue magenta cyan white
+  bright_black bright_red bright_green bright_yellow
+  bright_blue bright_magenta bright_cyan bright_white
+)
 
-if (( use_gogh_palette )); then
-  local color_name
-  local -a required_colors=(
-    bg fg
-    black red green yellow blue magenta cyan white
-    bright_black bright_red bright_green bright_yellow
-    bright_blue bright_magenta bright_cyan bright_white
-  )
+for color_name in "${required_colors[@]}"; do
+  if [[ -z "${(P)color_name}" ]]; then
+    [[ "$apply_reason" == "command" ]] && warn_log "theme" "Gogh theme '$_DOTFILES_THEME_NAME' is missing '$color_name'; Kitty theme unchanged"
+    return
+  fi
+done
 
-  for color_name in "${required_colors[@]}"; do
-    if [[ -z "${(P)color_name}" ]]; then
-      [[ "$apply_reason" == "command" ]] && warn_log "theme" "Gogh theme '$_DOTFILES_THEME_NAME' is missing '$color_name'; Kitty theme unchanged"
-      return
-    fi
-  done
-
-  expected_state="gogh:${_DOTFILES_THEME_NAME}"
-  local kitty_content="# Generated from the Gogh palette in $_DOTFILES_THEME_NAME.sh.
+local kitty_content="# Generated from the Gogh palette in $_DOTFILES_THEME_NAME.sh.
 foreground $fg
 background $bg
 selection_foreground $bg
@@ -57,24 +50,19 @@ color13 $bright_magenta
 color14 $bright_cyan
 color15 $bright_white"
 
-  if [[ "$apply_reason" != "command" && -f "$current_theme_file" && -f "$state_file" \
-    && "$(< "$current_theme_file")" == "$kitty_content" \
-    && "$(< "$state_file")" == "$expected_state" ]]; then
-    return
-  fi
+if [[ "$apply_reason" != "command" && -f "$current_theme_file" && -f "$state_file" \
+  && "$(< "$current_theme_file")" == "$kitty_content" \
+  && "$(< "$state_file")" == "$expected_state" ]]; then
+  return
+fi
 
-  mkdir -p "$kitty_config_dir" "$state_dir"
+mkdir -p "$kitty_config_dir" "$state_dir"
 
-  if [[ ! -f "$current_theme_file" ]] || [[ "$(< "$current_theme_file")" != "$kitty_content" ]]; then
-    local temp_theme_file="${current_theme_file}.tmp.$$"
-    if ! print -r -- "$kitty_content" > "$temp_theme_file" || ! mv -f "$temp_theme_file" "$current_theme_file"; then
-      rm -f "$temp_theme_file"
-      [[ "$apply_reason" == "command" ]] && warn_log "theme" "Failed to save Gogh palette for Kitty"
-      return
-    fi
-  fi
-else
-  if [[ "$apply_reason" != "command" && -f "$current_theme_file" && -f "$state_file" && "$(< "$state_file")" == "$expected_state" ]]; then
+if [[ ! -f "$current_theme_file" ]] || [[ "$(< "$current_theme_file")" != "$kitty_content" ]]; then
+  local temp_theme_file="${current_theme_file}.tmp.$$"
+  if ! print -r -- "$kitty_content" > "$temp_theme_file" || ! mv -f "$temp_theme_file" "$current_theme_file"; then
+    rm -f "$temp_theme_file"
+    [[ "$apply_reason" == "command" ]] && warn_log "theme" "Failed to save Gogh palette for Kitty"
     return
   fi
 fi
@@ -88,29 +76,17 @@ elif (( $+commands[kitty] )); then
   kitten_cmd=(kitty +kitten)
 else
   if [[ "$apply_reason" == "command" ]]; then
-    if (( use_gogh_palette )); then
-      warn_log "theme" "kitty kitten not found; saved theme will apply to new Kitty windows"
-    else
-      warn_log "theme" "kitty kitten not found; terminal theme unchanged"
-    fi
+    warn_log "theme" "kitty kitten not found; saved theme will apply to new Kitty windows"
   fi
   return
 fi
 
 mkdir -p "$state_dir"
 
-if (( use_gogh_palette )); then
-  # Persisting current-theme.conf covers new windows. Remote control updates
-  # every running window and its configured colors without editing themes.conf.
-  if "${kitten_cmd[@]}" @ set-colors --all --configured "$current_theme_file" >/dev/null 2>&1; then
-    print -r -- "$expected_state" > "$state_file"
-  elif [[ "$apply_reason" == "command" ]]; then
-    warn_log "theme" "Saved Gogh palette for Kitty, but could not reload running windows"
-  fi
-# kitten themes manages the BEGIN_KITTY_THEME block inside themes.conf; the
-# block must already exist there or kitten appends a duplicate include.
-elif "${kitten_cmd[@]}" themes --reload-in=all --config-file-name themes.conf "$kitty_theme" >/dev/null 2>&1; then
+# Persisting current-theme.conf covers new windows. Remote control updates every
+# running window and its configured colors without editing themes.conf.
+if "${kitten_cmd[@]}" @ set-colors --all --configured "$current_theme_file" >/dev/null 2>&1; then
   print -r -- "$expected_state" > "$state_file"
 elif [[ "$apply_reason" == "command" ]]; then
-  warn_log "theme" "Failed to apply kitty theme '$kitty_theme'"
+  warn_log "theme" "Saved Gogh palette for Kitty, but could not reload running windows"
 fi

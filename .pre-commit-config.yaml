@@ -53,14 +53,14 @@ repos:
         types: [shell]
         exclude: \.zsh$
 
-      # Shell static analysis. Zsh sources and palette data files are excluded
-      # because ShellCheck targets POSIX-family shells, not Zsh syntax.
+      # Shell static analysis. Zsh sources are excluded because ShellCheck
+      # targets POSIX-family shells, not Zsh syntax.
       - id: shellcheck
         name: shellcheck
         entry: shellcheck
         language: system
         types: [shell]
-        exclude: (^dot_config/colors/|\.zsh$|^scripts/setup-hooks\.sh$|^\.chezmoiscripts/run_after_40-macos-defaults\.sh$)
+        exclude: \.zsh$
 
       # Python - syntax and undefined-name checks
       - id: ruff
@@ -72,7 +72,7 @@ repos:
       # Render executable Python templates before checking them.
       - id: ruff-python-templates
         name: ruff (rendered Python templates)
-        entry: bash -o pipefail -c 'for file; do chezmoi execute-template < "$file" | ruff check --select E4,E7,E9,F --stdin-filename="${file%.tmpl}" - || exit; done' _
+        entry: bash -o pipefail -c 'repo_root=$(git rev-parse --show-toplevel) || exit; for file; do chezmoi --source="$repo_root" execute-template < "$file" | ruff check --select E4,E7,E9,F --stdin-filename="${file%.tmpl}" - || exit; done' _
         language: system
         files: \.py\.tmpl$
 
@@ -85,7 +85,7 @@ repos:
 
       - id: taplo-templates
         name: taplo (rendered TOML templates)
-        entry: bash -o pipefail -c 'for file; do chezmoi execute-template < "$file" | taplo fmt --check --stdin-filepath="${file%.tmpl}" - || exit; done' _
+        entry: bash -o pipefail -c 'repo_root=$(git rev-parse --show-toplevel) || exit; for file; do chezmoi --source="$repo_root" execute-template < "$file" | taplo fmt --check --stdin-filepath="${file%.tmpl}" - || exit; done' _
         language: system
         files: \.toml\.tmpl$
 

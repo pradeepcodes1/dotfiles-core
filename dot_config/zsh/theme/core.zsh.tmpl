@@ -40,9 +40,8 @@ _get_theme_field() {
   grep "^# $2:" "$1" | cut -d: -f2- | tr -d ' '
 }
 
-# Every key a color file may define. Cleared before sourcing a new theme so a
-# key the incoming theme omits cannot inherit the outgoing theme's value.
-# Keep in sync with the contract in ~/.config/colors/README.md.
+# Every generated key, plus the two former registry keys retained only so a
+# shell reload clears their old values. Keep this synchronized with gogh.zsh.
 _DOTFILES_THEME_KEYS=(
   bg fg
   black red green yellow blue magenta cyan white
@@ -51,7 +50,8 @@ _DOTFILES_THEME_KEYS=(
   prompt_dir prompt_branch prompt_unstaged prompt_staged prompt_arrow prompt_path
   ui_bg ui_fg ui_accent ui_border ui_active ui_inactive
   nvim_colorscheme nvim_lualine nvim_background
-  kitty_theme bat_theme eza_theme yazi_flavor gogh_theme
+  bat_theme eza_theme gogh_theme gogh_format
+  kitty_theme yazi_flavor
 )
 
 _reset_theme_vars() {
@@ -92,13 +92,8 @@ _theme_color_file() {
   local theme_name="$1"
 
   # State and command arguments become path components, so reject traversal and
-  # names outside the format used by both curated and imported themes.
+  # names outside the format used by generated Gogh themes.
   [[ "$theme_name" =~ '^[A-Za-z0-9][A-Za-z0-9._-]*$' ]] || return 1
-
-  if [[ -f "$_DOTFILES_COLORS_DIR/${theme_name}.sh" ]]; then
-    print -r -- "$_DOTFILES_COLORS_DIR/${theme_name}.sh"
-    return 0
-  fi
 
   if [[ -f "$_DOTFILES_GOGH_THEMES_DIR/${theme_name}.sh" ]]; then
     print -r -- "$_DOTFILES_GOGH_THEMES_DIR/${theme_name}.sh"
@@ -108,42 +103,13 @@ _theme_color_file() {
   return 1
 }
 
-_get_available_themes() {
-  local -A seen
-  local dir f theme_name
+_ensure_theme_available() {
+  local theme_name="$1"
+  local color_file
 
-  for dir in "$_DOTFILES_COLORS_DIR" "$_DOTFILES_GOGH_THEMES_DIR"; do
-    [[ -d "$dir" ]] || continue
-    for f in "$dir"/*.sh(N); do
-      theme_name="${${f:t}%.sh}"
-      [[ -n "${seen[$theme_name]:-}" ]] && continue
-      seen[$theme_name]=1
-      print -r -- "$theme_name"
-    done
-  done
-}
+  color_file="$(_theme_color_file "$theme_name")" || color_file=""
+  [[ -n "$color_file" ]] && grep -qx 'gogh_format=2' "$color_file" && return 0
+  [[ "$theme_name" == gogh-* ]] || return 1
 
-_theme_fzf_pick() {
-  local filter="$1"
-  local themes_list=()
-
-  for theme in $(_get_available_themes); do
-    local color_file
-    color_file="$(_theme_color_file "$theme")" || continue
-    local mode=$(_get_theme_field "$color_file" "Mode")
-    local current=""
-    [[ "$theme" == "$_DOTFILES_THEME_NAME" ]] && current="*"
-
-    if [[ "$filter" == "all" ]] || [[ "$filter" == "$mode" ]]; then
-      themes_list+=("$current$theme [$mode]")
-    fi
-  done
-
-  local selected
-  selected=$(printf '%s\n' "${themes_list[@]}" | sort | fzf --prompt="Select theme: " --height=40% --reverse)
-
-  if [[ -n "$selected" ]]; then
-    local theme_name="${selected#\*}"
-    echo "${theme_name%% \[*}"
-  fi
+  _gogh_import_slug "${theme_name#gogh-}"
 }

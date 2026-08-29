@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-# Fetch the Yazi plugins and flavors pinned in package.toml. This source deploys
+# Fetch the Yazi plugin pinned in package.toml. This source deploys
 # that manifest and an init.lua that calls require("git"), but nothing installs
 # the packages themselves, so a machine applying this source alone gets a Yazi
 # that fails at launch with "failed to load plugin from .../plugins/git.yazi".
@@ -36,8 +36,8 @@ if ((${#declared} == 0)); then
 fi
 
 # `use = "owner/repo:name"` deploys as <name>.yazi, `use = "owner/repo"` as
-# <repo>.yazi. Plugins and flavors land in sibling directories, so check both
-# rather than tracking which manifest section each dep came from. Test for the
+# <repo>.yazi. Keep checking both package directories so the installer remains
+# correct if non-theme packages use either manifest section. Test for the
 # entry point rather than the directory so a half-deployed package counts as
 # missing: ya pkg install refetches every package on every run, which costs
 # ~9s and a network round trip per apply, so it is worth gating.

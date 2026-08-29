@@ -54,7 +54,8 @@
 {{ if eq .chezmoi.os "darwin" }}
 	helper = osxkeychain
 {{ else }}
-	helper = store
+	# Keep credentials in memory only; never write tokens to ~/.git-credentials.
+	helper = cache --timeout=3600
 {{ end }}
 
 [push]

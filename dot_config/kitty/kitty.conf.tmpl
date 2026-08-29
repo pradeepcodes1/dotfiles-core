@@ -85,9 +85,11 @@ shell_integration    enabled
 notify_on_cmd_finish invisible 10.0
 
 # ── Remote control ────────────────────────────────────────────────────────
-# Enables `kitty @` scripting: send text to splits, drive layouts, etc.
-allow_remote_control yes
-listen_on            unix:/tmp/kitty-{kitty_pid}
+# Permit only the two color operations used by the theme and SSH integrations.
+# Windows launched with `--allow-remote-control` retain their private socketpair
+# for scoped workflows such as returning Yazi's cwd; no global socket is open.
+allow_remote_control password
+remote_control_password "" set-colors set-tab-color
 
 {{- if eq .chezmoi.os "darwin" }}
 
@@ -212,7 +214,7 @@ map super+shift+i launch --type=overlay --cwd=current {{ .chezmoi.homeDir }}/.co
 
 # Browse/import from Gogh as the source of truth, then apply the selection
 # across the dotfiles theme integrations (Kitty, shell, Neovim, and borders).
-map super+a launch --type=overlay zsh -ic "theme gogh"
+map super+a launch --type=overlay zsh -ic "theme"
 
 # Rename the current tab (the analogue of tmux's rename-session).
 map super+shift+comma set_tab_title
@@ -222,9 +224,6 @@ map super+shift+comma set_tab_title
 map super+shift+f launch --type=overlay --stdin-source=@screen_scrollback less --chop-long-lines --RAW-CONTROL-CHARS
 # Unicode / emoji picker.
 map super+shift+u kitten unicode_input
-# Pick a Kitty-only theme. Keep runtime edits in themes.conf, not kitty.conf.
-map super+shift+p kitten themes --config-file-name themes.conf
-
 # ── Font size ─────────────────────────────────────────────────────────────
 map super+equal change_font_size all +1.0
 map super+minus change_font_size all -1.0

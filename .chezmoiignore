@@ -24,7 +24,7 @@ __pycache__/
 .chezmoiscripts/21-install-pacman-packages.sh
 {{ end }}
 
-# Deploy only the palettes referenced by the tracked color files.
+# Gogh drives colors; deploy only eza's generic ANSI mapping.
 .config/eza/eza-themes/.github/
 .config/eza/eza-themes/imgs/
 .config/eza/eza-themes/test_dir/

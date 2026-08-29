@@ -4,11 +4,11 @@
 yes = true
 
 [tools]
-bun = "latest"
-go = "latest"
-java = "latest"
-node = "24"
-protobuf = "latest"
-python = "3.14"
-rust = "latest"
-zig = "latest"
+bun = "1.4.0"
+go = "1.26.7"
+java = "25.0.2"
+node = "24.20.0"
+protobuf = "35.1"
+python = "3.14.7"
+rust = "1.98.0"
+zig = "0.16.0"

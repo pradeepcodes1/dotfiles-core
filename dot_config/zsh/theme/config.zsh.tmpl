@@ -1,12 +1,10 @@
 # centralize theme paths and defaults so adapters cannot drift.
 # Theme configuration
 
-_DOTFILES_COLORS_DIR="{{ .chezmoi.homeDir }}/.config/colors"
 _DOTFILES_THEME_FILE="${XDG_STATE_HOME:-{{ .chezmoi.homeDir }}/.local/state}/dotfiles/theme"
 
-# Gogh is an import source, not a runtime dependency. Its catalog is cached only
-# when `theme gogh` is invoked, and imported color files live outside the
-# chezmoi-managed curated collection.
+# Gogh is the single palette source. Its validated catalog is cached on demand,
+# and selected palettes are compiled into runtime theme files outside chezmoi.
 _DOTFILES_GOGH_DATA_DIR="${XDG_DATA_HOME:-{{ .chezmoi.homeDir }}/.local/share}/dotfiles/gogh"
 _DOTFILES_GOGH_THEMES_DIR="$_DOTFILES_GOGH_DATA_DIR/themes"
 _DOTFILES_GOGH_CACHE_DIR="${XDG_CACHE_HOME:-{{ .chezmoi.homeDir }}/.cache}/dotfiles/gogh"
@@ -14,9 +12,5 @@ _DOTFILES_GOGH_CATALOG_FILE="$_DOTFILES_GOGH_CACHE_DIR/themes.json"
 _DOTFILES_GOGH_CATALOG_URL="https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json"
 
 # Default themes for each mode
-_DOTFILES_DARK_THEME="kanagawa-dragon"
-_DOTFILES_LIGHT_THEME="kanagawa-lotus"
-
-# Curated Kitty themes are managed by the themes kitten. The name it wants is
-# kitty-themes metadata, not a dotfiles color file name, so curated color files
-# carry `kitty_theme`; generated Gogh imports instead supply a literal palette.
+_DOTFILES_DARK_THEME="gogh-kanagawa-dragon"
+_DOTFILES_LIGHT_THEME="gogh-kanagawa-lotus"

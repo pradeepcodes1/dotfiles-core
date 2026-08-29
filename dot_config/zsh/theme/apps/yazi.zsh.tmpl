@@ -1,17 +1,10 @@
-# keep file-manager colors synchronized with curated and imported palettes.
+# keep file-manager colors synchronized with the active Gogh palette.
 # Yazi theme integration
-# Curated themes set `yazi_flavor`. Imported Gogh themes set `gogh_theme=1`
-# and omit the flavor so Yazi can consume their literal palette instead.
 
 local yazi_config="{{ .chezmoi.homeDir }}/.config/yazi/theme.toml"
 local yazi_content
 
-if [[ -n "$yazi_flavor" ]]; then
-  [[ ! -d "{{ .chezmoi.homeDir }}/.config/yazi/flavors/${yazi_flavor}.yazi" ]] && return
-
-  yazi_content="[flavor]
-$_DOTFILES_THEME_MODE = \"$yazi_flavor\""
-elif [[ -n "$gogh_theme" ]]; then
+if [[ -n "$gogh_theme" ]]; then
   # This is intentionally a direct theme.toml override rather than a generated
   # flavor directory: flavors also require package metadata and a tmTheme file.
   yazi_content="#:schema https://yazi-rs.github.io/schemas/theme.json

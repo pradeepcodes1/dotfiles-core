@@ -1,11 +1,13 @@
 #!/bin/sh
 # Reject private feature names in source paths, contents, and rendered output.
+# Overlay profile/repository names are intentionally public now: the portable
+# controller must select and clone them, while their contents remain private.
 set -eu
 
 repo_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 # Names are split with '' so this pattern cannot match its own source file
 # when the content scan below reaches scripts/.
-private_pattern='mull''vad|tail''scale|cp[.]zsh|cpp[.]zsh|cp''t|cpp''-env|personal''-mac|riced''-linux'
+private_pattern='mull''vad|tail''scale|cp[.]zsh|cpp[.]zsh|cp''t|cpp''-env'
 
 if find "$repo_dir" -path "$repo_dir/.git" -prune -o -print \
   | sed "s#^$repo_dir/##" | rg -i "$private_pattern"; then

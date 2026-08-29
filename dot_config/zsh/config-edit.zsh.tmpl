@@ -3,8 +3,7 @@
 # Drops into the chezmoi source directory for editing
 
 config-apply() {
-  local chezmoi_source="{{ .chezmoi.sourceDir }}"
-  "${chezmoi_source}/bootstrap.sh" "$@"
+  "{{ .chezmoi.homeDir }}/.local/bin/dotfiles" apply "$@"
 }
 
 config-edit() {
@@ -19,8 +18,9 @@ config-edit() {
   echo ""
   echo "Available commands:"
   echo "  - Edit files directly in this directory"
-  echo "  - Run './bootstrap.sh' to apply changes"
-  echo "  - Run 'chezmoi diff' to preview what would change"
+  echo "  - Run 'dotfiles plan' to preview the complete layered apply"
+  echo "  - Run 'dotfiles apply' to apply core and the active overlay"
+  echo "  - Run 'dotfiles verify' for render, ownership, and security checks"
   echo "  - Run 'chezmoi status' to check file status"
   echo "  - Use 'git' for version control"
   echo ""

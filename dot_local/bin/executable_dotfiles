@@ -1,0 +1,1098 @@
+#!/bin/sh
+# One entry point for the portable core and its mutually exclusive overlays.
+# `plan`, `doctor`, and `verify` are deliberately read-only. State changes live
+# behind the explicit `init`, `apply`, `hooks`, and `exec --secrets` commands.
+set -u
+
+PROGRAM=${0##*/}
+SYSTEM_NAME=$(uname -s)
+DATA_HOME=${XDG_DATA_HOME:-"$HOME/.local/share"}
+CONTROLLER_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+SOURCE_CANDIDATE=$(CDPATH='' cd -- "$CONTROLLER_DIR/../.." 2>/dev/null && pwd || true)
+
+if [ -f "$SOURCE_CANDIDATE/.chezmoidata.toml" ] && [ -d "$SOURCE_CANDIDATE/dot_config" ]; then
+  DEFAULT_CORE_SOURCE=$SOURCE_CANDIDATE
+else
+  DEFAULT_CORE_SOURCE=$DATA_HOME/chezmoi-core
+fi
+
+CORE_SOURCE=${DOTFILES_CORE_SOURCE:-$DEFAULT_CORE_SOURCE}
+OVERLAY_SOURCE=${DOTFILES_OVERLAY_SOURCE:-$DATA_HOME/chezmoi}
+PROFILE=${DOTFILES_PROFILE:-auto}
+VERBOSE=0
+SKIP_PACKAGES=0
+SKIP_AUR=0
+SKIP_BREW=0
+SKIP_MISE=0
+SKIP_YAZI=0
+SKIP_SERVICES=0
+PRIVILEGE=
+
+CORE_REMOTE=https://github.com/pradeepcodes1/dotfiles-core.git
+MAC_REMOTE=https://github.com/pradeepcodes1/dotfiles-personal-mac.git
+LINUX_REMOTE=https://github.com/pradeepcodes1/dotfiles-riced-linux.git
+YAY_AUR_REMOTE=https://aur.archlinux.org/yay-bin.git
+# Audited 2026-08-29. Updating this is an explicit maintenance operation.
+YAY_AUR_COMMIT=13e0a4754d106a9252b7479bf1b370fbe454fc48
+
+say() {
+  printf '%s\n' "$*"
+}
+
+info() {
+  printf '==> %s\n' "$*"
+}
+
+warn() {
+  printf 'warning: %s\n' "$*" >&2
+}
+
+die() {
+  printf 'error: %s\n' "$*" >&2
+  exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  dotfiles init personal-mac|riced-linux [options]
+  dotfiles doctor [options]
+  dotfiles plan [options] [-- chezmoi-target ...]
+  dotfiles apply [options] [-- chezmoi-option-or-target ...]
+  dotfiles verify [options]
+  dotfiles hooks [options]
+  dotfiles exec --secrets ai|aws -- command [arg ...]
+
+Options:
+  --profile NAME          auto, core, minimal-linux, personal-mac, riced-linux
+  --core-source PATH      override the portable core checkout
+  --overlay-source PATH   override the active overlay checkout
+  --skip LIST             comma-separated packages, aur, brew, tools, mise,
+                          yazi, or services
+  -v, --verbose           show verbose chezmoi planning/apply output
+  -n, --dry-run           with apply, route to the read-only plan command
+
+Environment equivalents:
+  DOTFILES_PROFILE, DOTFILES_CORE_SOURCE, DOTFILES_OVERLAY_SOURCE
+  CHEZMOI_SKIP_PACMAN, CHEZMOI_SKIP_AUR, CHEZMOI_SKIP_MISE_TOOLS,
+  CHEZMOI_SKIP_YAZI_PACKAGES, CHEZMOI_SKIP_BREW_BUNDLE,
+  CHEZMOI_SKIP_LOCAL_PACMAN, CHEZMOI_SKIP_LOCAL_AUR,
+  CHEZMOI_SKIP_SERVICES
+EOF
+}
+
+need_option_value() {
+  [ -n "${2:-}" ] || die "$1 requires a value"
+}
+
+enable_skips() {
+  skip_value=$1
+  old_ifs=$IFS
+  IFS=,
+  # shellcheck disable=SC2086
+  set -- $skip_value
+  IFS=$old_ifs
+
+  for skip_name; do
+    case "$skip_name" in
+      packages)
+        SKIP_PACKAGES=1
+        SKIP_AUR=1
+        SKIP_BREW=1
+        ;;
+      aur) SKIP_AUR=1 ;;
+      brew) SKIP_BREW=1 ;;
+      tools)
+        SKIP_MISE=1
+        SKIP_YAZI=1
+        ;;
+      mise) SKIP_MISE=1 ;;
+      yazi) SKIP_YAZI=1 ;;
+      services) SKIP_SERVICES=1 ;;
+      '') ;;
+      *) die "unknown skip group: $skip_name" ;;
+    esac
+  done
+}
+
+import_skip_environment() {
+  [ -z "${CHEZMOI_SKIP_PACMAN:-}${CHEZMOI_SKIP_LOCAL_PACMAN:-}" ] || SKIP_PACKAGES=1
+  [ -z "${CHEZMOI_SKIP_AUR:-}${CHEZMOI_SKIP_LOCAL_AUR:-}" ] || SKIP_AUR=1
+  [ -z "${CHEZMOI_SKIP_BREW_BUNDLE:-}" ] || SKIP_BREW=1
+  [ -z "${CHEZMOI_SKIP_MISE_TOOLS:-}" ] || SKIP_MISE=1
+  [ -z "${CHEZMOI_SKIP_YAZI_PACKAGES:-}" ] || SKIP_YAZI=1
+  [ -z "${CHEZMOI_SKIP_SERVICES:-}" ] || SKIP_SERVICES=1
+}
+
+export_skip_environment() {
+  [ "$SKIP_PACKAGES" -eq 0 ] || {
+    export CHEZMOI_SKIP_PACMAN=1
+    export CHEZMOI_SKIP_LOCAL_PACMAN=1
+  }
+  [ "$SKIP_AUR" -eq 0 ] || {
+    export CHEZMOI_SKIP_AUR=1
+    export CHEZMOI_SKIP_LOCAL_AUR=1
+  }
+  [ "$SKIP_BREW" -eq 0 ] || export CHEZMOI_SKIP_BREW_BUNDLE=1
+  [ "$SKIP_MISE" -eq 0 ] || export CHEZMOI_SKIP_MISE_TOOLS=1
+  [ "$SKIP_YAZI" -eq 0 ] || export CHEZMOI_SKIP_YAZI_PACKAGES=1
+  [ "$SKIP_SERVICES" -eq 0 ] || export CHEZMOI_SKIP_SERVICES=1
+}
+
+resolve_profile() {
+  case "$PROFILE" in
+    auto)
+      case "$SYSTEM_NAME" in
+        Darwin) PROFILE=personal-mac ;;
+        Linux)
+          if command -v pacman >/dev/null 2>&1; then
+            PROFILE=riced-linux
+          else
+            PROFILE=core
+          fi
+          ;;
+        *) die "unsupported operating system: $SYSTEM_NAME" ;;
+      esac
+      ;;
+    minimal-linux) PROFILE=core ;;
+    core | personal-mac | riced-linux) ;;
+    *) die "unknown profile: $PROFILE" ;;
+  esac
+
+  case "$PROFILE:$SYSTEM_NAME" in
+    personal-mac:Darwin | riced-linux:Linux | core:Darwin | core:Linux) ;;
+    personal-mac:*) die "personal-mac requires macOS" ;;
+    riced-linux:*) die "riced-linux requires Linux" ;;
+    *) die "unsupported operating system: $SYSTEM_NAME" ;;
+  esac
+}
+
+profile_has_overlay() {
+  [ "$PROFILE" = personal-mac ] || [ "$PROFILE" = riced-linux ]
+}
+
+validate_source_dir() {
+  source_label=$1
+  source_path=$2
+  [ -d "$source_path" ] || {
+    warn "$source_label source is missing: $source_path"
+    return 1
+  }
+  [ -f "$source_path/.chezmoidata.toml" ] || [ -d "$source_path/.chezmoidata" ] || {
+    warn "$source_label source does not look like a chezmoi source: $source_path"
+    return 1
+  }
+}
+
+validate_sources() {
+  validate_source_dir core "$CORE_SOURCE" || return 1
+  if profile_has_overlay; then
+    validate_source_dir "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
+  fi
+}
+
+reject_root() {
+  [ "$(id -u)" -ne 0 ] || die "run $PROGRAM as the target user, not as root"
+}
+
+choose_privilege() {
+  if command -v sudo >/dev/null 2>&1; then
+    PRIVILEGE=sudo
+  elif command -v doas >/dev/null 2>&1; then
+    PRIVILEGE=doas
+  else
+    die "system changes require sudo or doas"
+  fi
+}
+
+run_privileged() {
+  [ -n "$PRIVILEGE" ] || choose_privilege
+  "$PRIVILEGE" "$@"
+}
+
+activate_homebrew() {
+  if command -v brew >/dev/null 2>&1; then
+    eval "$(brew shellenv)"
+    return 0
+  fi
+  if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+    return 0
+  fi
+  if [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+    return 0
+  fi
+  return 1
+}
+
+install_homebrew() {
+  activate_homebrew && return 0
+  [ "$SKIP_PACKAGES" -eq 0 ] && [ "$SKIP_BREW" -eq 0 ] \
+    || die "Homebrew is missing and package installation is disabled"
+  command -v curl >/dev/null 2>&1 || die "curl is required to install Homebrew"
+  info "Installing Homebrew"
+  NONINTERACTIVE=1 /bin/bash -c \
+    "$(curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" \
+    || die "Homebrew installation failed"
+  activate_homebrew || die "Homebrew installed but could not be activated"
+}
+
+brew_install_command() {
+  brew_command=$1
+  brew_formula=$2
+  command -v "$brew_command" >/dev/null 2>&1 && return 0
+  [ "$SKIP_PACKAGES" -eq 0 ] && [ "$SKIP_BREW" -eq 0 ] \
+    || die "$brew_command is missing and package installation is disabled"
+  info "Installing Homebrew prerequisite: $brew_formula"
+  brew install "$brew_formula" || die "failed to install $brew_formula"
+}
+
+prepare_macos_prerequisites() {
+  install_homebrew
+  brew_install_command chezmoi chezmoi
+  if [ "$SKIP_MISE" -eq 0 ]; then
+    brew_install_command mise mise
+  fi
+  if [ "$SKIP_YAZI" -eq 0 ]; then
+    brew_install_command ya yazi
+  fi
+}
+
+arch_missing_packages() {
+  pacman -T -- "$@" 2>/dev/null || true
+}
+
+install_arch_packages() {
+  arch_missing=$(arch_missing_packages "$@")
+  [ -n "$arch_missing" ] || return 0
+  [ "$SKIP_PACKAGES" -eq 0 ] || die "missing Arch prerequisites while package installation is disabled: $(printf '%s' "$arch_missing" | tr '\n' ' ')"
+  choose_privilege
+  info "Installing Arch prerequisites with a full system upgrade: $(printf '%s' "$arch_missing" | tr '\n' ' ')"
+  # shellcheck disable=SC2086
+  run_privileged pacman -Syu --needed --noconfirm -- $arch_missing \
+    || die "failed to install Arch prerequisites"
+}
+
+cleanup_yay_build() {
+  case "${YAY_BUILD_DIR:-}" in
+    "${TMPDIR:-/tmp}"/dotfiles-yay.*) rm -rf -- "$YAY_BUILD_DIR" ;;
+  esac
+}
+
+bootstrap_yay() {
+  command -v yay >/dev/null 2>&1 && return 0
+  [ "$SKIP_PACKAGES" -eq 0 ] && [ "$SKIP_AUR" -eq 0 ] || {
+    warn "yay is not installed and AUR package installation is disabled"
+    return 0
+  }
+
+  install_arch_packages git base-devel
+  info "Bootstrapping yay-bin at audited AUR commit $YAY_AUR_COMMIT"
+  YAY_BUILD_DIR=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-yay.XXXXXX") || die "could not create yay build directory"
+  trap cleanup_yay_build EXIT HUP INT TERM
+
+  git clone "$YAY_AUR_REMOTE" "$YAY_BUILD_DIR/yay-bin" || die "could not clone yay-bin"
+  git -C "$YAY_BUILD_DIR/yay-bin" checkout --detach "$YAY_AUR_COMMIT" \
+    || die "audited yay-bin commit is unavailable"
+  (
+    cd "$YAY_BUILD_DIR/yay-bin" || exit 1
+    makepkg --noconfirm --cleanbuild
+  ) || die "yay-bin package build failed"
+
+  # PKGBUILD output paths contain no whitespace. Install the built package with
+  # the controller's selected privilege command so doas-only hosts work too.
+  # shellcheck disable=SC2046
+  set -- $(cd "$YAY_BUILD_DIR/yay-bin" && makepkg --packagelist)
+  [ "$#" -gt 0 ] || die "yay-bin build produced no package"
+  run_privileged pacman -U --needed --noconfirm -- "$@" || die "yay-bin installation failed"
+
+  cleanup_yay_build
+  trap - EXIT HUP INT TERM
+}
+
+prepare_linux_prerequisites() {
+  command -v pacman >/dev/null 2>&1 || die "Linux bootstrap currently requires Arch Linux and pacman"
+  install_arch_packages chezmoi git zsh
+  if [ "$PROFILE" = riced-linux ]; then
+    # Core owns portable AUR packages, so the helper must exist before core's
+    # run_after scripts execute on a fresh desktop.
+    bootstrap_yay
+  fi
+}
+
+prepare_prerequisites() {
+  case "$SYSTEM_NAME" in
+    Darwin) prepare_macos_prerequisites ;;
+    Linux) prepare_linux_prerequisites ;;
+    *) die "unsupported operating system: $SYSTEM_NAME" ;;
+  esac
+}
+
+set_linux_login_shell() {
+  [ "$SYSTEM_NAME" = Linux ] || return 0
+  zsh_path=$(command -v zsh 2>/dev/null || true)
+  [ -n "$zsh_path" ] || return 0
+  current_shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
+  [ "$current_shell" = "$zsh_path" ] && return 0
+
+  choose_privilege
+  if ! grep -qxF "$zsh_path" /etc/shells 2>/dev/null; then
+    printf '%s\n' "$zsh_path" | run_privileged tee -a /etc/shells >/dev/null || {
+      warn "could not add $zsh_path to /etc/shells"
+      return 0
+    }
+  fi
+  if run_privileged chsh -s "$zsh_path" "$(id -un)"; then
+    info "Login shell set to $zsh_path; new sessions will use it"
+  else
+    warn "could not set the login shell; run: chsh -s $zsh_path"
+  fi
+}
+
+apply_source() {
+  apply_label=$1
+  apply_path=$2
+  shift 2
+  info "Applying $apply_label from $apply_path"
+  if [ "$VERBOSE" -eq 1 ]; then
+    CHEZMOI_BOOTSTRAP_MODE=1 chezmoi apply --source="$apply_path" --verbose "$@"
+  else
+    CHEZMOI_BOOTSTRAP_MODE=1 chezmoi apply --source="$apply_path" "$@"
+  fi
+}
+
+print_apply_plan() {
+  say "Profile:        $PROFILE"
+  say "Core source:    $CORE_SOURCE"
+  if profile_has_overlay; then
+    say "Overlay source: $OVERLAY_SOURCE"
+  else
+    say "Overlay source: (none)"
+  fi
+  say
+  say "Would perform, in order:"
+  case "$SYSTEM_NAME" in
+    Darwin)
+      say "  1. Ensure Homebrew, chezmoi, and required pre-apply tools exist"
+      ;;
+    Linux)
+      say "  1. Ensure pacman bootstrap packages exist in a full-upgrade transaction"
+      if [ "$PROFILE" = riced-linux ]; then
+        say "  2. Ensure the pinned yay-bin bootstrap exists before core applies"
+      fi
+      ;;
+  esac
+  say "  - Apply the portable core"
+  if profile_has_overlay; then
+    say "  - Apply the $PROFILE overlay"
+  fi
+  [ "$SYSTEM_NAME" != Linux ] || say "  - Ensure zsh is the login shell"
+  say
+  say "Skip state: packages=$SKIP_PACKAGES aur=$SKIP_AUR brew=$SKIP_BREW mise=$SKIP_MISE yazi=$SKIP_YAZI services=$SKIP_SERVICES"
+}
+
+plan_source() {
+  plan_label=$1
+  plan_path=$2
+  shift 2
+  info "Destination diff for $plan_label"
+  if [ "$VERBOSE" -eq 1 ]; then
+    CHEZMOI_BOOTSTRAP_MODE=1 chezmoi diff --source="$plan_path" \
+      --refresh-externals=never --skip-secrets --no-pager --use-builtin-diff --verbose "$@"
+  else
+    CHEZMOI_BOOTSTRAP_MODE=1 chezmoi diff --source="$plan_path" \
+      --refresh-externals=never --skip-secrets --no-pager --use-builtin-diff "$@"
+  fi
+}
+
+command_plan() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --profile)
+        need_option_value "$1" "${2:-}"
+        PROFILE=$2
+        shift 2
+        ;;
+      --profile=*)
+        PROFILE=${1#*=}
+        shift
+        ;;
+      --core-source)
+        need_option_value "$1" "${2:-}"
+        CORE_SOURCE=$2
+        shift 2
+        ;;
+      --core-source=*)
+        CORE_SOURCE=${1#*=}
+        shift
+        ;;
+      --overlay-source)
+        need_option_value "$1" "${2:-}"
+        OVERLAY_SOURCE=$2
+        shift 2
+        ;;
+      --overlay-source=*)
+        OVERLAY_SOURCE=${1#*=}
+        shift
+        ;;
+      --skip)
+        need_option_value "$1" "${2:-}"
+        enable_skips "$2"
+        shift 2
+        ;;
+      --skip=*)
+        enable_skips "${1#*=}"
+        shift
+        ;;
+      -v | --verbose)
+        VERBOSE=1
+        shift
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *) break ;;
+    esac
+  done
+
+  import_skip_environment
+  resolve_profile
+  print_apply_plan
+  if ! validate_sources; then
+    say
+    warn "source checkout is incomplete; no destination diff was attempted"
+    return 1
+  fi
+  if ! command -v chezmoi >/dev/null 2>&1; then
+    say
+    warn "chezmoi is not installed; the destination diff is unavailable"
+    return 0
+  fi
+
+  say
+  plan_source core "$CORE_SOURCE" "$@" || return 1
+  if profile_has_overlay; then
+    plan_source "$PROFILE overlay" "$OVERLAY_SOURCE" "$@" || return 1
+  fi
+}
+
+command_apply() {
+  apply_dry_run=0
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --profile)
+        need_option_value "$1" "${2:-}"
+        PROFILE=$2
+        shift 2
+        ;;
+      --profile=*)
+        PROFILE=${1#*=}
+        shift
+        ;;
+      --core-source)
+        need_option_value "$1" "${2:-}"
+        CORE_SOURCE=$2
+        shift 2
+        ;;
+      --core-source=*)
+        CORE_SOURCE=${1#*=}
+        shift
+        ;;
+      --overlay-source)
+        need_option_value "$1" "${2:-}"
+        OVERLAY_SOURCE=$2
+        shift 2
+        ;;
+      --overlay-source=*)
+        OVERLAY_SOURCE=${1#*=}
+        shift
+        ;;
+      --skip)
+        need_option_value "$1" "${2:-}"
+        enable_skips "$2"
+        shift 2
+        ;;
+      --skip=*)
+        enable_skips "${1#*=}"
+        shift
+        ;;
+      -n | --dry-run)
+        apply_dry_run=1
+        shift
+        ;;
+      -v | --verbose)
+        VERBOSE=1
+        shift
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *) break ;;
+    esac
+  done
+
+  if [ "$apply_dry_run" -eq 1 ]; then
+    plan_args="--profile=$PROFILE --core-source=$CORE_SOURCE --overlay-source=$OVERLAY_SOURCE"
+    [ "$VERBOSE" -eq 0 ] || plan_args="$plan_args --verbose"
+    # These controller-generated values contain no whitespace in the standard
+    # layout. Explicit paths with whitespace should use `dotfiles plan`.
+    # shellcheck disable=SC2086
+    command_plan $plan_args -- "$@"
+    return
+  fi
+
+  reject_root
+  import_skip_environment
+  resolve_profile
+  validate_sources || die "required source checkout is missing"
+  export_skip_environment
+  prepare_prerequisites
+
+  if ! apply_source core "$CORE_SOURCE" "$@"; then
+    warn "apply stopped: portable core failed; the overlay was not run"
+    return 1
+  fi
+  if profile_has_overlay && ! apply_source "$PROFILE overlay" "$OVERLAY_SOURCE" "$@"; then
+    warn "apply stopped: $PROFILE overlay failed after core completed"
+    return 1
+  fi
+  set_linux_login_shell
+  info "Dotfiles apply completed for $PROFILE"
+}
+
+git_clone_source() {
+  clone_label=$1
+  clone_remote=$2
+  clone_path=$3
+  if [ -d "$clone_path/.git" ]; then
+    info "$clone_label already exists at $clone_path"
+    return 0
+  fi
+  [ ! -e "$clone_path" ] || die "$clone_path exists but is not a Git checkout"
+  mkdir -p "$(dirname -- "$clone_path")" || die "could not create source parent directory"
+  info "Cloning $clone_label into $clone_path"
+  git clone "$clone_remote" "$clone_path" || die "could not clone $clone_label"
+}
+
+command_init() {
+  reject_root
+  [ "$#" -gt 0 ] || die "init requires personal-mac or riced-linux"
+  PROFILE=$1
+  shift
+  case "$PROFILE" in
+    personal-mac | riced-linux) ;;
+    *) die "init supports personal-mac or riced-linux" ;;
+  esac
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --core-source)
+        need_option_value "$1" "${2:-}"
+        CORE_SOURCE=$2
+        shift 2
+        ;;
+      --core-source=*)
+        CORE_SOURCE=${1#*=}
+        shift
+        ;;
+      --overlay-source)
+        need_option_value "$1" "${2:-}"
+        OVERLAY_SOURCE=$2
+        shift 2
+        ;;
+      --overlay-source=*)
+        OVERLAY_SOURCE=${1#*=}
+        shift
+        ;;
+      --skip)
+        need_option_value "$1" "${2:-}"
+        enable_skips "$2"
+        shift 2
+        ;;
+      --skip=*)
+        enable_skips "${1#*=}"
+        shift
+        ;;
+      *) die "unknown init option: $1" ;;
+    esac
+  done
+
+  import_skip_environment
+  resolve_profile
+  prepare_prerequisites
+  command -v git >/dev/null 2>&1 || die "git is required to initialize sources"
+  git_clone_source core "$CORE_REMOTE" "$CORE_SOURCE"
+  case "$PROFILE" in
+    personal-mac) git_clone_source "$PROFILE overlay" "$MAC_REMOTE" "$OVERLAY_SOURCE" ;;
+    riced-linux) git_clone_source "$PROFILE overlay" "$LINUX_REMOTE" "$OVERLAY_SOURCE" ;;
+  esac
+  command_apply --profile "$PROFILE" --core-source "$CORE_SOURCE" --overlay-source "$OVERLAY_SOURCE"
+}
+
+doctor_ok() {
+  printf 'ok:      %s\n' "$*"
+}
+
+doctor_warn() {
+  printf 'warning: %s\n' "$*"
+}
+
+doctor_error() {
+  printf 'error:   %s\n' "$*"
+  DOCTOR_ERRORS=$((DOCTOR_ERRORS + 1))
+}
+
+doctor_command() {
+  doctor_name=$1
+  doctor_required=$2
+  if command -v "$doctor_name" >/dev/null 2>&1; then
+    doctor_ok "$doctor_name: $(command -v "$doctor_name")"
+  elif [ "$doctor_required" = required ]; then
+    doctor_error "$doctor_name is missing"
+  else
+    doctor_warn "$doctor_name is unavailable"
+  fi
+}
+
+profile_minimum_version() {
+  minimum_name=$1
+  minimum_file=$OVERLAY_SOURCE/.chezmoidata/profiles.toml
+  [ -f "$minimum_file" ] || return 0
+  awk -F ' *= *' -v key="$minimum_name" '
+    /^\[profiles\.riced-linux\.minimumVersions\]$/ { in_section=1; next }
+    /^\[/ { in_section=0 }
+    in_section && $1 == key { gsub(/^"|"$/, "", $2); print $2; exit }
+  ' "$minimum_file"
+}
+
+version_at_least() {
+  version_actual=$1
+  version_minimum=$2
+  [ -n "$version_actual" ] && [ -n "$version_minimum" ] || return 1
+  version_first=$(printf '%s\n%s\n' "$version_minimum" "$version_actual" | sort -V 2>/dev/null | sed -n '1p')
+  [ "$version_first" = "$version_minimum" ]
+}
+
+numeric_version_at_least() {
+  numeric_actual=$1
+  numeric_minimum=$2
+  awk -v actual="$numeric_actual" -v minimum="$numeric_minimum" 'BEGIN {
+    actual_count = split(actual, actual_parts, ".")
+    minimum_count = split(minimum, minimum_parts, ".")
+    count = actual_count > minimum_count ? actual_count : minimum_count
+    for (i = 1; i <= count; i++) {
+      actual_part = actual_parts[i] + 0
+      minimum_part = minimum_parts[i] + 0
+      if (actual_part > minimum_part) exit 0
+      if (actual_part < minimum_part) exit 1
+    }
+    exit 0
+  }'
+}
+
+doctor_linux_desktop() {
+  niri_minimum=$(profile_minimum_version niri)
+  noctalia_minimum=$(profile_minimum_version noctalia)
+
+  if command -v niri >/dev/null 2>&1; then
+    niri_actual=$(niri --version 2>/dev/null | awk '{print $NF}')
+    if [ -z "$niri_minimum" ] || version_at_least "$niri_actual" "$niri_minimum"; then
+      doctor_ok "niri $niri_actual${niri_minimum:+ (minimum $niri_minimum)}"
+    else
+      doctor_error "niri $niri_actual is older than required $niri_minimum"
+    fi
+  else
+    doctor_error "niri is missing${niri_minimum:+ (minimum $niri_minimum)}"
+  fi
+
+  noctalia_command=
+  for noctalia_candidate in noctalia noctalia-shell; do
+    if command -v "$noctalia_candidate" >/dev/null 2>&1; then
+      noctalia_command=$noctalia_candidate
+      break
+    fi
+  done
+  if [ -n "$noctalia_command" ]; then
+    noctalia_actual=$($noctalia_command --version 2>/dev/null | awk '{print $NF}')
+    if [ -z "$noctalia_minimum" ] || version_at_least "$noctalia_actual" "$noctalia_minimum"; then
+      doctor_ok "$noctalia_command $noctalia_actual${noctalia_minimum:+ (minimum $noctalia_minimum)}"
+    else
+      doctor_error "$noctalia_command $noctalia_actual is older than required $noctalia_minimum"
+    fi
+  else
+    doctor_error "Noctalia is missing${noctalia_minimum:+ (minimum $noctalia_minimum)}"
+  fi
+
+  noctalia_config=$OVERLAY_SOURCE/dot_config/noctalia/config.toml.tmpl
+  if [ -f "$noctalia_config" ]; then
+    sed -n 's#.*{{ \.chezmoi\.homeDir }}/\([^"}]*\)".*#\1#p' "$noctalia_config" | sort -u \
+      | while IFS= read -r wallpaper_path; do
+        [ -z "$wallpaper_path" ] && continue
+        if [ -e "$HOME/$wallpaper_path" ]; then
+          doctor_ok "wallpaper exists: ~/$wallpaper_path"
+        else
+          doctor_warn "wallpaper is missing: ~/$wallpaper_path"
+        fi
+      done
+  fi
+
+  if command -v niri >/dev/null 2>&1 && niri_outputs=$(niri msg outputs 2>/dev/null); then
+    sed -n 's/^[[:space:]]*output = "\([^"]*\)"/\1/p' "$noctalia_config" 2>/dev/null | sort -u \
+      | while IFS= read -r expected_output; do
+        if printf '%s\n' "$niri_outputs" | grep -Fq -- "$expected_output"; then
+          doctor_ok "Niri output present: $expected_output"
+        else
+          doctor_warn "configured output is not active: $expected_output"
+        fi
+      done
+  else
+    doctor_warn "Niri output names could not be checked outside a running session"
+  fi
+}
+
+doctor_macos_desktop() {
+  omni_info=/Applications/OmniWM.app/Contents/Info.plist
+  if [ -f "$omni_info" ]; then
+    omni_version=$(/usr/bin/defaults read /Applications/OmniWM.app/Contents/Info CFBundleShortVersionString 2>/dev/null || true)
+    if [ -n "$omni_version" ] && numeric_version_at_least "$omni_version" 0.6.3; then
+      doctor_ok "OmniWM $omni_version (minimum 0.6.3)"
+    else
+      doctor_error "OmniWM ${omni_version:-unknown} is older than required 0.6.3"
+    fi
+  else
+    doctor_warn "OmniWM is not installed"
+  fi
+}
+
+command_doctor() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --profile)
+        need_option_value "$1" "${2:-}"
+        PROFILE=$2
+        shift 2
+        ;;
+      --profile=*)
+        PROFILE=${1#*=}
+        shift
+        ;;
+      --core-source)
+        need_option_value "$1" "${2:-}"
+        CORE_SOURCE=$2
+        shift 2
+        ;;
+      --core-source=*)
+        CORE_SOURCE=${1#*=}
+        shift
+        ;;
+      --overlay-source)
+        need_option_value "$1" "${2:-}"
+        OVERLAY_SOURCE=$2
+        shift 2
+        ;;
+      --overlay-source=*)
+        OVERLAY_SOURCE=${1#*=}
+        shift
+        ;;
+      *) die "unknown doctor option: $1" ;;
+    esac
+  done
+
+  resolve_profile
+  DOCTOR_ERRORS=0
+  say "Profile: $PROFILE ($SYSTEM_NAME)"
+  if validate_source_dir core "$CORE_SOURCE"; then
+    doctor_ok "core source: $CORE_SOURCE"
+  else
+    doctor_error "core source is invalid"
+  fi
+  if profile_has_overlay; then
+    if validate_source_dir "$PROFILE overlay" "$OVERLAY_SOURCE"; then
+      doctor_ok "overlay source: $OVERLAY_SOURCE"
+    else
+      doctor_error "$PROFILE overlay source is invalid"
+    fi
+  fi
+
+  doctor_command git required
+  doctor_command chezmoi required
+  doctor_command zsh required
+  case "$SYSTEM_NAME" in
+    Darwin)
+      doctor_command brew required
+      [ "$PROFILE" != personal-mac ] || doctor_macos_desktop
+      ;;
+    Linux)
+      doctor_command pacman required
+      doctor_command sudo optional
+      if ! command -v sudo >/dev/null 2>&1; then
+        doctor_command doas required
+      fi
+      [ "$PROFILE" != riced-linux ] || doctor_linux_desktop
+      ;;
+  esac
+
+  case ":${PATH:-}:" in
+    *:"$HOME/.local/bin":*) doctor_ok "$HOME/.local/bin is on PATH" ;;
+    *) doctor_warn "$HOME/.local/bin is not on PATH in this process" ;;
+  esac
+  if command -v pass >/dev/null 2>&1 && [ -d "$HOME/.password-store" ]; then
+    doctor_ok "pass store is available for scoped secret execution"
+  else
+    doctor_warn "pass store is unavailable; dotfiles exec --secrets will not work"
+  fi
+
+  if [ "$DOCTOR_ERRORS" -gt 0 ]; then
+    say "$DOCTOR_ERRORS required doctor check(s) failed"
+    return 1
+  fi
+  say "All required doctor checks passed"
+}
+
+cleanup_verify() {
+  case "${VERIFY_TMP:-}" in
+    "${TMPDIR:-/tmp}"/dotfiles-verify.*) rm -rf -- "$VERIFY_TMP" ;;
+  esac
+}
+
+managed_paths() {
+  managed_source=$1
+  CHEZMOI_BOOTSTRAP_MODE=1 chezmoi managed --source="$managed_source" \
+    --include=files,symlinks --path-style=relative --refresh-externals=never \
+    | LC_ALL=C sort -u
+}
+
+manifest_paths() {
+  manifest_file=$1
+  if [ -f "$manifest_file" ]; then
+    awk 'NF && $1 !~ /^#/ { sub(/^\.\//, ""); print }' "$manifest_file" | LC_ALL=C sort -u
+  fi
+}
+
+verify_ownership() {
+  profile_has_overlay || return 0
+  VERIFY_TMP=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-verify.XXXXXX") || die "could not create verification directory"
+  trap cleanup_verify EXIT HUP INT TERM
+
+  managed_paths "$CORE_SOURCE" >"$VERIFY_TMP/core-managed" || return 1
+  managed_paths "$OVERLAY_SOURCE" >"$VERIFY_TMP/overlay-managed" || return 1
+  manifest_paths "$CORE_SOURCE/.chezmoiremove" >"$VERIFY_TMP/core-remove"
+  manifest_paths "$OVERLAY_SOURCE/.chezmoiremove" >"$VERIFY_TMP/overlay-remove"
+
+  ownership_conflicts=$(comm -12 "$VERIFY_TMP/core-managed" "$VERIFY_TMP/overlay-managed")
+  removal_conflicts=$(
+    comm -12 "$VERIFY_TMP/core-remove" "$VERIFY_TMP/overlay-managed"
+    comm -12 "$VERIFY_TMP/overlay-remove" "$VERIFY_TMP/core-managed"
+  )
+  if [ -n "$ownership_conflicts$removal_conflicts" ]; then
+    [ -z "$ownership_conflicts" ] || printf 'Targets managed by both sources:\n%s\n' "$ownership_conflicts" >&2
+    [ -z "$removal_conflicts" ] || printf 'Targets removed by one source and managed by the other:\n%s\n' "$removal_conflicts" >&2
+    cleanup_verify
+    trap - EXIT HUP INT TERM
+    return 1
+  fi
+  info "Core and overlay target ownership is disjoint"
+  cleanup_verify
+  trap - EXIT HUP INT TERM
+}
+
+verify_repository() {
+  verify_label=$1
+  verify_repo=$2
+  info "Verifying $verify_label"
+  git -C "$verify_repo" diff --check || return 1
+  if [ -f "$verify_repo/.pre-commit-config.yaml" ] && command -v pre-commit >/dev/null 2>&1; then
+    pre-commit validate-config "$verify_repo/.pre-commit-config.yaml" || return 1
+  fi
+  if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks git --no-banner --no-color --redact "$verify_repo" || return 1
+  else
+    warn "gitleaks is unavailable; skipped history scan for $verify_label"
+  fi
+}
+
+command_verify() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --profile)
+        need_option_value "$1" "${2:-}"
+        PROFILE=$2
+        shift 2
+        ;;
+      --profile=*)
+        PROFILE=${1#*=}
+        shift
+        ;;
+      --core-source)
+        need_option_value "$1" "${2:-}"
+        CORE_SOURCE=$2
+        shift 2
+        ;;
+      --core-source=*)
+        CORE_SOURCE=${1#*=}
+        shift
+        ;;
+      --overlay-source)
+        need_option_value "$1" "${2:-}"
+        OVERLAY_SOURCE=$2
+        shift 2
+        ;;
+      --overlay-source=*)
+        OVERLAY_SOURCE=${1#*=}
+        shift
+        ;;
+      *) die "unknown verify option: $1" ;;
+    esac
+  done
+
+  resolve_profile
+  validate_sources || die "cannot verify missing sources"
+  command -v chezmoi >/dev/null 2>&1 || die "chezmoi is required for rendered verification"
+
+  # Render every active managed file before repository-local checks. This is
+  # read-only and catches template/data errors without running apply scripts.
+  managed_paths "$CORE_SOURCE" >/dev/null || return 1
+  if profile_has_overlay; then
+    managed_paths "$OVERLAY_SOURCE" >/dev/null || return 1
+  fi
+  verify_ownership || return 1
+  verify_repository core "$CORE_SOURCE" || return 1
+  if [ -x "$CORE_SOURCE/scripts/check-public.sh" ]; then
+    (cd "$CORE_SOURCE" && scripts/check-public.sh) || return 1
+  fi
+  if profile_has_overlay; then
+    verify_repository "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
+  fi
+  if [ "$PROFILE" = riced-linux ]; then
+    if command -v niri >/dev/null 2>&1; then
+      niri validate --config "$OVERLAY_SOURCE/dot_config/niri/config.kdl" || return 1
+    else
+      warn "niri is unavailable; source config validation requires the Arch host"
+    fi
+  fi
+  info "All active-source verification checks passed"
+}
+
+install_hooks_in() {
+  hook_label=$1
+  hook_repo=$2
+  [ -f "$hook_repo/.pre-commit-config.yaml" ] || return 0
+  info "Installing pre-commit hook in $hook_label"
+  (cd "$hook_repo" && pre-commit install) || return 1
+}
+
+command_hooks() {
+  reject_root
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --profile)
+        need_option_value "$1" "${2:-}"
+        PROFILE=$2
+        shift 2
+        ;;
+      --profile=*)
+        PROFILE=${1#*=}
+        shift
+        ;;
+      --core-source)
+        need_option_value "$1" "${2:-}"
+        CORE_SOURCE=$2
+        shift 2
+        ;;
+      --core-source=*)
+        CORE_SOURCE=${1#*=}
+        shift
+        ;;
+      --overlay-source)
+        need_option_value "$1" "${2:-}"
+        OVERLAY_SOURCE=$2
+        shift 2
+        ;;
+      --overlay-source=*)
+        OVERLAY_SOURCE=${1#*=}
+        shift
+        ;;
+      *) die "unknown hooks option: $1" ;;
+    esac
+  done
+  resolve_profile
+  validate_sources || die "cannot install hooks for missing sources"
+  command -v pre-commit >/dev/null 2>&1 || die "pre-commit is required"
+  install_hooks_in core "$CORE_SOURCE" || return 1
+  if profile_has_overlay; then
+    install_hooks_in "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
+  fi
+}
+
+pass_first_line() {
+  secret_path=$1
+  pass show "$secret_path" 2>/dev/null | sed -n '1p'
+}
+
+command_exec() {
+  secret_group=
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --secrets)
+        need_option_value "$1" "${2:-}"
+        secret_group=$2
+        shift 2
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *) die "unknown exec option: $1" ;;
+    esac
+  done
+  [ -n "$secret_group" ] || die "exec requires --secrets ai or --secrets aws"
+  [ "$#" -gt 0 ] || die "exec requires a command after --"
+  command -v pass >/dev/null 2>&1 || die "pass is required for scoped secret execution"
+  [ -d "$HOME/.password-store" ] || die "password store not found at ~/.password-store"
+
+  case "$secret_group" in
+    ai)
+      gemini_key=$(pass_first_line api/ai/gemini) || die "could not read api/ai/gemini"
+      openrouter_key=$(pass_first_line api/ai/openrouter) || die "could not read api/ai/openrouter"
+      [ -n "$gemini_key" ] || die "api/ai/gemini is empty"
+      [ -n "$openrouter_key" ] || die "api/ai/openrouter is empty"
+      exec env GEMINI_API_KEY="$gemini_key" OPENROUTER_API_KEY="$openrouter_key" "$@"
+      ;;
+    aws)
+      aws_secret=$(pass_first_line aws/secret_key) || die "could not read aws/secret_key"
+      aws_access=$(pass_first_line aws/access_key) || die "could not read aws/access_key"
+      [ -n "$aws_secret" ] || die "aws/secret_key is empty"
+      [ -n "$aws_access" ] || die "aws/access_key is empty"
+      exec env AWS_SECRET_ACCESS_KEY="$aws_secret" AWS_ACCESS_KEY_ID="$aws_access" "$@"
+      ;;
+    *) die "unknown secret group: $secret_group" ;;
+  esac
+}
+
+main() {
+  [ "$#" -gt 0 ] || {
+    usage
+    return 2
+  }
+  command_name=$1
+  shift
+  case "$command_name" in
+    init) command_init "$@" ;;
+    doctor) command_doctor "$@" ;;
+    plan) command_plan "$@" ;;
+    apply) command_apply "$@" ;;
+    verify) command_verify "$@" ;;
+    hooks) command_hooks "$@" ;;
+    exec) command_exec "$@" ;;
+    help | -h | --help) usage ;;
+    *)
+      usage >&2
+      die "unknown command: $command_name"
+      ;;
+  esac
+}
+
+main "$@"

@@ -1,12 +1,9 @@
 #!/bin/sh
-# prevent direct applies from bypassing bootstrap's prerequisite checks.
+# Prevent direct applies from bypassing the controller's prerequisite checks.
 set -e
 
-# Skip check in CI environments
-[ -n "$CI" ] && exit 0
-
-# If running via bootstrap.sh, CHEZMOI_BOOTSTRAP_MODE is set
+# The controller (and its compatibility bootstrap wrapper) sets this flag.
 if [ -z "$CHEZMOI_BOOTSTRAP_MODE" ]; then
-  echo "ERROR: Run ./bootstrap.sh instead of 'chezmoi apply' directly"
+  echo "ERROR: Run 'dotfiles apply' instead of 'chezmoi apply' directly"
   exit 1
 fi

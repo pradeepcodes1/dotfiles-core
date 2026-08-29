@@ -53,7 +53,7 @@ ssh() {
 #
 # -c pins the writable host list. sshm writes new and edited hosts to whatever
 # -c names, and ~/.ssh/config itself is chezmoi-managed — pointing sshm at it
-# would mean every `sshm add` gets reverted by the next `./bootstrap.sh`.
+# would mean every `sshm add` gets reverted by the next `dotfiles apply`.
 #
 # The PATH prefix is what makes sshm's connections use the kitten: sshm looks up
 # `ssh` on PATH and execs it, with no setting to override the binary. The shim

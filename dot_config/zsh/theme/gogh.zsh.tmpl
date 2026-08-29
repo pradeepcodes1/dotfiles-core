@@ -1,4 +1,4 @@
-# import arbitrary terminal palettes safely without making Gogh a runtime dependency.
+# compile validated Gogh palettes into the repo-wide runtime theme format.
 # Gogh catalog browser and importer
 
 _gogh_require_command() {
@@ -93,24 +93,6 @@ _gogh_slug() {
     | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
 }
 
-_gogh_mapping_value() {
-  local color_file="$1"
-  local key="$2"
-
-  (
-    unset "$key"
-    source "$color_file" >/dev/null 2>&1 || return 1
-    local value="${(P)key}"
-    [[ -n "$value" ]] || return 1
-
-    # Imported files are sourced by interactive shells. Keep copied registry
-    # names within a conservative quoted-string alphabet.
-    [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || return 1
-    [[ "$value" != *[\\\"\$\`\!]* ]] || return 1
-    print -r -- "$value"
-  )
-}
-
 _gogh_write_mapping() {
   local output_file="$1"
   local key="$2"
@@ -122,7 +104,7 @@ _gogh_write_mapping() {
 _gogh_import_index() {
   local index="$1"
   local catalog_file="$_DOTFILES_GOGH_CATALOG_FILE"
-  local name mode slug theme_name target_file temp_file curated_file
+  local name mode slug theme_name target_file temp_file
   local -a palette
 
   [[ "$index" == <-> ]] || {
@@ -167,7 +149,6 @@ _gogh_import_index() {
   [[ -n "$slug" ]] || slug="theme-$index"
   theme_name="gogh-$slug"
   target_file="$_DOTFILES_GOGH_THEMES_DIR/${theme_name}.sh"
-  curated_file="$_DOTFILES_COLORS_DIR/${slug}.sh"
 
   if ! mkdir -p "$_DOTFILES_GOGH_THEMES_DIR"; then
     error_log "theme" "Could not create the Gogh themes directory"
@@ -186,7 +167,8 @@ _gogh_import_index() {
     printf '# Transparent: 0\n'
     printf '# Source: Gogh (%s)\n\n' "$name"
 
-    printf 'gogh_theme=1\n\n'
+    printf 'gogh_theme=1\n'
+    printf 'gogh_format=2\n\n'
     printf '# Terminal colors\n'
     printf 'bg="%s"\nfg="%s"\n\n' "$palette[1]" "$palette[2]"
 
@@ -214,7 +196,7 @@ _gogh_import_index() {
     printf 'ui_border="%s"\nui_active="%s"\nui_inactive="%s"\n\n' \
       "$palette[11]" "$palette[9]" "$palette[11]"
 
-    printf '# Neovim and foreign theme registries\n'
+    printf '# Generated app adapters\n'
     printf 'nvim_background="%s"\n' "$mode"
   } >| "$temp_file" || {
     rm -f -- "$temp_file"
@@ -222,19 +204,11 @@ _gogh_import_index() {
     return 1
   }
 
-  local key value
   local mapping_failed=0
-  if [[ -f "$curated_file" ]]; then
-    for key in nvim_colorscheme nvim_lualine bat_theme eza_theme yazi_flavor; do
-      value="$(_gogh_mapping_value "$curated_file" "$key")" || continue
-      _gogh_write_mapping "$temp_file" "$key" "$value" || mapping_failed=1
-    done
-  else
-    _gogh_write_mapping "$temp_file" nvim_colorscheme dotfiles-gogh || mapping_failed=1
-    _gogh_write_mapping "$temp_file" nvim_lualine dotfiles-gogh || mapping_failed=1
-    _gogh_write_mapping "$temp_file" bat_theme ansi || mapping_failed=1
-    _gogh_write_mapping "$temp_file" eza_theme default || mapping_failed=1
-  fi
+  _gogh_write_mapping "$temp_file" nvim_colorscheme dotfiles-gogh || mapping_failed=1
+  _gogh_write_mapping "$temp_file" nvim_lualine dotfiles-gogh || mapping_failed=1
+  _gogh_write_mapping "$temp_file" bat_theme ansi || mapping_failed=1
+  _gogh_write_mapping "$temp_file" eza_theme default || mapping_failed=1
 
   if [[ $mapping_failed -ne 0 ]]; then
     rm -f -- "$temp_file"
@@ -252,24 +226,41 @@ _gogh_import_index() {
   REPLY="$theme_name"
 }
 
-_gogh_pick_and_import() {
-  local option="${1:-}"
-  local refresh=0 selected index preview_command
+_gogh_import_slug() {
+  local slug="$1"
+  local -a matches
 
-  REPLY=""
-  case "$option" in
-    "") ;;
-    refresh|--refresh) refresh=1 ;;
-    *)
-      error_log "theme" "Usage: theme gogh [refresh|--refresh]"
-      return 1
-      ;;
-  esac
-
-  [[ $# -le 1 ]] || {
-    error_log "theme" "Usage: theme gogh [refresh|--refresh]"
+  [[ "$slug" =~ '^[a-z0-9][a-z0-9-]*$' ]] || {
+    error_log "theme" "Invalid Gogh theme slug '$slug'"
     return 1
   }
+
+  _gogh_ensure_catalog || return 1
+
+  matches=("${(@f)$(jq -r --arg slug "$slug" '
+    to_entries[]
+    | select((.value.name
+        | ascii_downcase
+        | gsub("[^a-z0-9]+"; "-")
+        | sub("^-+"; "")
+        | sub("-+$"; "")) == $slug)
+    | .key
+  ' "$_DOTFILES_GOGH_CATALOG_FILE")}")
+
+  if [[ ${#matches} -ne 1 ]]; then
+    error_log "theme" "Gogh catalog does not contain one unique theme for '$slug'"
+    return 1
+  fi
+
+  _gogh_import_index "$matches[1]"
+}
+
+_gogh_pick_and_import() {
+  local refresh="${1:-0}"
+  local selected index preview_command
+
+  REPLY=""
+  [[ "$refresh" == 0 || "$refresh" == 1 ]] || return 1
 
   _gogh_require_command fzf || return 1
   _gogh_ensure_catalog "$refresh" || return 1

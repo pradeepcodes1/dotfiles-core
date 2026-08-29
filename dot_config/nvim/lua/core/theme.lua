@@ -83,10 +83,6 @@ local function state_file()
 	return vim.fs.joinpath(expand(state_home), "dotfiles", "theme")
 end
 
-local function colors_dir()
-	return vim.fs.joinpath(vim.fs.dirname(vim.fn.stdpath("config")), "colors")
-end
-
 local function gogh_themes_dir()
 	local data_home = vim.env.XDG_DATA_HOME or "~/.local/share"
 	return vim.fs.joinpath(expand(data_home), "dotfiles", "gogh", "themes")
@@ -97,16 +93,10 @@ local function read_theme_name()
 end
 
 local function find_theme_path(theme_name)
-	local candidates = {
-		{ path = vim.fs.joinpath(colors_dir(), theme_name .. ".sh"), source = "curated" },
-		{ path = vim.fs.joinpath(gogh_themes_dir(), theme_name .. ".sh"), source = "gogh" },
-	}
-
-	for _, candidate in ipairs(candidates) do
-		local file = io.open(candidate.path, "r")
-		if file then
-			return file, candidate.path, candidate.source
-		end
+	local path = vim.fs.joinpath(gogh_themes_dir(), theme_name .. ".sh")
+	local file = io.open(path, "r")
+	if file then
+		return file, path, "gogh"
 	end
 
 	return nil, nil, nil
@@ -164,8 +154,8 @@ function M.resolve()
 			source = parsed.source,
 			mode = parsed.mode or vim.env._DOTFILES_THEME_MODE,
 			transparent = parsed.transparent == true,
-			colorscheme = parsed.colorscheme or "kanagawa-dragon",
-			lualine = parsed.lualine or "codedark",
+			colorscheme = parsed.colorscheme or "dotfiles-gogh",
+			lualine = parsed.lualine or "dotfiles-gogh",
 			background = parsed.background or (parsed.colorscheme == "dotfiles-gogh" and parsed.mode or nil),
 			palette = parsed.palette,
 		}
@@ -175,8 +165,8 @@ function M.resolve()
 		name = vim.env._DOTFILES_THEME_NAME,
 		mode = vim.env._DOTFILES_THEME_MODE,
 		transparent = vim.env._DOTFILES_THEME_TRANSPARENT == "1",
-		colorscheme = vim.env._DOTFILES_NVIM_COLORSCHEME or "kanagawa-dragon",
-		lualine = vim.env._DOTFILES_NVIM_LUALINE or "codedark",
+		colorscheme = vim.env._DOTFILES_NVIM_COLORSCHEME or "dotfiles-gogh",
+		lualine = vim.env._DOTFILES_NVIM_LUALINE or "dotfiles-gogh",
 		background = vim.env._DOTFILES_NVIM_BACKGROUND,
 		palette = nil,
 	}

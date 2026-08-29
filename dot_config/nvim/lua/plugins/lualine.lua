@@ -58,8 +58,8 @@ return {
 				sep = " > ",
 			}
 
-			-- Lualine theme from env var (set by ~/.config/colors/*.sh)
-			local lualine_theme = os.getenv("_DOTFILES_NVIM_LUALINE") or "codedark"
+			-- Lualine theme compiled from the active Gogh palette.
+			local lualine_theme = os.getenv("_DOTFILES_NVIM_LUALINE") or "dotfiles-gogh"
 
 			require("lualine").setup({
 				sections = {

@@ -1,85 +1,13 @@
 #!/bin/sh
-# Bootstrap and apply the portable chezmoi source. Arch Linux uses pacman;
-# macOS uses Homebrew only to obtain chezmoi.
-set -e
+# Compatibility entry point. The source controller owns planning and apply.
+set -eu
 
 SCRIPT_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
-SYSTEM_NAME=$(uname -s)
+CONTROLLER=$SCRIPT_DIR/dot_local/bin/executable_dotfiles
 
-run_as_root() {
-  if [ "$(id -u)" -eq 0 ]; then
-    "$@"
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo "$@"
-  elif command -v doas >/dev/null 2>&1; then
-    doas "$@"
-  else
-    echo "This operation requires root, sudo, or doas" >&2
-    exit 1
-  fi
-}
+if [ ! -x "$CONTROLLER" ]; then
+  echo "Dotfiles controller is missing or not executable: $CONTROLLER" >&2
+  exit 1
+fi
 
-install_arch_prerequisites() {
-  command -v pacman >/dev/null 2>&1 || {
-    echo "The minimal Linux profile requires pacman" >&2
-    exit 1
-  }
-
-  missing=""
-  command -v chezmoi >/dev/null 2>&1 || missing="$missing chezmoi"
-  command -v git >/dev/null 2>&1 || missing="$missing git"
-  command -v zsh >/dev/null 2>&1 || missing="$missing zsh"
-  if [ -n "$missing" ]; then
-    # shellcheck disable=SC2086
-    # Arch does not support partial upgrades. Refresh databases and upgrade the
-    # system in the same transaction whenever bootstrap packages are missing.
-    run_as_root pacman -Syu --needed --noconfirm -- $missing
-  fi
-
-  set_zsh_as_login_shell
-}
-
-# Arch installs zsh but leaves the account on its default shell, so ~/.zshrc is
-# never read and every module in this source stays dormant. macOS already
-# defaults to zsh and uses a different mechanism, so this is Linux-only.
-set_zsh_as_login_shell() {
-  zsh_path=$(command -v zsh) || return 0
-  current_shell=$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)
-  [ "$current_shell" = "$zsh_path" ] && return 0
-
-  # chsh refuses any shell missing from /etc/shells.
-  if ! grep -qxF "$zsh_path" /etc/shells 2>/dev/null; then
-    printf '%s\n' "$zsh_path" | run_as_root tee -a /etc/shells >/dev/null
-  fi
-
-  if run_as_root chsh -s "$zsh_path" "$(id -un)"; then
-    echo "Login shell set to $zsh_path. New sessions pick it up; existing ones do not."
-  else
-    echo "Could not set the login shell. Run: chsh -s $zsh_path" >&2
-  fi
-}
-
-install_macos_prerequisites() {
-  if ! command -v brew >/dev/null 2>&1; then
-    echo "Installing Homebrew..."
-    NONINTERACTIVE="${CI:+1}" /bin/bash -c \
-      "$(curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    if [ "$(uname -m)" = arm64 ]; then
-      eval "$(/opt/homebrew/bin/brew shellenv)"
-    else
-      eval "$(/usr/local/bin/brew shellenv)"
-    fi
-  fi
-  command -v chezmoi >/dev/null 2>&1 || brew install chezmoi
-}
-
-case "$SYSTEM_NAME" in
-  Darwin) install_macos_prerequisites ;;
-  Linux) install_arch_prerequisites ;;
-  *)
-    echo "Unsupported operating system: $SYSTEM_NAME" >&2
-    exit 1
-    ;;
-esac
-
-CHEZMOI_BOOTSTRAP_MODE=1 chezmoi apply --source="$SCRIPT_DIR" "$@"
+exec "$CONTROLLER" apply --profile core --core-source "$SCRIPT_DIR" "$@"

@@ -46,7 +46,9 @@ if ((EUID == 0)); then
 	exit 0
 fi
 
-for candidate in paru yay; do
+# The riced-linux controller bootstraps yay before core. Keep paru as a
+# core-only fallback for an existing installation.
+for candidate in yay paru; do
 	if command -v "$candidate" >/dev/null 2>&1; then
 		helper=("$candidate")
 		break
@@ -60,12 +62,17 @@ fi
 
 info_log "aur" "Installing ${#missing} missing AUR packages with ${helper[1]}: ${(j: :)missing}"
 
-# --noconfirm keeps the build non-interactive, but the helper still shells out
-# to sudo for the final pacman step, so an apply without a cached sudo timestamp
-# prompts for a password here.
+# Both supported helpers accept --sudo. Select doas explicitly on a doas-only
+# host instead of allowing an otherwise successful build to fail at install.
+if ! command -v sudo >/dev/null 2>&1 && command -v doas >/dev/null 2>&1; then
+	helper+=(--sudo doas)
+fi
+
+# --noconfirm keeps the build non-interactive. A requested package failing to
+# build/install is a failed apply, not a best-effort success.
 if ! "${helper[@]}" -S --needed --noconfirm -- "${missing[@]}"; then
-	warn_log "aur" "${helper[1]} failed while installing: ${(j: :)missing}"
-	exit 0
+	error_log "aur" "${helper[1]} failed while installing: ${(j: :)missing}"
+	exit 1
 fi
 
 info_log "aur" "AUR package install complete"

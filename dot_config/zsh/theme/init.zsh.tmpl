@@ -7,10 +7,22 @@ _init_theme() {
   # Check for persisted theme
   if [[ -f "$_DOTFILES_THEME_FILE" ]]; then
     theme_name="$(< "$_DOTFILES_THEME_FILE")"
-    if _load_theme_colors "$theme_name"; then
+    if _ensure_theme_available "$theme_name" && _load_theme_colors "$theme_name"; then
       _apply_theme_for init
       return
     fi
+
+    # Migrate selections written by the former curated-file system.
+    if [[ "$theme_name" != gogh-* ]]; then
+      theme_name="gogh-$theme_name"
+      if _ensure_theme_available "$theme_name" && _load_theme_colors "$theme_name"; then
+        print -r -- "$theme_name" >| "$_DOTFILES_THEME_FILE"
+        _apply_theme_for init
+        return
+      fi
+    fi
+
+    rm -f "$_DOTFILES_THEME_FILE"
   fi
 
   # Fall back to system detection
@@ -21,8 +33,12 @@ _init_theme() {
     theme_name="$_DOTFILES_LIGHT_THEME"
   fi
 
-  _load_theme_colors "$theme_name"
-  _apply_theme_for init
+  if _ensure_theme_available "$theme_name" && _load_theme_colors "$theme_name"; then
+    _apply_theme_for init
+    return
+  fi
+
+  warn_log "theme" "Could not initialize Gogh theme '$theme_name'; run 'theme' when online"
 }
 
 _init_theme

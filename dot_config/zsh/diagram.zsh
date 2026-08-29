@@ -25,14 +25,57 @@ _diagram_cleanup() {
   done
 }
 
+_diagram_open_path() {
+  local target="$1"
+  if (( $+commands[open] )); then
+    command open "$target"
+  elif (( $+commands[xdg-open] )); then
+    command xdg-open "$target"
+  else
+    error_log "diagram" "No desktop opener found (install open or xdg-open)"
+    return 1
+  fi
+}
+
 _diagram_open_excalidraw() {
   local input="$1"
-  open "$input" 2>/dev/null || {
-    open "https://excalidraw.com"
+  _diagram_open_path "$input" 2>/dev/null || {
+    _diagram_open_path "https://excalidraw.com" || return 1
     info_log "diagram" "Drag $input into excalidraw.com to open"
     return
   }
   info_log "diagram" "Opened $input"
+}
+
+_diagram_copy_image() {
+  local input="$1" mime_type
+
+  case "$input" in
+    *.png) mime_type="image/png" ;;
+    *.jpg|*.jpeg) mime_type="image/jpeg" ;;
+    *.gif) mime_type="image/gif" ;;
+    *.webp) mime_type="image/webp" ;;
+    *)
+      error_log "diagram" "Unsupported clipboard image type: $input"
+      return 1
+      ;;
+  esac
+
+  if (( $+commands[osascript] )); then
+    command osascript - "$input" <<'APPLESCRIPT'
+on run argv
+  set image_file to POSIX file (item 1 of argv)
+  set the clipboard to (read image_file as «class PNGf»)
+end run
+APPLESCRIPT
+  elif (( $+commands[wl-copy] )); then
+    command wl-copy --type "$mime_type" < "$input"
+  elif (( $+commands[xclip] )); then
+    command xclip -selection clipboard -target "$mime_type" -in < "$input"
+  else
+    error_log "diagram" "No image clipboard tool found (install wl-copy or xclip)"
+    return 1
+  fi
 }
 
 _diagram_mmdc() {
@@ -155,7 +198,6 @@ function diagram() {
       if [[ "$input" == *.excalidraw ]]; then
         _diagram_open_excalidraw "$input"; return
       fi
-      _diagram_check osascript || return 1
       _diagram_to_img "$input" || return 1
       local img="$_DIAGRAM_IMG"
       local tmp_render="$_DIAGRAM_TMP"
@@ -179,12 +221,7 @@ function diagram() {
           return "$exit_status"
         fi
       fi
-      osascript - "$copy_file" <<'APPLESCRIPT'
-on run argv
-  set image_file to POSIX file (item 1 of argv)
-  set the clipboard to (read image_file as «class PNGf»)
-end run
-APPLESCRIPT
+      _diagram_copy_image "$copy_file"
       exit_status=$?
       _diagram_cleanup "$tmp_render" "$tmp_copy"
       (( exit_status == 0 )) || return "$exit_status"
@@ -201,7 +238,7 @@ APPLESCRIPT
       echo "                                  (.mmd, .excalidraw, .png, .svg, ...)"
       echo "  show   <file>                   Fullscreen tmux popup (any key to close)"
       echo "  pipe                            Read Mermaid from stdin, render + display"
-      echo "  copy   <file>                   Render + copy to clipboard (macOS)"
+      echo "  copy   <file>                   Render + copy to the system clipboard"
       ;;
   esac
 }

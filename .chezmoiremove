@@ -1,0 +1,32 @@
+# Palette sources replaced by generated Gogh themes.
+.config/colors/README.md
+.config/colors/bearded-monokai-black.sh
+.config/colors/brogrammer.sh
+.config/colors/catppuccin-latte.sh
+.config/colors/catppuccin-mocha.sh
+.config/colors/dawnfox.sh
+.config/colors/everforest-dark.sh
+.config/colors/everforest-light.sh
+.config/colors/gruvbox-dark.sh
+.config/colors/gruvbox-light.sh
+.config/colors/kanagawa-dragon.sh
+.config/colors/kanagawa-lotus.sh
+.config/colors/kanagawa-wave.sh
+.config/colors/nightfox.sh
+
+# Native theme packages no longer used by the Gogh adapters.
+.config/nvim/lua/plugins/themes.lua
+.config/eza/eza-themes/themes/catppuccin-latte.yml
+.config/eza/eza-themes/themes/catppuccin-mocha.yml
+.config/eza/eza-themes/themes/dracula.yml
+.config/eza/eza-themes/themes/gruvbox-dark.yml
+.config/eza/eza-themes/themes/gruvbox-light.yml
+.config/eza/eza-themes/themes/rose-pine-dawn.yml
+.config/eza/eza-themes/themes/tokyonight.yml
+.config/yazi/flavors/catppuccin-mocha.yazi
+.config/yazi/flavors/catppuccin-latte.yazi
+.config/yazi/flavors/kanagawa-dragon.yazi
+.config/yazi/flavors/kanagawa.yazi
+.config/yazi/flavors/kanagawa-lotus.yazi
+.config/yazi/flavors/gruvbox-dark.yazi
+.config/yazi/flavors/everforest-medium.yazi
