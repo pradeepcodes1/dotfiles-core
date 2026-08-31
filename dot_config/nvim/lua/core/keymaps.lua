@@ -279,10 +279,10 @@ function _G._show_dashboard()
 end
 
 -- Split navigation
-map("n", "<leader><Left>", "<C-w>h", { desc = "Move to left split" })
-map("n", "<leader><Right>", "<C-w>l", { desc = "Move to right split" })
-map("n", "<leader><Up>", "<C-w>k", { desc = "Move to split above" })
-map("n", "<leader><Down>", "<C-w>j", { desc = "Move to split below" })
+map("n", "<C-h>", "<C-w>h", { desc = "Move to left split" })
+map("n", "<C-l>", "<C-w>l", { desc = "Move to right split" })
+map("n", "<C-k>", "<C-w>k", { desc = "Move to split above" })
+map("n", "<C-j>", "<C-w>j", { desc = "Move to split below" })
 map("n", "<leader>w<Left>", "<Cmd>vertical resize -10<CR>", { desc = "Resize split narrower" })
 map("n", "<leader>w<Right>", "<Cmd>vertical resize +10<CR>", { desc = "Resize split wider" })
 map("n", "<leader>w<Up>", "<Cmd>resize +10<CR>", { desc = "Resize split taller" })

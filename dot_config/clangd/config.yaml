@@ -1,0 +1,6 @@
+# Global clangd config (applies to every project on this machine).
+# When a project has no compile_commands.json in the buffer's directory
+# or any ancestor, also check a sibling "build/" dir at the project root
+# (the default output dir for Meson/CMake) before falling back to guessed flags.
+CompileFlags:
+  CompilationDatabase: build

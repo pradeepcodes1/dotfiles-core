@@ -8,3 +8,8 @@ desc = "Quit without changing directory"
 on = ["Q"]
 run = "quit"
 desc = "Quit and cd to current directory"
+
+[[mgr.prepend_keymap]]
+on = ["F"]
+run = "search --via=fd --args='--hidden --no-ignore'"
+desc = "Search files by name via fd (include hidden/ignored)"

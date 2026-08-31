@@ -92,6 +92,10 @@ vim.lsp.config("clangd", {
 	},
 })
 
+-- clangd is intentionally not in ensure_installed (we prefer the system binary),
+-- so mason-lspconfig's automatic_enable never sees it as "installed" and skips it.
+vim.lsp.enable("clangd")
+
 return {
 	{
 		"williamboman/mason-lspconfig.nvim",
