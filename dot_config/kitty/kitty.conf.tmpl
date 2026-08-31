@@ -114,16 +114,22 @@ bell_on_tab          "🔔 "
 map super+backslash       launch --location=vsplit --cwd=current
 map super+shift+backslash launch --location=hsplit --cwd=current
 
-# Super+k completes the hjkl family; Super+c handles clearing below.
-map super+h neighboring_window left
-map super+j neighboring_window down
-map super+k neighboring_window up
-map super+l neighboring_window right
+# Ctrl+hjkl, the same chord family Neovim uses for its own splits, so one
+# habit crosses the terminal/editor boundary. Kitty grabs these before the
+# program in the window sees them, which is the cost: Neovim's Ctrl+hjkl
+# splits and readline's ctrl+h (backward-delete-char), ctrl+k (kill-line) and
+# ctrl+l (clear-screen) no longer reach the child. Backspace still deletes and
+# Super+c below still clears -- `send_key` writes to the child directly, so it
+# is not intercepted by these maps.
+map ctrl+h neighboring_window left
+map ctrl+j neighboring_window down
+map ctrl+k neighboring_window up
+map ctrl+l neighboring_window right
 
-map super+shift+h move_window left
-map super+shift+j move_window down
-map super+shift+k move_window up
-map super+shift+l move_window right
+map ctrl+shift+h move_window left
+map ctrl+shift+j move_window down
+map ctrl+shift+k move_window up
+map ctrl+shift+l move_window right
 
 # Resize mode: press, then arrows/hjkl, Esc to exit.
 map super+r start_resizing_window
@@ -171,8 +177,10 @@ map super+shift+m launch --type=tab zsh -i -c sshm
 map super+c       send_key ctrl+l
 map super+shift+c copy_to_clipboard
 map super+f    show_scrollback
-map super+up   scroll_to_prompt -1
-map super+down scroll_to_prompt 1
+# Prompt jumping on the vim directions rather than the arrow keys; Super+jk
+# is free now that split navigation moved to Ctrl+hjkl above.
+map super+k scroll_to_prompt -1
+map super+j scroll_to_prompt 1
 map super+home scroll_home
 map super+end  scroll_end
 # Page or copy OSC 133-delimited command output.
