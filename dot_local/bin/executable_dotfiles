@@ -657,15 +657,30 @@ doctor_command() {
   fi
 }
 
+# Read overlay profile data through chezmoi's own template engine instead of
+# parsing TOML by hand. Keeps this public controller free of any single
+# profile's literal section names, and stays correct as the data file grows
+# nested tables. An unset key renders nothing, and every caller treats an empty
+# result as "not declared, skip the check".
+profile_data() {
+  [ -f "$OVERLAY_SOURCE/.chezmoidata/profiles.toml" ] || return 0
+  command -v chezmoi >/dev/null 2>&1 || return 0
+  printf '%s' "{{ \$profile := index .profiles .profile.name }}$1" \
+    | chezmoi --source="$OVERLAY_SOURCE" execute-template 2>/dev/null
+}
+
+profile_value() {
+  profile_data "{{ with \$profile.$1 }}{{ . }}{{ end }}"
+}
+
+# One declared list entry per line.
+profile_list() {
+  profile_data "{{ range \$profile.$1 }}{{ . }}
+{{ end }}"
+}
+
 profile_minimum_version() {
-  minimum_name=$1
-  minimum_file=$OVERLAY_SOURCE/.chezmoidata/profiles.toml
-  [ -f "$minimum_file" ] || return 0
-  awk -F ' *= *' -v key="$minimum_name" '
-    /^\[profiles\.riced-linux\.minimumVersions\]$/ { in_section=1; next }
-    /^\[/ { in_section=0 }
-    in_section && $1 == key { gsub(/^"|"$/, "", $2); print $2; exit }
-  ' "$minimum_file"
+  profile_value "minimumVersions.$1"
 }
 
 version_at_least() {
@@ -674,6 +689,38 @@ version_at_least() {
   [ -n "$version_actual" ] && [ -n "$version_minimum" ] || return 1
   version_first=$(printf '%s\n%s\n' "$version_minimum" "$version_actual" | sort -V 2>/dev/null | sed -n '1p')
   [ "$version_first" = "$version_minimum" ]
+}
+
+# Desktop tools print "<name> <version> (<git hash>)", so the last field is a
+# commit hash rather than a version. Comparing that hash against a numeric
+# minimum made every gate here pass unconditionally, because "(8ed0da4)" sorts
+# above any number under sort -V. Take the first field that looks like a
+# version instead, dropping a leading "v".
+extract_version() {
+  awk '{
+    for (i = 1; i <= NF; i++) {
+      token = $i
+      sub(/^[vV]/, "", token)
+      if (token ~ /^[0-9]+(\.[0-9]+)+([-_+~][0-9A-Za-z.]+)?$/) {
+        print token
+        exit
+      }
+    }
+  }'
+}
+
+# The first installed candidate is the one to version-check, so an AUR -git
+# build is checked under its own name rather than the stable name it Provides
+# unversioned. Mirrors the overlay's own package installer.
+installed_package_for() {
+  command -v pacman >/dev/null 2>&1 || return 1
+  for package_candidate in $(profile_list "packageNames.$1"); do
+    if pacman -Qq "$package_candidate" >/dev/null 2>&1; then
+      printf '%s\n' "$package_candidate"
+      return 0
+    fi
+  done
+  return 1
 }
 
 numeric_version_at_least() {
@@ -693,61 +740,96 @@ numeric_version_at_least() {
   }'
 }
 
-doctor_linux_desktop() {
-  niri_minimum=$(profile_minimum_version niri)
-  noctalia_minimum=$(profile_minimum_version noctalia)
+# Check one declared desktop component against its compatibility floor. The
+# remaining arguments are candidate command names, most-preferred first.
+doctor_desktop_component() {
+  component_key=$1
+  shift
+  component_minimum=$(profile_minimum_version "$component_key")
 
-  if command -v niri >/dev/null 2>&1; then
-    niri_actual=$(niri --version 2>/dev/null | awk '{print $NF}')
-    if [ -z "$niri_minimum" ] || version_at_least "$niri_actual" "$niri_minimum"; then
-      doctor_ok "niri $niri_actual${niri_minimum:+ (minimum $niri_minimum)}"
-    else
-      doctor_error "niri $niri_actual is older than required $niri_minimum"
-    fi
-  else
-    doctor_error "niri is missing${niri_minimum:+ (minimum $niri_minimum)}"
-  fi
-
-  noctalia_command=
-  for noctalia_candidate in noctalia noctalia-shell; do
-    if command -v "$noctalia_candidate" >/dev/null 2>&1; then
-      noctalia_command=$noctalia_candidate
+  component_command=
+  for command_candidate in "$@"; do
+    if command -v "$command_candidate" >/dev/null 2>&1; then
+      component_command=$command_candidate
       break
     fi
   done
-  if [ -n "$noctalia_command" ]; then
-    noctalia_actual=$($noctalia_command --version 2>/dev/null | awk '{print $NF}')
-    if [ -z "$noctalia_minimum" ] || version_at_least "$noctalia_actual" "$noctalia_minimum"; then
-      doctor_ok "$noctalia_command $noctalia_actual${noctalia_minimum:+ (minimum $noctalia_minimum)}"
-    else
-      doctor_error "$noctalia_command $noctalia_actual is older than required $noctalia_minimum"
-    fi
-  else
-    doctor_error "Noctalia is missing${noctalia_minimum:+ (minimum $noctalia_minimum)}"
+
+  if [ -z "$component_command" ]; then
+    doctor_error "$component_key is missing${component_minimum:+ (minimum $component_minimum)}"
+    return
   fi
 
-  noctalia_config=$OVERLAY_SOURCE/dot_config/noctalia/config.toml.tmpl
-  if [ -f "$noctalia_config" ]; then
-    sed -n 's#.*{{ \.chezmoi\.homeDir }}/\([^"}]*\)".*#\1#p' "$noctalia_config" | sort -u \
-      | while IFS= read -r wallpaper_path; do
-        [ -z "$wallpaper_path" ] && continue
-        if [ -e "$HOME/$wallpaper_path" ]; then
-          doctor_ok "wallpaper exists: ~/$wallpaper_path"
-        else
-          doctor_warn "wallpaper is missing: ~/$wallpaper_path"
-        fi
-      done
+  if [ -z "$component_minimum" ]; then
+    doctor_ok "$component_command is installed"
+    return
+  fi
+
+  # Prefer pacman's own comparison. It understands Arch version strings a
+  # tool's --version cannot express: noctalia-git reports the marketing
+  # "v5.0.0" while the package is 5.0.0.r5338, which is what actually satisfies
+  # a 5.0.0_beta.10 floor.
+  component_package=$(installed_package_for "$component_key" || true)
+  if [ -n "$component_package" ]; then
+    component_actual=$(pacman -Q "$component_package" 2>/dev/null | awk '{print $2}')
+    if [ -z "$(pacman -T -- "$component_package>=$component_minimum" 2>/dev/null)" ]; then
+      doctor_ok "$component_package $component_actual (minimum $component_minimum)"
+    else
+      doctor_error "$component_package $component_actual is older than required $component_minimum"
+    fi
+    return
+  fi
+
+  component_actual=$("$component_command" --version 2>/dev/null | extract_version)
+  if [ -z "$component_actual" ]; then
+    doctor_warn "$component_command version could not be parsed (minimum $component_minimum)"
+  elif version_at_least "$component_actual" "$component_minimum"; then
+    doctor_ok "$component_command $component_actual (minimum $component_minimum)"
+  else
+    doctor_error "$component_command $component_actual is older than required $component_minimum"
+  fi
+}
+
+doctor_linux_desktop() {
+  doctor_desktop_component niri niri
+  doctor_desktop_component noctalia noctalia noctalia-shell
+
+  # Wallpapers, the video directory and the output names are declared in the
+  # overlay's profile data. They used to be recovered by regex from the
+  # exported Noctalia config, where the hook script path and mpvpaper's video
+  # directory are indistinguishable from a wallpaper and were reported as one.
+  profile_list desktop.wallpapers | while IFS= read -r wallpaper_path; do
+    [ -n "$wallpaper_path" ] || continue
+    if [ -e "$HOME/$wallpaper_path" ]; then
+      doctor_ok "wallpaper exists: ~/$wallpaper_path"
+    else
+      doctor_warn "wallpaper is missing: ~/$wallpaper_path"
+    fi
+  done
+
+  video_directory=$(profile_value desktop.videoDirectory)
+  if [ -n "$video_directory" ]; then
+    if [ -d "$HOME/$video_directory" ]; then
+      doctor_ok "video directory exists: ~/$video_directory"
+    else
+      doctor_warn "video directory is missing: ~/$video_directory"
+    fi
+  fi
+
+  declared_outputs=$(profile_list desktop.outputs)
+  if [ -z "$declared_outputs" ]; then
+    return
   fi
 
   if command -v niri >/dev/null 2>&1 && niri_outputs=$(niri msg outputs 2>/dev/null); then
-    sed -n 's/^[[:space:]]*output = "\([^"]*\)"/\1/p' "$noctalia_config" 2>/dev/null | sort -u \
-      | while IFS= read -r expected_output; do
-        if printf '%s\n' "$niri_outputs" | grep -Fq -- "$expected_output"; then
-          doctor_ok "Niri output present: $expected_output"
-        else
-          doctor_warn "configured output is not active: $expected_output"
-        fi
-      done
+    printf '%s\n' "$declared_outputs" | while IFS= read -r expected_output; do
+      [ -n "$expected_output" ] || continue
+      if printf '%s\n' "$niri_outputs" | grep -Fq -- "$expected_output"; then
+        doctor_ok "Niri output present: $expected_output"
+      else
+        doctor_warn "configured output is not active: $expected_output"
+      fi
+    done
   else
     doctor_warn "Niri output names could not be checked outside a running session"
   fi
@@ -966,6 +1048,9 @@ command_verify() {
   if profile_has_overlay; then
     verify_repository "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
   fi
+  if profile_has_overlay; then
+    verify_declared_invariants || return 1
+  fi
   if [ "$PROFILE" = riced-linux ]; then
     if command -v niri >/dev/null 2>&1; then
       niri validate --config "$OVERLAY_SOURCE/dot_config/niri/config.kdl" || return 1
@@ -974,6 +1059,46 @@ command_verify() {
     fi
   fi
   info "All active-source verification checks passed"
+}
+
+# Declaring machine invariants in profile data makes them checkable, but it
+# also creates a second copy of values the exported desktop configs still carry
+# as literals. Confirm every declared value still appears in the files that own
+# it, so a re-export cannot leave the declaration stale.
+verify_declared_invariants() {
+  invariant_files=$(profile_list desktop.declaredIn)
+  [ -n "$invariant_files" ] || return 0
+
+  invariant_missing=$(
+    {
+      profile_list desktop.outputs
+      profile_list desktop.wallpapers
+      profile_value desktop.videoDirectory
+      printf '\n'
+      profile_value desktop.browserAppId
+      printf '\n'
+    } | while IFS= read -r invariant_value; do
+      [ -n "$invariant_value" ] || continue
+      # A match exits the inner subshell non-zero, so the trailing printf runs
+      # only for a value that appears in none of the files. The `if` matters:
+      # `grep && exit 1` would leave the loop's status at grep's failure on the
+      # last file, making every value look present.
+      printf '%s\n' "$invariant_files" | while IFS= read -r invariant_file; do
+        [ -n "$invariant_file" ] || continue
+        [ -f "$OVERLAY_SOURCE/$invariant_file" ] || continue
+        if grep -Fq -- "$invariant_value" "$OVERLAY_SOURCE/$invariant_file"; then
+          exit 1
+        fi
+      done && printf '%s\n' "$invariant_value"
+    done
+  )
+
+  if [ -n "$invariant_missing" ]; then
+    printf 'error:   declared machine invariants are absent from the exported configs:\n' >&2
+    printf '%s\n' "$invariant_missing" | sed 's/^/         /' >&2
+    return 1
+  fi
+  info "Declared machine invariants match the exported desktop configs"
 }
 
 install_hooks_in() {
