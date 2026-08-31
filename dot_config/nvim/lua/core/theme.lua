@@ -199,4 +199,23 @@ function M.sync_env_from_state()
 	return theme
 end
 
+-- Re-read the persisted state and reapply it to a session that's already
+-- running (e.g. a Noctalia theme change broadcast via `nvim --server`).
+function M.reapply()
+	local theme = M.sync_env_from_state()
+
+	if theme.background then
+		vim.o.background = theme.background
+	end
+
+	vim.cmd.colorscheme(theme.colorscheme)
+	vim.api.nvim_exec_autocmds("User", { pattern = "DotfilesThemeChanged" })
+
+	return theme
+end
+
+vim.api.nvim_create_user_command("DotfilesThemeReload", M.reapply, {
+	desc = "Reapply the persisted dotfiles theme (colorscheme + lualine)",
+})
+
 return M

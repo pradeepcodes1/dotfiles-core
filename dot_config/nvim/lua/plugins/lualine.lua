@@ -58,35 +58,50 @@ return {
 				sep = " > ",
 			}
 
-			-- Lualine theme compiled from the active Gogh palette.
-			local lualine_theme = os.getenv("_DOTFILES_NVIM_LUALINE") or "dotfiles-gogh"
+			local function apply()
+				-- Lualine theme compiled from the active Gogh palette.
+				local lualine_theme = os.getenv("_DOTFILES_NVIM_LUALINE") or "dotfiles-gogh"
 
-			require("lualine").setup({
-				sections = {
-					lualine_a = { "mode" },
-					lualine_b = { "branch", "diff", "diagnostics" },
-					lualine_c = { "" },
-					lualine_x = { smart_path },
-					lualine_y = { "progress" },
-					lualine_z = { "location" },
-				},
-				winbar = {
-					lualine_c = {
-						vim.deepcopy(breadcrumb_component),
+				require("lualine").setup({
+					sections = {
+						lualine_a = { "mode" },
+						lualine_b = { "branch", "diff", "diagnostics" },
+						lualine_c = { "" },
+						lualine_x = { smart_path },
+						lualine_y = { "progress" },
+						lualine_z = { "location" },
 					},
-				},
-				inactive_winbar = {
-					lualine_c = {
-						vim.deepcopy(breadcrumb_component),
+					winbar = {
+						lualine_c = {
+							vim.deepcopy(breadcrumb_component),
+						},
 					},
-				},
-				options = {
-					theme = lualine_theme,
-					disabled_filetypes = {
-						statusline = statusline_disabled,
-						winbar = winbar_disabled,
+					inactive_winbar = {
+						lualine_c = {
+							vim.deepcopy(breadcrumb_component),
+						},
 					},
-				},
+					options = {
+						theme = lualine_theme,
+						disabled_filetypes = {
+							statusline = statusline_disabled,
+							winbar = winbar_disabled,
+						},
+					},
+				})
+			end
+
+			apply()
+
+			-- A live theme reload (`:DotfilesThemeReload`, from a Noctalia palette
+			-- change) re-sources core/theme.lua's env vars but Lua caches the
+			-- required theme module, so drop that cache entry before reapplying.
+			vim.api.nvim_create_autocmd("User", {
+				pattern = "DotfilesThemeChanged",
+				callback = function()
+					package.loaded["lualine.themes.dotfiles-gogh"] = nil
+					apply()
+				end,
 			})
 		end,
 	},

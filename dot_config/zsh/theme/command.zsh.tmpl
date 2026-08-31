@@ -31,7 +31,7 @@ theme() {
   local refresh=0
 
   if [[ $# -gt 1 ]]; then
-    error_log "theme" "Usage: theme [refresh|reset|status]"
+    error_log "theme" "Usage: theme [name|refresh|reset|status]"
     return 1
   fi
 
@@ -52,14 +52,23 @@ theme() {
       return 0
       ;;
     *)
-      error_log "theme" "Usage: theme [refresh|reset|status]"
-      return 1
+      # An already-imported theme name (e.g. from the Noctalia `colors-changed`
+      # hook, which resolves its own palette to a Gogh name before calling us)
+      # applies directly instead of going through the interactive picker.
+      if _theme_color_file "$arg" >/dev/null; then
+        theme_name="$arg"
+      else
+        error_log "theme" "Usage: theme [name|refresh|reset|status]"
+        return 1
+      fi
       ;;
   esac
 
-  _gogh_pick_and_import "$refresh" || return $?
-  theme_name="$REPLY"
-  [[ -z "$theme_name" ]] && return 0
+  if [[ -z "$theme_name" ]]; then
+    _gogh_pick_and_import "$refresh" || return $?
+    theme_name="$REPLY"
+    [[ -z "$theme_name" ]] && return 0
+  fi
 
   _load_theme_colors "$theme_name" || {
     error_log "theme" "Failed to load theme '$theme_name'"
@@ -72,5 +81,5 @@ theme() {
   _apply_theme_for command
 
   info_log "theme" "Switched to: $_DOTFILES_THEME_NAME ($_DOTFILES_THEME_MODE mode)"
-  info_log "theme" "Note: Restart nvim/yazi for full effect."
+  info_log "theme" "Note: Restart yazi for full effect."
 }
