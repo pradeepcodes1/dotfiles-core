@@ -308,10 +308,10 @@ if not vim.g.nvim_preview then
 	end, { noremap = true, silent = true, desc = "Close buffer (dashboard if last)" })
 end
 
--- Project management
-map("n", "<leader>p", function()
-	require("telescope").extensions.projects.projects({})
-end, { desc = "Projects" })
+-- Project management. auto-session owns the cwd: its session list is keyed on
+-- directory + git branch, so the session picker *is* the project picker, and it
+-- restores the buffers and layout rather than only changing directory.
+map("n", "<leader>p", "<cmd>AutoSession search<CR>", { desc = "Projects" })
 
 -- Splits
 map("n", "<leader>|", "<cmd>vsplit<CR>", { desc = "Split vertical" })

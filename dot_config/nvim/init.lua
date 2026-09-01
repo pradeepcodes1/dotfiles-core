@@ -6,6 +6,7 @@ vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
 require("core.options")
 require("core.keymaps")
 require("core.neovide")
+require("core.lsp_log")
 
 local theme_config = require("core.theme").sync_env_from_state()
 

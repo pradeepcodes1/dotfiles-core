@@ -28,11 +28,17 @@ return {
 			function state.update_names()
 				orig_update_names()
 				for _, bufnr in ipairs(state.buffers) do
-					local bufname = vim.api.nvim_buf_get_name(bufnr)
-					if jdt.is_jdt(bufname) then
-						local clean = jdt.classname(bufname)
-						if clean then
-							state.get_buffer_data(bufnr).name = clean
+					-- state.buffers can still hold a just-deleted id: barbar re-renders
+					-- from inside its own close animation, so this runs while the list is
+					-- mid-update, which restoring a session makes routine. Upstream reads
+					-- names through buffer.get_name, which guards the same way.
+					if vim.api.nvim_buf_is_valid(bufnr) then
+						local bufname = vim.api.nvim_buf_get_name(bufnr)
+						if jdt.is_jdt(bufname) then
+							local clean = jdt.classname(bufname)
+							if clean then
+								state.get_buffer_data(bufnr).name = clean
+							end
 						end
 					end
 				end

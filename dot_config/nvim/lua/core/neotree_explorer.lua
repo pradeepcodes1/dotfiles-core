@@ -209,6 +209,16 @@ local function execute(path, root)
 	command.execute(args)
 end
 
+-- Shared with plugins/betterterm.lua, so the floating terminal opens on the
+-- same project root the explorer reveals. Falls back the way M.show does:
+-- buffers with no resolvable root (terminals, the dashboard) get the tab's
+-- last explorer root, then Neovim's cwd.
+function M.root_for_buffer(bufnr)
+	local _, root = target_for_buffer(bufnr or vim.api.nvim_get_current_buf())
+
+	return root or active_roots[vim.api.nvim_get_current_tabpage()] or normalize_path(vim.uv.cwd() or vim.fn.getcwd())
+end
+
 function M.show()
 	local tabpage = vim.api.nvim_get_current_tabpage()
 	local path, root = target_for_buffer(vim.api.nvim_get_current_buf())

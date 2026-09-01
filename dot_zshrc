@@ -61,5 +61,9 @@ command -v mise &>/dev/null && eval "$(mise activate zsh)"
 # Colorful man pages
 export MANPAGER="sh -c 'col -bx | bat -l man -p --paging=always'"
 
-# Default to dev volume if available and at home
-[[ "$PWD" == "$HOME" && -d "$DOTFILES_DEV_ROOT" ]] && cd "$DOTFILES_DEV_ROOT"
+# Start every interactive shell in the home directory -- except the ones Neovim
+# spawns. betterTerm is handed a project root (plugins/betterterm.lua) and sets
+# it on the terminal window, which this would otherwise undo on shell startup.
+if [[ -z $NVIM ]]; then
+  cd "$HOME"
+fi

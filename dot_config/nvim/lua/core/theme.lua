@@ -218,4 +218,29 @@ vim.api.nvim_create_user_command("DotfilesThemeReload", M.reapply, {
 	desc = "Reapply the persisted dotfiles theme (colorscheme + lualine)",
 })
 
+-- Highlight overrides layered on top of whatever colorscheme is active.
+--
+-- Telescope draws the whole prompt prefix with TelescopePromptPrefix, and
+-- `<C-Space>` refine (plugins/init.lua) accumulates the applied filters into
+-- that prefix -- `java > Handler > `. Linking the group to Comment is the only
+-- way to grey that stack: refine's own `prompt_hl_group` is dropped on the very
+-- next prompt change, when Picker:_reset_prefix_color is called with no
+-- argument. This greys the plain `> ` on unrefined pickers too.
+--
+-- Runs on ColorScheme rather than once, because both the startup colorscheme
+-- and M.reapply() (a `theme` switch broadcast into a running session) would
+-- otherwise clear it.
+local function apply_highlight_overrides()
+	vim.api.nvim_set_hl(0, "TelescopePromptPrefix", { link = "Comment" })
+end
+
+vim.api.nvim_create_autocmd("ColorScheme", {
+	group = vim.api.nvim_create_augroup("DotfilesThemeOverrides", { clear = true }),
+	pattern = "*",
+	desc = "Layer dotfiles highlight overrides over the active colorscheme",
+	callback = apply_highlight_overrides,
+})
+
+apply_highlight_overrides()
+
 return M

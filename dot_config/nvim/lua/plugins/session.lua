@@ -16,8 +16,10 @@ return {
 	---@module "auto-session"
 	---@type AutoSession.Config
 	opts = {
-		-- Disable auto-restore to prevent unexpected session reloading
-		-- when opening files outside the current folder (issue #129)
+		-- Sessions are restored deliberately, through <leader>p, not on startup.
+		-- This was originally set to work around project.nvim silently chdir'ing
+		-- on BufEnter/LspAttach (issue #129); that plugin is gone and cwd is now
+		-- stable, so flipping this to true is safe if startup restore is wanted.
 		auto_restore = false,
 		-- Use git branch name in session file name
 		git_use_branch_name = true,

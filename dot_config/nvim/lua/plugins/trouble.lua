@@ -13,6 +13,18 @@ local navigation_keys = {
 	["<up>"] = "prev",
 }
 
+-- Same chord as Telescope's refine, and the same stacking behavior: narrow what
+-- is already shown, with the applied queries listed in the header. An empty
+-- query clears the stack. Implementation lives in core.trouble_float.
+local filter_keys = {
+	["<c-space>"] = {
+		action = function(view)
+			require("core.trouble_float").fuzzy_filter(view)
+		end,
+		desc = "Fuzzy filter",
+	},
+}
+
 local paired_float_win = {
 	type = "float",
 	relative = "editor",
@@ -40,7 +52,12 @@ local function paired_float_mode(mode, title, opts)
 		follow = false,
 		auto_preview = true,
 		restore = true,
-		keys = vim.tbl_deep_extend("force", vim.deepcopy(jump_close_keys), vim.deepcopy(navigation_keys)),
+		keys = vim.tbl_deep_extend(
+			"force",
+			vim.deepcopy(jump_close_keys),
+			vim.deepcopy(navigation_keys),
+			vim.deepcopy(filter_keys)
+		),
 		win = vim.tbl_deep_extend("force", vim.deepcopy(paired_float_win), {
 			title = title,
 		}),
@@ -68,13 +85,6 @@ return {
 			},
 			modes = {
 				qflist_float = paired_float_mode("qflist", " Quickfix "),
-				lsp_references_float = paired_float_mode("lsp_references", " References ", {
-					auto_jump = true,
-					params = {
-						include_declaration = true,
-						include_current = false,
-					},
-				}),
 				references_qflist_float = paired_float_mode("qflist", " References ", {
 					auto_jump = true,
 				}),
