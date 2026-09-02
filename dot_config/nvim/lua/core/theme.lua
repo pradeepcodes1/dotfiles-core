@@ -38,10 +38,6 @@ local function expand(path)
 	return vim.fn.expand(path)
 end
 
-local function trim(value)
-	return value:match("^%s*(.-)%s*$")
-end
-
 local function read_first_line(path)
 	local file = io.open(path, "r")
 	if not file then
@@ -54,7 +50,7 @@ local function read_first_line(path)
 		return nil
 	end
 
-	line = trim(line)
+	line = vim.trim(line)
 	if line == "" then
 		return nil
 	end
@@ -116,7 +112,7 @@ local function parse_theme(theme_name)
 	}
 
 	for line in file:lines() do
-		line = trim(line)
+		line = vim.trim(line)
 
 		theme.mode = theme.mode or line:match("^# Mode:%s*(%S+)$")
 

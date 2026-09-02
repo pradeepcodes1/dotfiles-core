@@ -1,5 +1,6 @@
 -- detect project roots and offer to turn a file-launched instance into a session.
 local M = {}
+local path_util = require("core.path")
 local offered_roots = {}
 local pending_roots = {}
 local project_picker
@@ -9,19 +10,10 @@ local function session_list()
 	return require("auto-session.lib").get_session_list(sessions.get_root_dir())
 end
 
-local function normalize_path(path)
-	if type(path) ~= "string" or path == "" then
-		return nil
-	end
-
-	local absolute = vim.fn.fnamemodify(path, ":p")
-	return vim.fs.normalize(vim.uv.fs_realpath(absolute) or absolute)
-end
-
 function M.set_open(value, root)
 	vim.g.project_open = value == true
 	if vim.g.project_open then
-		vim.g.project_root = normalize_path(root) or vim.g.project_root or normalize_path(vim.uv.cwd())
+		vim.g.project_root = path_util.normalize(root) or vim.g.project_root or path_util.normalize(vim.uv.cwd())
 		pending_roots = {}
 		if project_picker then
 			pcall(function()
@@ -44,7 +36,7 @@ function M.session_root()
 		return nil
 	end
 	local session_name = lib.escaped_session_path_to_session_name(vim.v.this_session)
-	local root = normalize_path(session_name:match("^([^|]+)"))
+	local root = path_util.normalize(session_name:match("^([^|]+)"))
 	return root and vim.fn.isdirectory(root) == 1 and root or nil
 end
 
@@ -73,7 +65,7 @@ M.root_markers = {
 }
 
 function M.root(path)
-	path = normalize_path(path)
+	path = path_util.normalize(path)
 	if not path then
 		return nil
 	end
@@ -85,7 +77,7 @@ end
 
 function M.current_root()
 	if M.is_open() then
-		local root = M.session_root() or normalize_path(vim.g.project_root)
+		local root = M.session_root() or path_util.normalize(vim.g.project_root)
 		if root then
 			vim.g.project_root = root
 			return root
@@ -110,11 +102,11 @@ function M.file_search_root()
 
 	local buffer_path = vim.api.nvim_buf_get_name(0)
 	if buffer_path ~= "" and not buffer_path:match("^%w+://") and vim.bo.buftype == "" then
-		return vim.fs.dirname(normalize_path(buffer_path))
+		return vim.fs.dirname(path_util.normalize(buffer_path))
 	end
 
-	local cwd = normalize_path(vim.uv.cwd())
-	local home = normalize_path(vim.uv.os_homedir())
+	local cwd = path_util.normalize(vim.uv.cwd())
+	local home = path_util.normalize(vim.uv.os_homedir())
 	if cwd == "/" or cwd == home then
 		return nil
 	end
@@ -136,9 +128,7 @@ function M.contains(path)
 		path = filename
 	end
 
-	local root = M.current_root()
-	path = normalize_path(path)
-	return root ~= nil and path ~= nil and (path == root or vim.startswith(path, root .. "/"))
+	return path_util.under(path_util.normalize(path), M.current_root())
 end
 
 local git_tools = {
@@ -268,7 +258,7 @@ local function startup_file()
 		return nil
 	end
 
-	return normalize_path(argument)
+	return path_util.normalize(argument)
 end
 
 local function restore_in_progress()
@@ -290,7 +280,7 @@ end
 -- picker does; rebuilding the on-disk name here instead meant depending on
 -- auto-session's private escaping and its legacy fallback.
 function M.session_exists(root)
-	root = normalize_path(root)
+	root = path_util.normalize(root)
 	if not root then
 		return false
 	end
@@ -298,7 +288,7 @@ function M.session_exists(root)
 	local branch = git_branch(root) or ""
 	for _, entry in ipairs(session_list()) do
 		local entry_root, entry_branch = entry.session_name:match("^([^|]*)|?(.*)$")
-		if normalize_path(entry_root) == root and entry_branch == branch then
+		if path_util.normalize(entry_root) == root and entry_branch == branch then
 			return true
 		end
 	end
@@ -307,7 +297,7 @@ function M.session_exists(root)
 end
 
 function M.offer(file)
-	file = normalize_path(file)
+	file = path_util.normalize(file)
 	local root = file and M.root(file) or nil
 	if not file or not root or M.is_open() or restore_in_progress() then
 		return false
@@ -345,8 +335,8 @@ function M.offer(file)
 end
 
 function M.open(file, root)
-	file = normalize_path(file)
-	root = normalize_path(root)
+	file = path_util.normalize(file)
+	root = path_util.normalize(root)
 	if not file or not root then
 		return false
 	end

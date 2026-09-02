@@ -2,6 +2,7 @@
 local git = require("neo-tree.git")
 local highlights = require("neo-tree.ui.highlights")
 local manager = require("neo-tree.sources.manager")
+local path_util = require("core.path")
 local utils = require("neo-tree.utils")
 local uv = vim.uv or vim.loop
 
@@ -37,11 +38,6 @@ local function reset(kind)
 	generations[kind] = generations[kind] + 1
 	clear(caches[kind])
 	clear(inflight[kind] or {})
-end
-
-local function trim(text)
-	local value = (text or ""):gsub("^%s+", ""):gsub("%s+$", "")
-	return value
 end
 
 local function truncate(text, width)
@@ -87,14 +83,6 @@ local function format_relative_age(seconds)
 	return string.format("%dy", math.max(math.floor(diff / 31536000), 1))
 end
 
-local function normalize_path(path)
-	if type(path) ~= "string" or path == "" then
-		return nil
-	end
-
-	return vim.fs.normalize(path)
-end
-
 local function stat_for(path)
 	if not path then
 		return nil
@@ -105,14 +93,14 @@ end
 
 local function git_lookup_path(path, stat)
 	if stat and stat.type ~= "directory" then
-		return normalize_path(vim.fs.dirname(path))
+		return path_util.clean(vim.fs.dirname(path))
 	end
 
 	return path
 end
 
 local function git_worktree_for(path)
-	path = normalize_path(path)
+	path = path_util.clean(path)
 	if not path then
 		return nil, nil
 	end
@@ -129,7 +117,7 @@ local function git_worktree_for(path)
 		worktree_root = select(1, git.find_worktree_info(lookup_path))
 	end
 
-	worktree_root = normalize_path(worktree_root)
+	worktree_root = path_util.clean(worktree_root)
 	caches.git_context[lookup_path] = worktree_root or false
 
 	return worktree_root, stat
@@ -179,13 +167,13 @@ local function load_git_age(path, worktree_root)
 		"--",
 		relative_to(worktree_root, path),
 	}, function(result)
-		local seconds = tonumber(trim(result.stdout))
+		local seconds = tonumber(vim.trim(result.stdout or ""))
 		if seconds then
 			caches.git_age[path] = format_relative_age(seconds)
 			return
 		end
 
-		local stderr = trim(result.stderr)
+		local stderr = vim.trim(result.stderr or "")
 		if result.code == 0 or stderr:match("does not have any commits yet") then
 			caches.git_age[path] = "new"
 			return
@@ -197,7 +185,7 @@ end
 
 local function load_smart_size(path)
 	run_async("smart_size", path, { "du", "-sk", path }, function(result)
-		local size_kb = tonumber(trim(result.stdout):match("^(%d+)"))
+		local size_kb = tonumber(vim.trim(result.stdout or ""):match("^(%d+)"))
 		if result.code == 0 and size_kb then
 			caches.smart_size[path] = utils.human_size(size_kb * 1024)
 			return
@@ -209,7 +197,7 @@ end
 
 local function load_owner_group(path)
 	run_async("owner_group", path, { "stat", "-f", "%Su:%Sg", path }, function(result)
-		local value = trim(result.stdout)
+		local value = vim.trim(result.stdout or "")
 		if result.code == 0 and value ~= "" then
 			caches.owner_group[path] = value
 			return

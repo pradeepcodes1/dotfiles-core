@@ -1,6 +1,7 @@
 -- reveal the managed chezmoi source at its nearest project root, not the deployed target.
 local M = {}
 local library_paths = require("core.library_paths")
+local path_util = require("core.path")
 local ROOT_MARKERS = require("core.project").root_markers
 
 local chezmoi_cache = {
@@ -8,14 +9,6 @@ local chezmoi_cache = {
 }
 local active_roots = {}
 local active_paths = {}
-
-local function normalize_path(path)
-	if type(path) ~= "string" or path == "" then
-		return nil
-	end
-
-	return vim.fs.normalize(path)
-end
 
 local function current_buffer_path(bufnr)
 	local path = vim.api.nvim_buf_get_name(bufnr)
@@ -35,7 +28,7 @@ local function current_buffer_path(bufnr)
 		path = fname
 	end
 
-	return normalize_path(path)
+	return path_util.clean(path)
 end
 
 local function source_buffer_path(bufnr)
@@ -51,20 +44,6 @@ local function source_buffer_path(bufnr)
 	return path
 end
 
-local function is_path_under_root(path, root)
-	path = normalize_path(path)
-	root = normalize_path(root)
-	if not path or not root then
-		return false
-	end
-
-	if path == root then
-		return true
-	end
-
-	return vim.startswith(path, root .. "/")
-end
-
 local function command_output(argv)
 	local result = vim.system(argv, { text = true }):wait()
 	if result.code ~= 0 then
@@ -76,11 +55,11 @@ local function command_output(argv)
 		return nil
 	end
 
-	return normalize_path(output)
+	return path_util.clean(output)
 end
 
 local function chezmoi_source_path(path)
-	path = normalize_path(path)
+	path = path_util.clean(path)
 	if not path then
 		return nil
 	end
@@ -90,8 +69,8 @@ local function chezmoi_source_path(path)
 		return cached or path
 	end
 
-	local home = normalize_path(vim.uv.os_homedir())
-	if not home or not is_path_under_root(path, home) then
+	local home = path_util.clean(vim.uv.os_homedir())
+	if not home or not path_util.under(path, home) then
 		chezmoi_cache.managed_paths[path] = false
 		return path
 	end
@@ -106,65 +85,23 @@ local function chezmoi_source_path(path)
 	return path
 end
 
-local function add_root_candidate(roots, root)
-	root = normalize_path(root)
-	if root then
-		roots[root] = true
-	end
-end
-
-local function lsp_root_for_path(bufnr, path)
-	local roots = {}
-
-	for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
-		add_root_candidate(roots, client.root_dir)
-		if client.config then
-			add_root_candidate(roots, client.config.root_dir)
-		end
-
-		local workspaces = client.workspace_folders or (client.config and client.config.workspace_folders)
-		if type(workspaces) == "table" then
-			for _, folder in ipairs(workspaces) do
-				local root = folder.name
-				if (not root or root == "") and folder.uri then
-					local ok, fname = pcall(vim.uri_to_fname, folder.uri)
-					if ok then
-						root = fname
-					end
-				end
-				add_root_candidate(roots, root)
-			end
-		end
-	end
-
-	local best_root
-	for root in pairs(roots) do
-		if is_path_under_root(path, root) and (not best_root or #root > #best_root) then
-			best_root = root
-		end
-	end
-
-	return best_root
-end
-
+-- The deepest root that still contains the file: an LSP workspace folder when
+-- one claims it, otherwise the nearest marker directory, otherwise its parent.
 local function target_for_buffer(bufnr)
 	local path = chezmoi_source_path(source_buffer_path(bufnr))
 	if not path then
 		return nil, nil
 	end
 
-	local roots = {}
-	add_root_candidate(roots, lsp_root_for_path(bufnr, path))
-	add_root_candidate(roots, vim.fs.root(path, ROOT_MARKERS))
-
-	local best_root
-	for root in pairs(roots) do
-		if is_path_under_root(path, root) and (not best_root or #root > #best_root) then
-			best_root = root
-		end
+	local candidates = path_util.lsp_roots(bufnr)
+	local marker_root = path_util.clean(vim.fs.root(path, ROOT_MARKERS))
+	if marker_root then
+		candidates[marker_root] = true
 	end
 
-	local root = best_root or normalize_path(vim.fs.dirname(path)) or normalize_path(vim.uv.cwd() or vim.fn.getcwd())
+	local root = path_util.longest_containing(candidates, path)
+		or path_util.clean(vim.fs.dirname(path))
+		or path_util.cwd()
 
 	return path, root
 end
@@ -206,13 +143,13 @@ end
 function M.root_for_buffer(bufnr)
 	local _, root = target_for_buffer(bufnr or vim.api.nvim_get_current_buf())
 
-	return root or active_roots[vim.api.nvim_get_current_tabpage()] or normalize_path(vim.uv.cwd() or vim.fn.getcwd())
+	return root or active_roots[vim.api.nvim_get_current_tabpage()] or path_util.cwd()
 end
 
 function M.show()
 	local tabpage = vim.api.nvim_get_current_tabpage()
 	local path, root = target_for_buffer(vim.api.nvim_get_current_buf())
-	root = root or active_roots[tabpage] or normalize_path(vim.uv.cwd() or vim.fn.getcwd())
+	root = root or active_roots[tabpage] or path_util.cwd()
 	active_roots[tabpage] = root
 	active_paths[tabpage] = path
 	execute(path, root)
