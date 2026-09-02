@@ -14,3 +14,7 @@ node_modules/
 *.bak
 *.log
 .nvimlog
+
+# lazy.nvim writes this into the config dir it is run from; the deployed
+# ~/.config/nvim owns it, not this source tree.
+dot_config/nvim/lazy-lock.json

@@ -1,4 +1,10 @@
--- render imported Gogh palettes without requiring a colorscheme plugin per theme.
+-- render imported Gogh palettes through mini.base16's highlight set.
+--
+-- A Gogh theme is an ANSI palette -- a background, a foreground and 16 colors --
+-- which is what base16 is, so the whole colorscheme is a mapping between the
+-- two plus mini.base16. That covers builtin groups, Treesitter, LSP semantic
+-- tokens and a long list of plugins, in place of the ~450 hand-written groups
+-- this file used to carry.
 local raw, theme = require("core.theme").get_palette()
 raw = raw or {}
 theme = theme or {}
@@ -42,10 +48,8 @@ if mode ~= "dark" and mode ~= "light" then
 end
 vim.o.background = mode
 
-local accent = raw.ui_accent or raw.ui_active or p.blue
-local border = raw.ui_border or blend(p.fg, p.bg, 0.16)
-local inactive = raw.ui_inactive or blend(p.fg, p.bg, 0.09)
-local comment = raw.prompt_path or p.bright_black
+-- A dark terminal reads the bright half as its syntax colors and the normal
+-- half as its dimmer variants; a light one is the other way round.
 local syntax = mode == "dark"
 		and {
 			red = p.bright_red,
@@ -64,25 +68,40 @@ local syntax = mode == "dark"
 		cyan = p.cyan,
 	}
 
+local accent = raw.ui_accent or raw.ui_active or syntax.blue
+local comment = raw.prompt_path or p.bright_black
 local surface = blend(p.fg, p.bg, 0.055)
 local surface_high = blend(p.fg, p.bg, 0.11)
-local selection = blend(accent, p.bg, mode == "dark" and 0.28 or 0.18)
-local search = blend(syntax.yellow, p.bg, mode == "dark" and 0.42 or 0.24)
-local diff_add = blend(syntax.green, p.bg, mode == "dark" and 0.18 or 0.11)
-local diff_change = blend(syntax.blue, p.bg, mode == "dark" and 0.18 or 0.1)
-local diff_delete = blend(syntax.red, p.bg, mode == "dark" and 0.18 or 0.1)
-local diagnostic_error_bg = blend(syntax.red, p.bg, 0.12)
-local diagnostic_warn_bg = blend(syntax.yellow, p.bg, 0.12)
-local diagnostic_info_bg = blend(syntax.blue, p.bg, 0.12)
-local diagnostic_hint_bg = blend(syntax.cyan, p.bg, 0.12)
 
-vim.cmd("highlight clear")
-if vim.fn.exists("syntax_on") == 1 then
-	vim.cmd("syntax reset")
-end
+require("mini.base16").setup({
+	palette = {
+		base00 = p.bg, -- default background
+		base01 = surface, -- float and status backgrounds
+		base02 = surface_high, -- selection background
+		base03 = comment, -- comments, invisibles
+		base04 = p.white, -- dim foreground
+		base05 = p.fg, -- default foreground
+		base06 = p.bright_white, -- bright foreground
+		base07 = p.bright_white, -- brightest background
+		base08 = syntax.red, -- variables, errors
+		-- base09 is base16's orange, which ANSI has no slot for; mixing red
+		-- and yellow is closer than reusing either, and keeps base09 and
+		-- base0A distinguishable the way base16 groups expect.
+		base09 = blend(syntax.red, syntax.yellow, 0.5), -- numbers, constants
+		base0A = syntax.yellow, -- classes, types
+		base0B = syntax.green, -- strings
+		base0C = syntax.cyan, -- escapes, regex, support
+		base0D = syntax.blue, -- functions
+		base0E = syntax.magenta, -- keywords
+		base0F = blend(syntax.red, syntax.magenta, 0.5), -- deprecated
+	},
+})
+
+-- mini.base16 clears colors_name so `syntax on` behaves; this is a colorscheme
+-- file, so put it back or :colorscheme has nothing to report.
 vim.g.colors_name = "dotfiles-gogh"
 
-local terminal_colors = {
+for index, color in ipairs({
 	p.black,
 	p.red,
 	p.green,
@@ -99,349 +118,66 @@ local terminal_colors = {
 	p.bright_magenta,
 	p.bright_cyan,
 	p.bright_white,
-}
-for index, color in ipairs(terminal_colors) do
+}) do
 	vim.g["terminal_color_" .. (index - 1)] = color
 end
 
-local groups = {
-	-- Editor UI
-	FloatBorder = { fg = border, bg = surface },
-	FloatTitle = { fg = accent, bg = surface, bold = true },
-	Cursor = { fg = p.bg, bg = p.fg },
-	lCursor = { link = "Cursor" },
-	CursorIM = { link = "Cursor" },
-	TermCursor = { link = "Cursor" },
-	TermCursorNC = { fg = p.bg, bg = comment },
-	CursorLine = { bg = surface },
-	CursorColumn = { bg = surface },
-	Directory = { fg = syntax.blue, bold = true },
-	EndOfBuffer = { fg = p.bg, bg = p.bg },
-	ErrorMsg = { fg = syntax.red, bold = true },
-	WinSeparator = { fg = border },
-	FoldColumn = { fg = comment, bg = p.bg },
-	SignColumn = { fg = comment, bg = p.bg },
-	IncSearch = { fg = p.bg, bg = syntax.yellow, bold = true },
-	CurSearch = { link = "IncSearch" },
-	Search = { fg = p.fg, bg = search },
-	Substitute = { fg = p.bg, bg = syntax.red, bold = true },
-	LineNrAbove = { link = "LineNr" },
-	LineNrBelow = { link = "LineNr" },
-	MatchParen = { fg = syntax.yellow, bg = surface_high, bold = true },
-	ModeMsg = { fg = syntax.green, bold = true },
-	MsgSeparator = { fg = border },
-	PmenuSel = { fg = p.fg, bg = selection, bold = true },
-	PmenuKind = { fg = syntax.magenta, bg = surface },
-	PmenuKindSel = { fg = syntax.magenta, bg = selection, bold = true },
-	PmenuExtraSel = { fg = p.fg, bg = selection },
-	PmenuThumb = { bg = comment },
-	QuickFixLine = { bg = selection, bold = true },
-	SpellBad = { undercurl = true, sp = syntax.red },
-	SpellCap = { undercurl = true, sp = syntax.blue },
-	SpellLocal = { undercurl = true, sp = syntax.cyan },
-	SpellRare = { undercurl = true, sp = syntax.magenta },
-	StatusLine = { fg = p.fg, bg = surface_high },
-	TabLineFill = { bg = surface },
-	TabLineSel = { fg = accent, bg = surface_high, bold = true },
-	WildMenu = { fg = p.bg, bg = accent, bold = true },
-	WinBarNC = { fg = comment, bg = p.bg },
+local inactive = raw.ui_inactive or blend(p.fg, p.bg, 0.09)
 
-	-- Vim syntax
+-- Deliberate departures from the base16 spec, which mini.base16 follows
+-- faithfully. base08 is "variables" there, so Identifier -- and every group
+-- linked to it -- comes out red, and base0F puts brackets and separators in
+-- the deprecated-token color. Both are louder than this config wants: code
+-- should be foreground-colored by default, with color reserved for the parts
+-- that carry meaning.
+--
+-- Plugin groups follow, for the plugins mini.base16 has no integration with.
+-- Everything else it either sets directly or reaches by a default link.
+for name, spec in pairs({
 	Comment = { fg = comment, italic = true },
-	Boolean = { fg = syntax.magenta, bold = true },
-	Float = { link = "Number" },
+	Delimiter = { fg = comment },
+	Directory = { fg = syntax.blue, bold = true },
+	Identifier = { fg = p.fg },
 	Keyword = { fg = syntax.magenta, italic = true },
-	SpecialComment = { fg = syntax.cyan, italic = true },
-	Underlined = { fg = syntax.blue, underline = true },
-	Todo = { fg = p.bg, bg = syntax.yellow, bold = true },
-
-	-- Treesitter
-	["@boolean"] = { link = "Boolean" },
-	["@character"] = { link = "Character" },
-	["@character.special"] = { link = "SpecialChar" },
-	["@comment"] = { link = "Comment" },
-	["@comment.documentation"] = { link = "SpecialComment" },
-	["@comment.error"] = { fg = syntax.red, bold = true },
-	["@comment.hint"] = { fg = syntax.cyan, bold = true },
-	["@comment.info"] = { fg = syntax.blue, bold = true },
-	["@comment.note"] = { fg = syntax.blue, bold = true },
-	["@comment.todo"] = { link = "Todo" },
-	["@constant"] = { link = "Constant" },
-	["@constant.builtin"] = { fg = syntax.magenta, bold = true },
-	["@constant.macro"] = { link = "Macro" },
-	["@diff.delta"] = { link = "DiffChange" },
-	["@diff.minus"] = { link = "DiffDelete" },
-	["@diff.plus"] = { link = "DiffAdd" },
-	["@function.macro"] = { link = "Macro" },
-	["@keyword"] = { link = "Keyword" },
-	["@keyword.conditional"] = { link = "Conditional" },
-	["@keyword.coroutine"] = { fg = syntax.magenta, italic = true },
-	["@keyword.debug"] = { link = "Debug" },
-	["@keyword.exception"] = { link = "Exception" },
-	["@keyword.function"] = { fg = syntax.magenta, italic = true },
-	["@keyword.import"] = { link = "Include" },
-	["@keyword.modifier"] = { link = "StorageClass" },
-	["@keyword.operator"] = { link = "Operator" },
-	["@keyword.repeat"] = { link = "Repeat" },
-	["@keyword.return"] = { fg = syntax.magenta, italic = true },
-	["@label"] = { link = "Label" },
-	["@markup.emphasis"] = { italic = true },
-	["@markup.italic"] = { italic = true },
-	["@markup.link"] = { fg = syntax.blue, underline = true },
-	["@markup.link.url"] = { fg = syntax.blue, underline = true },
-	["@markup.quote"] = { fg = comment, italic = true },
-	["@markup.strikethrough"] = { strikethrough = true },
-	["@markup.strong"] = { bold = true },
-	["@markup.underline"] = { underline = true },
-	["@module.builtin"] = { fg = syntax.yellow, italic = true },
-	["@number"] = { link = "Number" },
-	["@number.float"] = { link = "Float" },
-	["@operator"] = { link = "Operator" },
-	["@string"] = { link = "String" },
-	["@string.documentation"] = { fg = syntax.green, italic = true },
-	["@string.special.path"] = { fg = syntax.green, underline = true },
-	["@string.special.url"] = { fg = syntax.blue, underline = true },
-	["@type"] = { link = "Type" },
-	["@type.builtin"] = { fg = syntax.yellow, italic = true },
-	["@type.definition"] = { link = "Typedef" },
-	["@variable.builtin"] = { fg = syntax.magenta, italic = true },
+	["@property"] = { fg = syntax.cyan },
+	["@variable.member"] = { fg = syntax.cyan },
 	["@variable.parameter"] = { fg = p.fg, italic = true },
 
-	-- Diagnostics and LSP semantic tokens
-	DiagnosticVirtualTextError = { fg = syntax.red, bg = diagnostic_error_bg },
-	DiagnosticVirtualTextWarn = { fg = syntax.yellow, bg = diagnostic_warn_bg },
-	DiagnosticVirtualTextInfo = { fg = syntax.blue, bg = diagnostic_info_bg },
-	DiagnosticVirtualTextHint = { fg = syntax.cyan, bg = diagnostic_hint_bg },
-	DiagnosticVirtualTextOk = { fg = syntax.green, bg = diff_add },
-	DiagnosticUnderlineError = { undercurl = true, sp = syntax.red },
-	DiagnosticUnderlineWarn = { undercurl = true, sp = syntax.yellow },
-	DiagnosticUnderlineInfo = { undercurl = true, sp = syntax.blue },
-	DiagnosticUnderlineHint = { undercurl = true, sp = syntax.cyan },
-	DiagnosticUnderlineOk = { undercurl = true, sp = syntax.green },
-	DiagnosticFloatingError = { fg = syntax.red, bg = surface },
-	DiagnosticFloatingWarn = { fg = syntax.yellow, bg = surface },
-	DiagnosticFloatingInfo = { fg = syntax.blue, bg = surface },
-	DiagnosticFloatingHint = { fg = syntax.cyan, bg = surface },
-	DiagnosticFloatingOk = { fg = syntax.green, bg = surface },
-	LspReferenceWrite = { bg = selection, bold = true },
-	LspSignatureActiveParameter = { fg = syntax.yellow, bg = surface_high, bold = true },
-	["@lsp.type.class"] = { link = "Type" },
-	["@lsp.type.comment"] = { link = "Comment" },
-	["@lsp.type.decorator"] = { link = "@attribute" },
-	["@lsp.type.enum"] = { link = "Type" },
-	["@lsp.type.enumMember"] = { link = "Constant" },
-	["@lsp.type.interface"] = { link = "Type" },
-	["@lsp.type.keyword"] = { link = "Keyword" },
-	["@lsp.type.macro"] = { link = "Macro" },
-	["@lsp.type.modifier"] = { link = "StorageClass" },
-	["@lsp.type.namespace"] = { link = "@module" },
-	["@lsp.type.number"] = { link = "Number" },
-	["@lsp.type.operator"] = { link = "Operator" },
-	["@lsp.type.parameter"] = { link = "@variable.parameter" },
-	["@lsp.type.property"] = { link = "@property" },
-	["@lsp.type.regexp"] = { link = "@string.regexp" },
-	["@lsp.type.string"] = { link = "String" },
-	["@lsp.type.struct"] = { link = "Structure" },
-	["@lsp.type.type"] = { link = "Type" },
-	["@lsp.type.typeParameter"] = { link = "Typedef" },
-	["@lsp.type.variable"] = { link = "@variable" },
-	["@lsp.typemod.variable.defaultLibrary"] = { link = "@variable.builtin" },
-	["@lsp.typemod.variable.readonly"] = { link = "Constant" },
+	AerialClassIcon = { fg = syntax.yellow },
+	AerialFunctionIcon = { fg = syntax.blue },
+	AerialGuide = { fg = inactive },
+	AerialLine = { link = "Visual" },
+	AerialMethodIcon = { fg = syntax.blue },
+	AerialVariableIcon = { fg = syntax.cyan },
 
-	-- Diff, version control, and common plugins
-	DiffAdd = { bg = diff_add },
-	DiffChange = { bg = diff_change },
-	DiffDelete = { fg = syntax.red, bg = diff_delete },
-	DiffText = { bg = blend(syntax.blue, p.bg, 0.3), bold = true },
-	GitSignsCurrentLineBlame = { fg = comment, italic = true },
-	GitSignsAddInline = { bg = blend(syntax.green, p.bg, 0.25) },
-	GitSignsChangeInline = { bg = blend(syntax.blue, p.bg, 0.25) },
-	GitSignsDeleteInline = { bg = blend(syntax.red, p.bg, 0.25) },
+	-- dap-ui is covered; these are nvim-dap's own sign-column groups.
+	DapBreakpoint = { fg = syntax.red },
+	DapBreakpointCondition = { fg = syntax.yellow },
+	DapStopped = { fg = syntax.green, bg = blend(syntax.green, p.bg, 0.18) },
 
-	TelescopeBorder = { fg = border, bg = surface },
-	TelescopePromptNormal = { fg = p.fg, bg = surface_high },
-	TelescopePromptBorder = { fg = accent, bg = surface_high },
-	TelescopeSelection = { bg = selection, bold = true },
-	TelescopeSelectionCaret = { fg = accent, bg = selection },
-
+	NeoTreeDirectoryIcon = { fg = syntax.blue },
+	NeoTreeDirectoryName = { fg = syntax.blue },
+	NeoTreeFileNameOpened = { fg = accent, bold = true },
+	NeoTreeIndentMarker = { fg = inactive },
 	NeoTreeTabActive = { fg = accent, bg = surface_high, bold = true },
-	NvimTreeNormal = { link = "NeoTreeNormal" },
-	NvimTreeFolderIcon = { link = "NeoTreeDirectoryIcon" },
-	NvimTreeFolderName = { link = "NeoTreeDirectoryName" },
-	NvimTreeRootFolder = { link = "NeoTreeRootName" },
 
-	BufferCurrent = { fg = p.fg, bg = surface_high, bold = true },
-	BufferCurrentIndex = { fg = accent, bg = surface_high },
-	BufferCurrentMod = { fg = syntax.yellow, bg = surface_high },
-	BufferCurrentSign = { fg = accent, bg = surface_high },
-	BufferInactiveMod = { fg = syntax.yellow, bg = surface },
-	BufferInactiveSign = { fg = inactive, bg = surface },
-	BufferVisibleIndex = { fg = accent, bg = surface },
-	BufferTabpageFill = { bg = p.bg },
-	BufferTabpages = { fg = p.bg, bg = accent, bold = true },
-	BufferLineFill = { bg = p.bg },
-	BufferLineBufferSelected = { fg = p.fg, bg = surface_high, bold = true },
-	BufferLineIndicatorSelected = { fg = accent, bg = surface_high },
-	BufferLineModifiedSelected = { fg = syntax.yellow, bg = surface_high },
-
-	CmpItemAbbrDeprecated = { fg = comment, strikethrough = true },
-	BlinkCmpLabelDeprecated = { fg = comment, strikethrough = true },
-
-	WhichKeyFloat = { bg = surface },
-	LazyButtonActive = { fg = p.bg, bg = accent, bold = true },
-	LazyH1 = { fg = p.bg, bg = accent, bold = true },
-	MasonHeader = { fg = p.bg, bg = accent, bold = true },
-	MasonHighlightBlock = { fg = p.bg, bg = accent },
-
-	TroubleCount = { fg = syntax.magenta, bg = surface_high },
-	DapStopped = { fg = syntax.green, bg = diff_add },
-
-	NoiceCmdlinePopupBorder = { fg = accent, bg = surface },
-	NoiceConfirmBorder = { fg = syntax.yellow, bg = surface },
-
+	SnacksDashboardDesc = { fg = p.fg },
 	SnacksDashboardFooter = { fg = comment, italic = true },
-	TodoFgTODO = { fg = syntax.blue, bold = true },
+	SnacksDashboardHeader = { fg = accent },
+	SnacksDashboardIcon = { fg = syntax.cyan },
+	SnacksDashboardKey = { fg = syntax.yellow, bold = true },
+	SnacksDashboardSpecial = { fg = syntax.magenta },
+	SnacksPickerListCursorLine = { link = "Visual" },
+	SnacksPickerMatch = { fg = syntax.yellow, bold = true },
+
+	TodoBgFIX = { fg = p.bg, bg = syntax.red, bold = true },
+	TodoBgNOTE = { fg = p.bg, bg = syntax.cyan, bold = true },
+	TodoBgTODO = { fg = p.bg, bg = syntax.blue, bold = true },
+	TodoBgWARN = { fg = p.bg, bg = syntax.yellow, bold = true },
 	TodoFgFIX = { fg = syntax.red, bold = true },
 	TodoFgNOTE = { fg = syntax.cyan, bold = true },
-	TodoBgTODO = { fg = p.bg, bg = syntax.blue, bold = true },
-	TodoBgFIX = { fg = p.bg, bg = syntax.red, bold = true },
-	TodoBgWARN = { fg = p.bg, bg = syntax.yellow, bold = true },
-	TodoBgNOTE = { fg = p.bg, bg = syntax.cyan, bold = true },
-}
-
-local function define(spec, names)
-	for name in names:gmatch("%S+") do
-		groups[name] = spec
-	end
-end
-
--- Reuse exact definitions for groups with identical styling.
-define(
-	{ fg = p.fg, bg = p.bg },
-	[[
-Normal NormalNC WinBar NeoTreeNormal NeoTreeNormalNC TroubleNormal TroubleNormalNC
-]]
-)
-define(
-	{ fg = p.fg, bg = surface },
-	[[
-NormalFloat Pmenu TelescopeNormal BufferVisible BufferOffset BufferLineBufferVisible BlinkCmpMenu LazyButton
-NoiceCmdlinePopup NoiceConfirm
-]]
-)
-define(
-	{ bg = surface_high },
-	[[
-ColorColumn PmenuSbar LspReferenceText LspReferenceRead IlluminatedWordText IlluminatedWordRead
-]]
-)
-define(
-	{ fg = comment },
-	[[
-Conceal LineNr Delimiter Ignore @punctuation.bracket @punctuation.delimiter @tag.delimiter CmpItemMenu
-WhichKeySeparator WhichKeyValue MasonMuted TroubleCode NotifyDEBUGBorder NotifyDEBUGIcon NotifyDEBUGTitle
-]]
-)
-define(
-	{ fg = comment, bg = surface },
-	[[
-Folded PmenuExtra StatusLineNC TabLine NeoTreeTabInactive BufferInactive BufferInactiveIndex
-BufferLineBuffer MasonMutedBlock
-]]
-)
-define(
-	{ fg = accent, bold = true },
-	[[
-CursorLineNr Title @markup.heading TelescopeTitle NeoTreeRootName NeoTreeFileNameOpened CmpItemAbbrMatch
-BlinkCmpLabelMatch LazyH2
-]]
-)
-define(
-	{ fg = accent },
-	[[
-CursorLineFold CursorLineSign TelescopePromptPrefix CmpItemAbbrMatchFuzzy WhichKey MasonHighlight
-DapUILineNumber NoiceCmdlineIcon SnacksDashboardHeader IndentBlanklineContextChar IblScope
-]]
-)
-define(
-	{ fg = p.fg },
-	[[
-MsgArea Identifier @variable CmpItemAbbr BlinkCmpLabel WhichKeyDesc TroubleText DapUIVariable
-SnacksDashboardDesc
-]]
-)
-define(
-	{ fg = syntax.cyan },
-	[[
-MoreMsg Operator Special SpecialChar @function.builtin @markup.link.label @markup.math @property
-@punctuation.special @string.escape @string.regexp @string.special @variable.member DiagnosticHint
-DiagnosticSignHint NeoTreeGitUntracked WhichKeyGroup LazySpecial AerialVariableIcon DapUIScope
-SnacksDashboardIcon
-]]
-)
-define(
-	{ fg = inactive },
-	[[
-NonText SpecialKey Whitespace NeoTreeIndentMarker AerialGuide IndentBlanklineChar IblIndent
-]]
-)
-define(
-	{ fg = syntax.green },
-	[[
-Question String Character @markup.raw @markup.raw.block DiagnosticOk DiagnosticSignOk diffAdded diffNewFile
-GitSignsAdd NeoTreeGitAdded DapUIValue DapUIThread
-]]
-)
-define(
-	{ bg = selection },
-	[[
-Visual VisualNOS BlinkCmpMenuSelection AerialLine SnacksPickerListCursorLine IlluminatedWordWrite
-]]
-)
-define(
-	{ fg = syntax.yellow, bold = true },
-	[[
-WarningMsg @comment.warning TelescopeMatching SnacksDashboardKey SnacksPickerMatch TodoFgWARN
-]]
-)
-define(
-	{ fg = syntax.magenta },
-	[[
-Constant Number Statement Conditional Repeat Include Define @markup.environment @markup.list
-@string.special.symbol CmpItemKind BlinkCmpKind DapUISource NotifyTRACEBorder NotifyTRACEIcon
-NotifyTRACETitle SnacksDashboardSpecial
-]]
-)
-define(
-	{ fg = syntax.blue },
-	[[
-Function Tag @constructor @tag DiagnosticInfo DiagnosticSignInfo diffChanged GitSignsChange
-NeoTreeDirectoryIcon NeoTreeDirectoryName AerialFunctionIcon AerialMethodIcon NotifyINFOBorder
-NotifyINFOIcon NotifyINFOTitle
-]]
-)
-define(
-	{ fg = syntax.yellow },
-	[[
-Label PreProc Macro PreCondit Type StorageClass Structure Typedef @attribute @module @tag.attribute
-DiagnosticWarn DiagnosticSignWarn @lsp.type.event NeoTreeGitModified AerialClassIcon DapBreakpointCondition
-DapUIType DapUIStoppedThread NotifyWARNBorder NotifyWARNIcon NotifyWARNTitle
-]]
-)
-define(
-	{ fg = syntax.red },
-	[[
-Exception Debug Error DiagnosticError DiagnosticSignError diffRemoved diffOldFile GitSignsDelete
-NeoTreeGitConflict NeoTreeGitDeleted DapBreakpoint NotifyERRORBorder NotifyERRORIcon NotifyERRORTitle
-]]
-)
-define(
-	{ link = "Function" },
-	[[
-@function @function.call @function.method @function.method.call @lsp.type.function @lsp.type.method
-]]
-)
-
-for name, spec in pairs(groups) do
+	TodoFgTODO = { fg = syntax.blue, bold = true },
+	TodoFgWARN = { fg = syntax.yellow, bold = true },
+}) do
 	vim.api.nvim_set_hl(0, name, spec)
 end
