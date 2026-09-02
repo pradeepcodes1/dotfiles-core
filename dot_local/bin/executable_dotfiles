@@ -1,7 +1,8 @@
 #!/bin/sh
 # One entry point for the portable core and its mutually exclusive overlays.
 # `plan`, `doctor`, and `verify` are deliberately read-only. State changes live
-# behind the explicit `init`, `apply`, `hooks`, and `exec --secrets` commands.
+# behind the explicit `init`, `pull`, `apply`, `hooks`, and `exec --secrets`
+# commands.
 set -u
 
 PROGRAM=${0##*/}
@@ -56,6 +57,7 @@ usage() {
   cat <<'EOF'
 Usage:
   dotfiles init personal-mac|riced-linux [options]
+  dotfiles pull [options]
   dotfiles doctor [options]
   dotfiles plan [options] [-- chezmoi-target ...]
   dotfiles apply [options] [-- chezmoi-option-or-target ...]
@@ -575,6 +577,61 @@ git_clone_source() {
   mkdir -p "$(dirname -- "$clone_path")" || die "could not create source parent directory"
   info "Cloning $clone_label into $clone_path"
   git clone "$clone_remote" "$clone_path" || die "could not clone $clone_label"
+}
+
+pull_source() {
+  pull_label=$1
+  pull_path=$2
+  git -C "$pull_path" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || die "$pull_label source is not a Git checkout: $pull_path"
+  info "Pulling $pull_label in $pull_path"
+  git -C "$pull_path" pull --ff-only || return 1
+}
+
+command_pull() {
+  reject_root
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --profile)
+        need_option_value "$1" "${2:-}"
+        PROFILE=$2
+        shift 2
+        ;;
+      --profile=*)
+        PROFILE=${1#*=}
+        shift
+        ;;
+      --core-source)
+        need_option_value "$1" "${2:-}"
+        CORE_SOURCE=$2
+        shift 2
+        ;;
+      --core-source=*)
+        CORE_SOURCE=${1#*=}
+        shift
+        ;;
+      --overlay-source)
+        need_option_value "$1" "${2:-}"
+        OVERLAY_SOURCE=$2
+        shift 2
+        ;;
+      --overlay-source=*)
+        OVERLAY_SOURCE=${1#*=}
+        shift
+        ;;
+      *) die "unknown pull option: $1" ;;
+    esac
+  done
+
+  resolve_profile
+  validate_sources || die "cannot pull missing sources"
+  command -v git >/dev/null 2>&1 || die "git is required to pull sources"
+
+  pull_source core "$CORE_SOURCE" || return 1
+  if profile_has_overlay; then
+    pull_source "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
+  fi
+  info "All active source repositories are up to date"
 }
 
 command_init() {
@@ -1206,6 +1263,7 @@ main() {
   shift
   case "$command_name" in
     init) command_init "$@" ;;
+    pull) command_pull "$@" ;;
     doctor) command_doctor "$@" ;;
     plan) command_plan "$@" ;;
     apply) command_apply "$@" ;;

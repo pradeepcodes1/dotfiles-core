@@ -68,6 +68,7 @@ public boundary. Install both repositories' hooks with `dotfiles hooks`.
 After the first apply, `~/.local/bin/dotfiles` supports:
 
 - `doctor` for read-only prerequisite, version, output, and asset checks;
+- `pull` to fast-forward the portable core and active overlay repositories;
 - `plan` for the ordered, non-mutating core/overlay destination diff;
 - `apply --skip packages,tools,services` for a controlled layered apply;
 - `verify` and `hooks` for repository maintenance;
