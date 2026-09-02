@@ -195,8 +195,13 @@ local function load_smart_size(path)
 	end)
 end
 
+-- BSD stat spells this -f; on GNU coreutils -f means --file-system and the
+-- call fails, which silently rendered "-" for every row on the Linux profile.
+local owner_group_argv = vim.uv.os_uname().sysname == "Darwin" and { "stat", "-f", "%Su:%Sg" }
+	or { "stat", "-c", "%U:%G" }
+
 local function load_owner_group(path)
-	run_async("owner_group", path, { "stat", "-f", "%Su:%Sg", path }, function(result)
+	run_async("owner_group", path, vim.list_extend(vim.deepcopy(owner_group_argv), { path }), function(result)
 		local value = vim.trim(result.stdout or "")
 		if result.code == 0 and value ~= "" then
 			caches.owner_group[path] = value

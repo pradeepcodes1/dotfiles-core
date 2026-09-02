@@ -120,11 +120,11 @@ end
 
 local function open(lines, all)
 	local path = log.get_filename()
-	local offset = vim.fn.getfsize(path)
 	if vim.fn.filereadable(path) == 0 then
 		vim.notify("No LSP log at " .. path, vim.log.levels.WARN)
 		return
 	end
+	local offset = vim.fn.getfsize(path)
 
 	local entries
 	if all then

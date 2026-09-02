@@ -206,8 +206,10 @@ map("n", "[t", function()
 	require("todo-comments").jump_prev()
 end, { desc = "Previous TODO" })
 
--- Copy the full notification history to the clipboard
-map("n", "<leader>..", function()
+-- Copy the full notification history to the clipboard. Not under <leader>.,
+-- which snacks uses for the scratch buffer: a two-key binding below it makes
+-- every scratch toggle wait out timeoutlen first.
+map("n", "<leader>N", function()
 	local ok, notify = pcall(require, "notify")
 	if not ok then
 		vim.notify("nvim-notify is not available", vim.log.levels.WARN)

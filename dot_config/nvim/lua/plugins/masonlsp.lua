@@ -1,5 +1,10 @@
 -- make the language-server set reproducible while preferring system clangd.
-local common = require("lsp.common")
+--
+-- Everything below used to run while lazy was *collecting* specs -- requiring
+-- lsp.common (which calls vim.diagnostic.config), registering LspAttach, and
+-- declaring/enabling servers -- rather than when this plugin loads. It worked,
+-- but it made LSP setup an invisible side effect of reading a file. init()
+-- takes what has to exist before any server attaches; config() takes the rest.
 local paths = require("core.paths")
 
 local function first_executable(candidates)
@@ -54,53 +59,58 @@ local function show_ts_references(command, ctx)
 	references.open_items(quickfix_items, command.title)
 end
 
-vim.lsp.config("ts_ls", {
-	commands = {
-		["editor.action.showReferences"] = show_ts_references,
-	},
-})
-
--- Set up LSP keymaps via LspAttach autocommand
-vim.api.nvim_create_autocmd("LspAttach", {
-	group = vim.api.nvim_create_augroup("UserLspConfig", { clear = true }),
-	callback = function(ev)
-		local client = vim.lsp.get_client_by_id(ev.data.client_id)
-		if client then
-			common.on_attach(client, ev.buf)
-			if client.name == "jdtls" then
-				require("lsp.java").on_attach(ev.buf)
-			end
-		end
-	end,
-})
-
-vim.lsp.config("clangd", {
-	cmd = clangd_cmd(),
-	root_markers = {
-		".clangd",
-		".clang-tidy",
-		".clang-format",
-		"compile_commands.json",
-		"compile_flags.txt",
-		"configure.ac",
-		"CMakeLists.txt",
-		"CMakePresets.json",
-		".git",
-	},
-})
-
--- clangd is intentionally not in ensure_installed (we prefer the system binary),
--- so mason-lspconfig's automatic_enable never sees it as "installed" and skips it.
-vim.lsp.enable("clangd")
-
 return {
 	{
 		"williamboman/mason-lspconfig.nvim",
 		dependencies = { "williamboman/mason.nvim", "neovim/nvim-lspconfig", "hrsh7th/cmp-nvim-lsp" },
+		-- Diagnostic display and the attach hook have to be in place before the
+		-- first server attaches, which can happen before this plugin loads.
+		init = function()
+			local common = require("lsp.common")
+			vim.api.nvim_create_autocmd("LspAttach", {
+				group = vim.api.nvim_create_augroup("UserLspConfig", { clear = true }),
+				callback = function(ev)
+					local client = vim.lsp.get_client_by_id(ev.data.client_id)
+					if client then
+						common.on_attach(client, ev.buf)
+						if client.name == "jdtls" then
+							require("lsp.java").on_attach(ev.buf)
+						end
+					end
+				end,
+			})
+		end,
 		config = function()
 			vim.lsp.config("*", {
 				capabilities = require("cmp_nvim_lsp").default_capabilities(),
 			})
+
+			vim.lsp.config("ts_ls", {
+				commands = {
+					["editor.action.showReferences"] = show_ts_references,
+				},
+			})
+
+			vim.lsp.config("clangd", {
+				cmd = clangd_cmd(),
+				root_markers = {
+					".clangd",
+					".clang-tidy",
+					".clang-format",
+					"compile_commands.json",
+					"compile_flags.txt",
+					"configure.ac",
+					"CMakeLists.txt",
+					"CMakePresets.json",
+					".git",
+				},
+			})
+
+			-- clangd is intentionally not in ensure_installed (we prefer the system
+			-- binary), so mason-lspconfig's automatic_enable never sees it as
+			-- "installed" and skips it.
+			vim.lsp.enable("clangd")
+
 			require("mason-lspconfig").setup({
 				ensure_installed = {
 					"ts_ls",
