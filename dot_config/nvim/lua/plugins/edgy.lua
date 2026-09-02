@@ -7,7 +7,7 @@ return {
 		{
 			"<leader>vs",
 			function()
-				require("core.sidebar").toggle()
+				require("edgy").toggle("left")
 			end,
 			desc = "View: Explorer + Symbols",
 		},
@@ -24,7 +24,7 @@ return {
 			function()
 				-- Close all sidebars, return to clean coding view
 				pcall(function()
-					require("core.sidebar").close()
+					require("edgy").close()
 				end)
 				pcall(function()
 					require("dapui").close()
@@ -42,6 +42,10 @@ return {
 		-- one 40-column edgebar. The edgebar width is the max width of its
 		-- views, so both carry the same value. Explorer is auto-sized and takes
 		-- whatever height Symbols leaves.
+		-- Both views are pinned with their own `open`, which is what lets
+		-- edgy.toggle("left") treat them as one sidebar. core/sidebar.lua used
+		-- to do that by hand, including a WinClosed guard that polled up to 50
+		-- times waiting for the second window to appear.
 		left = {
 			{
 				title = "Explorer",
@@ -49,12 +53,21 @@ return {
 				filter = function(buf)
 					return vim.b[buf].neo_tree_source == "filesystem"
 				end,
+				pinned = true,
+				-- Not `Neotree show`: the explorer resolves a project root and
+				-- reveals the current file inside it, and does not take focus,
+				-- so Aerial attaches to the source buffer rather than the tree.
+				open = function()
+					require("core.neotree_explorer").show()
+				end,
 				size = { width = 40 },
 				wo = { winbar = "%#EdgyTitle# Explorer%*" },
 			},
 			{
 				title = "Symbols",
 				ft = "aerial",
+				pinned = true,
+				open = "AerialOpen",
 				size = { width = 40, height = 0.35 },
 				wo = { winbar = "%#EdgyTitle# Symbols%*" },
 			},

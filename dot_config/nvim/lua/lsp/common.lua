@@ -3,8 +3,14 @@
 local M = {}
 local references = require("core.references")
 
+-- The cursor line renders its diagnostics in full as virtual lines, and drops
+-- the truncated virtual text that would otherwise say the same thing twice on
+-- the same row. Every other line keeps the inline one-liner. core/diagnostics.lua
+-- used to do this by wrapping the virtual_text handler and refcounting
+-- suppressed lines; `current_line` is the same idea in the diagnostic API.
 vim.diagnostic.config({
-	virtual_text = true, -- ← must be true (or table) for inline error text
+	virtual_lines = { current_line = true },
+	virtual_text = { current_line = false },
 })
 
 -- Runs after a language server attaches to a buffer.

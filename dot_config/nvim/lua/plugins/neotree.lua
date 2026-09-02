@@ -1,6 +1,8 @@
 -- make Neo-tree cooperate with the shared Edgy sidebar and rich metadata columns.
+-- Closing either pane closes the shared left edgebar, so the Explorer and
+-- Symbols sidebar still comes and goes as one thing.
 local function close_sidebar()
-	require("core.sidebar").close()
+	require("edgy").close("left")
 end
 
 return {

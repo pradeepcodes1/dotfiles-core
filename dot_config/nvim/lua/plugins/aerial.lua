@@ -1,7 +1,7 @@
 -- make Symbols share one stable sidebar with Neo-tree under Edgy.
 local close_sidebar = {
 	callback = function()
-		require("core.sidebar").close()
+		require("edgy").close("left")
 	end,
 	desc = "Close Explorer + Symbols sidebar",
 }

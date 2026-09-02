@@ -7,32 +7,8 @@ require("core.options")
 require("core.keymaps")
 require("core.neovide")
 require("core.lsp_log")
-require("core.lsp_navigation_progress").setup()
 
 local theme_config = require("core.theme").sync_env_from_state()
-
--- Log terminal and exit lifecycle events to dotlog
-local log = require("core.logging")
-vim.api.nvim_create_autocmd("TermClose", {
-	callback = function(ev)
-		local wins = {}
-		for _, w in ipairs(vim.api.nvim_list_wins()) do
-			local b = vim.api.nvim_win_get_buf(w)
-			local cfg = vim.api.nvim_win_get_config(w)
-			table.insert(wins, string.format("win=%d buf=%d float=%s", w, b, tostring(cfg.relative ~= "")))
-		end
-		log.debug("lifecycle", "TermClose", {
-			buf = ev.buf,
-			bufname = vim.api.nvim_buf_get_name(ev.buf),
-			windows = table.concat(wins, "; "),
-		})
-	end,
-})
-vim.api.nvim_create_autocmd("VimLeavePre", {
-	callback = function()
-		log.info("lifecycle", "VimLeavePre")
-	end,
-})
 
 -- Bootstrap lazy.nvim if missing
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"

@@ -1,6 +1,5 @@
 -- keep cross-plugin navigation and actions in one discoverable key layer.
 local map = vim.keymap.set
-local diagnostics = require("core.diagnostics")
 local problems = require("core.problems")
 local project = require("core.project")
 vim.g.mapleader = " "
@@ -53,7 +52,9 @@ end
 
 -- LSP (gd, rename, code_action are in lsp/common.lua on_attach)
 map("n", "<leader>lc", "<Cmd>cclose<CR>", { desc = "Close quickfix window" })
-map("n", "?", diagnostics.open_line_float, { desc = "Open diagnostic float" })
+map("n", "?", function()
+	vim.diagnostic.open_float({ scope = "line" })
+end, { desc = "Open diagnostic float" })
 map("n", "]d", function()
 	vim.diagnostic.jump({ count = 1 })
 end, { desc = "Next diagnostic" })

@@ -218,12 +218,6 @@ function M.show()
 	execute(path, root)
 end
 
-function M.forget(tabpage)
-	tabpage = tabpage or vim.api.nvim_get_current_tabpage()
-	active_roots[tabpage] = nil
-	active_paths[tabpage] = nil
-end
-
 local follow_group = vim.api.nvim_create_augroup("neotree_follow_project_root", { clear = true })
 
 vim.api.nvim_create_autocmd("BufEnter", {
