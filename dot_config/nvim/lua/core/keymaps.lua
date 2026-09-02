@@ -38,7 +38,7 @@ if not vim.g.nvim_preview then
 		"n",
 		"<leader>fS",
 		project.only(function()
-			Snacks.picker.lsp_workspace_symbols({ filter = { cwd = project.current_root() } })
+			Snacks.picker.lsp_workspace_symbols(project.picker_scope())
 		end),
 		{ desc = "Find symbols in workspace" }
 	)

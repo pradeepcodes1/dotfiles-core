@@ -131,6 +131,44 @@ function M.contains(path)
 	return path_util.under(path_util.normalize(path), M.current_root())
 end
 
+-- Symbol and reference pickers are scoped to the project, which is what keeps
+-- jdtls' decompiled jdt:// classfiles, dependency sources and toolchain
+-- libraries out of them. <C-.> widens the picker to everything the servers
+-- actually index, for the times a JDK or library symbol is the thing you want.
+--
+-- No action is written for this: Snacks generates a `toggle_<name>` action for
+-- every entry in `toggles`, which flips `picker.opts[name]` and re-finds. The
+-- item predicate cannot see the picker, so `transform` -- which can -- copies
+-- the flag onto the filter's own meta and returns true to force the refresh.
+function M.picker_scope()
+	local root = M.current_root()
+	if not root then
+		return {}
+	end
+
+	return {
+		toggles = { external = { icon = "e" } },
+		-- Deliberately `transform` and not `filter.cwd`. Only the location
+		-- sources apply the picker's Filter -- lsp/init.lua calls filter:match
+		-- inside get_locations, which serves gr -- while the symbol finder
+		-- ignores it entirely, so a filter here would scope gr and silently do
+		-- nothing for fS. Finder:run applies `transform` for every source, and
+		-- returning false from it drops the item.
+		transform = function(item, ctx)
+			if ctx.picker.opts.external then
+				return
+			end
+			if not path_util.under(item.file, root) then
+				return false
+			end
+		end,
+		win = {
+			input = { keys = { ["<c-.>"] = { "toggle_external", mode = { "i", "n" } } } },
+			list = { keys = { ["<c-.>"] = "toggle_external" } },
+		},
+	}
+end
+
 local git_tools = {
 	lazygit = {
 		title = "Lazygit",

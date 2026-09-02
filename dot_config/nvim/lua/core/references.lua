@@ -3,8 +3,10 @@ local M = {}
 
 -- gr. Language servers index more than the project: jdtls returns jdt://
 -- virtual classfiles and attached JDK sources, and pyright/gopls reach into
--- site-packages and the module cache. `filter.cwd` drops everything outside
--- the project root, which also drops every non-file:// URI with it.
+-- site-packages and the module cache. project.picker_scope() drops everything
+-- outside the project root -- which takes every non-file:// URI with it, since
+-- vim.uri_to_fname leaves those unchanged and they cannot match the root --
+-- and binds <C-.> to widen the picker back out to all of it.
 --
 -- The picker's own defaults cover the rest of what this used to do by hand:
 -- `include_current = false` hides the reference under the cursor, and
@@ -15,7 +17,7 @@ function M.open_float()
 		return
 	end
 
-	Snacks.picker.lsp_references({ filter = { cwd = project.current_root() } })
+	Snacks.picker.lsp_references(project.picker_scope())
 end
 
 -- Locations a server hands us directly, rather than ones we requested --
