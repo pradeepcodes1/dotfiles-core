@@ -19,11 +19,15 @@
 .config/nvim/lua/core/diagnostics.lua
 .config/nvim/lua/core/logging.lua
 .config/nvim/lua/core/lsp_navigation_progress.lua
+.config/nvim/lua/core/neotree_explorer.lua
 .config/nvim/lua/core/neotree_columns.lua
 .config/nvim/lua/core/notes.lua
 .config/nvim/lua/core/quickfix.lua
 .config/nvim/lua/core/sidebar.lua
 .config/nvim/lua/core/trouble_float.lua
+.config/nvim/lua/plugins/edgy.lua
+.config/nvim/lua/plugins/neotree.lua
+.config/nvim/lua/plugins/notify.lua
 .config/nvim/lua/plugins/themes.lua
 .config/nvim/lua/plugins/trouble.lua
 

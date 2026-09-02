@@ -1,9 +1,8 @@
--- make Symbols share one stable sidebar with Neo-tree under Edgy.
-local close_sidebar = {
+local close_symbols = {
 	callback = function()
-		require("edgy").close("left")
+		vim.cmd("AerialClose")
 	end,
-	desc = "Close Explorer + Symbols sidebar",
+	desc = "Close Symbols sidebar",
 }
 
 return {
@@ -13,16 +12,15 @@ return {
 		"nvim-tree/nvim-web-devicons",
 	},
 	event = { "BufReadPost", "BufNewFile" },
-	cmd = { "AerialToggle", "AerialOpen" },
+	cmd = { "AerialToggle", "AerialOpen", "AerialClose" },
 	opts = {
 		backends = { "lsp", "treesitter", "markdown", "man" },
 		layout = {
-			default_direction = "left",
-			-- Edgy owns the shared Explorer/Symbols column geometry. Letting
-			-- Aerial size to each buffer's symbols makes the whole column reflow.
-			width = 40,
-			min_width = 40,
-			max_width = 40,
+			default_direction = "right",
+			-- Symbols need less horizontal room than the file explorer.
+			width = 30,
+			min_width = 30,
+			max_width = 30,
 			resize_to_content = false,
 		},
 		attach_mode = "global",
@@ -41,12 +39,12 @@ return {
 			["<CR>"] = "actions.jump",
 			["<C-v>"] = "actions.jump_vsplit",
 			["<C-s>"] = "actions.jump_split",
-			["q"] = close_sidebar,
-			["<C-q>"] = close_sidebar,
-			["Q"] = close_sidebar,
-			["<leader>x"] = close_sidebar,
-			["<C-w>c"] = close_sidebar,
-			["<C-w>q"] = close_sidebar,
+			["q"] = close_symbols,
+			["<C-q>"] = close_symbols,
+			["Q"] = close_symbols,
+			["<leader>x"] = close_symbols,
+			["<C-w>c"] = close_symbols,
+			["<C-w>q"] = close_symbols,
 			["o"] = "actions.tree_toggle",
 		},
 	},

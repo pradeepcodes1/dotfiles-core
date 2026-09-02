@@ -11,7 +11,6 @@ return {
 	-- Git & coding aids
 	----------------------------------------
 	{ "windwp/nvim-autopairs", event = "InsertEnter", config = true },
-	{ "numToStr/Comment.nvim", event = "VeryLazy", config = true },
 
 	----------------------------------------
 	-- LSP, diagnostics, formatting
@@ -66,6 +65,20 @@ return {
 		---@type snacks.Config
 		opts = {
 			bigfile = { enabled = true },
+			notifier = {
+				enabled = true,
+				timeout = 1500,
+				width = { min = 10, max = 0.4 },
+				style = "minimal",
+				top_down = true,
+				icons = {
+					error = " ",
+					warn = " ",
+					info = " ",
+					debug = " ",
+					trace = "✎ ",
+				},
+			},
 			dashboard = {
 				enabled = not vim.g.nvim_preview,
 				preset = {
@@ -86,6 +99,10 @@ return {
 				sections = {
 					{ section = "keys", gap = 1, padding = 1 },
 				},
+			},
+			explorer = {
+				enabled = not vim.g.nvim_preview,
+				replace_netrw = false,
 			},
 			indent = {
 				enabled = true,
@@ -114,6 +131,25 @@ return {
 					list = { keys = { ["<c-.>"] = "toggle_hidden" } },
 				},
 				sources = {
+					explorer = {
+						actions = {
+							close_explorer = function()
+								require("core.snacks_explorer").close()
+							end,
+						},
+						win = {
+							list = {
+								keys = {
+									["q"] = "close_explorer",
+									["<C-q>"] = "close_explorer",
+									["Q"] = "close_explorer",
+									["<leader>x"] = "close_explorer",
+									["<C-w>c"] = "close_explorer",
+									["<C-w>q"] = "close_explorer",
+								},
+							},
+						},
+					},
 					select = {
 						focus = "list",
 						layout = {

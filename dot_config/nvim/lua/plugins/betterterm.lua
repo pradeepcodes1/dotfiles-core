@@ -53,7 +53,7 @@ return {
 			betterterm.open = function(id, term_opts)
 				term_opts = term_opts or {}
 				if term_opts.cwd == nil then
-					term_opts.cwd = require("core.neotree_explorer").root_for_buffer()
+					term_opts.cwd = require("core.snacks_explorer").root_for_buffer()
 				end
 
 				return open(id, term_opts)

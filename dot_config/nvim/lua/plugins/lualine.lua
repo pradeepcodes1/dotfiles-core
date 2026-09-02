@@ -12,7 +12,7 @@ return {
 				"dapui_stacks",
 				"dapui_watches",
 				"aerial",
-				"neo-tree",
+				"snacks_picker_list",
 				"neotest-summary",
 				"neotest-output-panel",
 			}

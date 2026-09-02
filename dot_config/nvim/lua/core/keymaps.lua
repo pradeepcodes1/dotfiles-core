@@ -48,6 +48,21 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>`", function()
 		Snacks.picker.buffers()
 	end, { desc = "Search open buffers" })
+	map("n", "<leader>s", function()
+		vim.cmd("AerialToggle! right")
+	end, { desc = "View: Symbols" })
+	map("n", "<leader>e", function()
+		require("core.snacks_explorer").toggle()
+	end, { desc = "View: Explorer" })
+	map("n", "<leader>vc", function()
+		require("core.snacks_explorer").close_all()
+		pcall(function()
+			require("dapui").close()
+		end)
+		pcall(function()
+			require("neotest").summary.close()
+		end)
+	end, { desc = "View: Code (close all)" })
 end
 
 -- LSP (gd, rename, code_action are in lsp/common.lua on_attach)
@@ -186,8 +201,7 @@ map("n", "<leader>Q", "<cmd>qa<CR>", {
 })
 
 -- Yazi file manager
-map({ "n", "v" }, "<leader>e", "<cmd>Yazi<cr>", { desc = "Open yazi at current file" })
-map("n", "<leader>E", "<cmd>Yazi cwd<cr>", { desc = "Open yazi in cwd" })
+map({ "n", "v" }, "<leader>E", "<cmd>Yazi<cr>", { desc = "Open yazi at current file" })
 map("n", "<c-up>", "<cmd>Yazi toggle<cr>", { desc = "Resume last yazi session" })
 
 -- Todo-comments. The source registers itself with Snacks.picker on setup.
@@ -210,17 +224,19 @@ end, { desc = "Previous TODO" })
 -- which snacks uses for the scratch buffer: a two-key binding below it makes
 -- every scratch toggle wait out timeoutlen first.
 map("n", "<leader>N", function()
-	local ok, notify = pcall(require, "notify")
+	local ok, notifier = pcall(require, "snacks.notifier")
 	if not ok then
-		vim.notify("nvim-notify is not available", vim.log.levels.WARN)
+		vim.notify("Snacks notifier is not available", vim.log.levels.WARN)
 		return
 	end
 
+	local history = notifier.get_history()
 	local lines = {}
-	for _, entry in ipairs(notify.history()) do
-		local header = string.format("[%s] %s", entry.level, entry.title[1] ~= "" and entry.title[1] or "notify")
+	for _, entry in ipairs(history) do
+		local header =
+			string.format("[%s] %s", entry.level, entry.title and entry.title ~= "" and entry.title or "notify")
 		table.insert(lines, header)
-		vim.list_extend(lines, entry.message)
+		vim.list_extend(lines, vim.split(entry.msg, "\n", { plain = true }))
 		table.insert(lines, "")
 	end
 
@@ -232,5 +248,5 @@ map("n", "<leader>N", function()
 	local text = table.concat(lines, "\n")
 	vim.fn.setreg("+", text)
 	vim.fn.setreg('"', text)
-	vim.notify(string.format("Copied %d notifications", #notify.history()), vim.log.levels.INFO)
+	vim.notify(string.format("Copied %d notifications", #history), vim.log.levels.INFO)
 end, { desc = "Copy all notifications to clipboard" })

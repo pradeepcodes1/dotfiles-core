@@ -61,8 +61,8 @@ end
 
 return {
 	{
-		"williamboman/mason-lspconfig.nvim",
-		dependencies = { "williamboman/mason.nvim", "neovim/nvim-lspconfig", "saghen/blink.cmp" },
+		"mason-org/mason-lspconfig.nvim",
+		dependencies = { "mason-org/mason.nvim", "neovim/nvim-lspconfig", "saghen/blink.cmp" },
 		-- Diagnostic display and the attach hook have to be in place before the
 		-- first server attaches, which can happen before this plugin loads.
 		init = function()

@@ -1,6 +1,6 @@
 -- prefer Homebrew/mise binaries while retaining Mason installations as fallbacks.
 return {
-	"williamboman/mason.nvim",
+	"mason-org/mason.nvim",
 	opts = {
 		PATH = "append",
 	},

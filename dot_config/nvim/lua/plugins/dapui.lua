@@ -28,8 +28,15 @@ return {
 	{
 		"rcarriga/nvim-dap-ui",
 		dependencies = { "mfussenegger/nvim-dap", "nvim-neotest/nvim-nio" },
-		-- <leader>vd toggle is in edgy.lua (View: Debug)
 		keys = {
+			{
+				"<leader>vd",
+				function()
+					require("core.snacks_explorer").close_all()
+					require("dapui").toggle()
+				end,
+				desc = "View: Debug",
+			},
 			{
 				"<leader>de",
 				function()
@@ -50,7 +57,7 @@ return {
 							{ id = "stacks", size = 0.2 },
 							{ id = "watches", size = 0.2 },
 						},
-						position = "left",
+						position = "right",
 						size = 60,
 					},
 					{
@@ -67,6 +74,7 @@ return {
 			-- Auto open/close dap-ui with debug sessions
 			local dap = require("dap")
 			dap.listeners.after.event_initialized["dapui_config"] = function()
+				require("core.snacks_explorer").close_all()
 				dapui.open()
 			end
 			dap.listeners.before.event_terminated["dapui_config"] = function()

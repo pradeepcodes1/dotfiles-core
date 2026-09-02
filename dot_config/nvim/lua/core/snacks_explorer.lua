@@ -1,4 +1,4 @@
--- reveal the managed chezmoi source at its nearest project root, not the deployed target.
+-- Reveal the managed chezmoi source at its nearest project root, not the deployed target.
 local M = {}
 local library_paths = require("core.library_paths")
 local path_util = require("core.path")
@@ -106,34 +106,24 @@ local function target_for_buffer(bufnr)
 	return path, root
 end
 
-local function explorer_is_open(tabpage)
-	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(tabpage)) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		if vim.bo[buf].filetype == "neo-tree" and vim.b[buf].neo_tree_source == "filesystem" then
-			return true
-		end
+local function explorer(tabpage)
+	if tabpage ~= vim.api.nvim_get_current_tabpage() then
+		return nil
 	end
 
-	return false
+	return Snacks.picker.get({ source = "explorer" })[1]
 end
 
-local function execute(path, root)
-	local command = require("neo-tree.command")
-
-	local args = {
-		action = "show",
-		toggle = false,
-		source = "filesystem",
-		position = "left",
-		dir = root,
-		selector = false,
-	}
-
-	if path then
-		args.reveal_file = path
+local function reveal(picker, path, root)
+	if picker:cwd() ~= root then
+		picker:set_cwd(root)
 	end
 
-	command.execute(args)
+	if path then
+		Snacks.explorer.reveal({ file = path })
+	else
+		picker:find()
+	end
 end
 
 -- Shared with plugins/betterterm.lua, so the floating terminal opens on the
@@ -146,27 +136,75 @@ function M.root_for_buffer(bufnr)
 	return root or active_roots[vim.api.nvim_get_current_tabpage()] or path_util.cwd()
 end
 
-function M.show()
+function M.show(on_show)
 	local tabpage = vim.api.nvim_get_current_tabpage()
 	local path, root = target_for_buffer(vim.api.nvim_get_current_buf())
 	root = root or active_roots[tabpage] or path_util.cwd()
 	active_roots[tabpage] = root
 	active_paths[tabpage] = path
-	execute(path, root)
+
+	local current = explorer(tabpage)
+	if current then
+		reveal(current, path, root)
+		if on_show then
+			on_show()
+		end
+		return
+	end
+
+	Snacks.explorer.open({
+		cwd = root,
+		focus = false,
+		on_show = function(picker)
+			vim.b[picker.list.win.buf].snacks_explorer = true
+			if path then
+				Snacks.explorer.reveal({ file = path })
+			end
+			if on_show then
+				on_show()
+			end
+		end,
+	})
 end
 
-local follow_group = vim.api.nvim_create_augroup("neotree_follow_project_root", { clear = true })
+function M.close()
+	local current = explorer(vim.api.nvim_get_current_tabpage())
+	if current then
+		current:close()
+	end
+end
+
+function M.toggle()
+	if explorer(vim.api.nvim_get_current_tabpage()) then
+		M.close()
+		return
+	end
+
+	M.show()
+end
+
+function M.close_all()
+	M.close()
+	pcall(vim.cmd, "AerialClose")
+end
+
+local follow_group = vim.api.nvim_create_augroup("snacks_explorer_follow_project_root", { clear = true })
 
 vim.api.nvim_create_autocmd("BufEnter", {
 	group = follow_group,
-	desc = "Follow source project roots in an open Neo-tree explorer",
+	desc = "Follow source project roots in an open Snacks explorer",
 	callback = function(args)
 		local tabpage = vim.api.nvim_get_current_tabpage()
 		vim.schedule(function()
 			if not vim.api.nvim_tabpage_is_valid(tabpage) or vim.api.nvim_get_current_tabpage() ~= tabpage then
 				return
 			end
-			if vim.api.nvim_get_current_buf() ~= args.buf or not explorer_is_open(tabpage) then
+			if vim.api.nvim_get_current_buf() ~= args.buf then
+				return
+			end
+
+			local current = explorer(tabpage)
+			if not current then
 				return
 			end
 
@@ -180,7 +218,7 @@ vim.api.nvim_create_autocmd("BufEnter", {
 
 			active_roots[tabpage] = root
 			active_paths[tabpage] = path
-			execute(path, root)
+			reveal(current, path, root)
 		end)
 	end,
 })

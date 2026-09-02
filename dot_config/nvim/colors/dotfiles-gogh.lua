@@ -155,12 +155,6 @@ for name, spec in pairs({
 	DapBreakpointCondition = { fg = syntax.yellow },
 	DapStopped = { fg = syntax.green, bg = blend(syntax.green, p.bg, 0.18) },
 
-	NeoTreeDirectoryIcon = { fg = syntax.blue },
-	NeoTreeDirectoryName = { fg = syntax.blue },
-	NeoTreeFileNameOpened = { fg = accent, bold = true },
-	NeoTreeIndentMarker = { fg = inactive },
-	NeoTreeTabActive = { fg = accent, bg = surface_high, bold = true },
-
 	SnacksDashboardDesc = { fg = p.fg },
 	SnacksDashboardFooter = { fg = comment, italic = true },
 	SnacksDashboardHeader = { fg = accent },
