@@ -4,6 +4,83 @@ local M = {}
 local QFLIST_MODE = "references_qflist_float"
 local trouble_float = require("core.trouble_float")
 
+local function normalize_path(path)
+	if type(path) ~= "string" or path == "" then
+		return nil
+	end
+
+	return vim.fs.normalize(path)
+end
+
+local function is_path_under_root(path, root)
+	path = normalize_path(path)
+	root = normalize_path(root)
+	if not path or not root then
+		return false
+	end
+
+	return path == root or vim.startswith(path, root .. "/")
+end
+
+-- LSP servers index more than the project itself. jdtls, for example, returns
+-- jdt:// virtual class files and attached JDK/dependency sources for references.
+-- Keep the roots from every client attached to the source buffer so `gr` means
+-- references in the active workspace, even in a multi-root workspace.
+local function workspace_roots(bufnr)
+	local roots = {}
+
+	local function add(root)
+		root = normalize_path(root)
+		if root then
+			roots[root] = true
+		end
+	end
+
+	for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+		local folders = client.workspace_folders or (client.config and client.config.workspace_folders)
+		for _, folder in ipairs(type(folders) == "table" and folders or {}) do
+			if folder.uri then
+				local ok, path = pcall(vim.uri_to_fname, folder.uri)
+				if ok then
+					add(path)
+				end
+			end
+		end
+
+		add(client.root_dir)
+		if client.config then
+			add(client.config.root_dir)
+		end
+	end
+
+	if vim.tbl_isempty(roots) then
+		add(vim.uv.cwd() or vim.fn.getcwd())
+	end
+
+	return roots
+end
+
+local function location_is_in_workspace(location, roots)
+	local uri = location.uri or location.targetUri
+	-- Reference results outside file:// include jdtls' jdt:// decompiled classes.
+	if type(uri) ~= "string" or not vim.startswith(uri, "file:") then
+		return false
+	end
+
+	local ok, path = pcall(vim.uri_to_fname, uri)
+	if not ok then
+		return false
+	end
+
+	for root in pairs(roots) do
+		if is_path_under_root(path, root) then
+			return true
+		end
+	end
+
+	return false
+end
+
 -- Fractions, not absolute columns: entry_display resolves a width below 1
 -- against the live results window, and that window is only ~54 columns at a
 -- 120-column editor -- fixed widths ate the whole row and left nothing for the
@@ -110,22 +187,82 @@ local function send_to_float(prompt_bufnr)
 	end)
 end
 
--- gr: the Telescope picker. Fuzzy typing, <C-Space> refine, and <C-q> to hand
--- whatever survived to the list float. Telescope jumps straight to a lone
--- reference itself, so a single match still lands on the location.
-function M.open_float()
-	require("telescope.builtin").lsp_references({
-		include_declaration = true,
-		include_current_line = false,
-
-		-- the entry maker does its own trimming and path splitting, so
-		-- trim_text and path_display would no longer be read here
+local function show_reference_picker(items)
+	local opts = {
 		entry_maker = reference_entry_maker({}),
 		attach_mappings = function(_, map)
 			map({ "i", "n" }, "<C-q>", send_to_float)
 			return true
 		end,
-	})
+	}
+
+	local conf = require("telescope.config").values
+	require("telescope.pickers")
+		.new(opts, {
+			prompt_title = "LSP References",
+			finder = require("telescope.finders").new_table({
+				results = items,
+				entry_maker = opts.entry_maker,
+			}),
+			previewer = conf.qflist_previewer(opts),
+			sorter = conf.generic_sorter(opts),
+			push_cursor_on_edit = true,
+			push_tagstack_on_edit = true,
+		})
+		:find()
+end
+
+-- gr: request references from every attached server, discard locations outside
+-- their workspace roots, then open Telescope. Fuzzy typing, <C-Space> refine,
+-- and <C-q> continue to work; one surviving match still jumps directly.
+function M.open_float()
+	local bufnr = vim.api.nvim_get_current_buf()
+	local winnr = vim.api.nvim_get_current_win()
+	local current_path = normalize_path(vim.api.nvim_buf_get_name(bufnr))
+	local current_line = vim.api.nvim_win_get_cursor(winnr)[1]
+	local roots = workspace_roots(bufnr)
+
+	local params = function(client)
+		local value = vim.lsp.util.make_position_params(winnr, client.offset_encoding)
+		value.context = { includeDeclaration = true }
+		return value
+	end
+
+	vim.lsp.buf_request_all(bufnr, "textDocument/references", params, function(results_per_client)
+		local items = {}
+
+		for client_id, response in pairs(results_per_client) do
+			if response.err then
+				vim.notify(response.err.message or "Reference request failed", vim.log.levels.ERROR)
+			elseif response.result then
+				local client = vim.lsp.get_client_by_id(client_id)
+				local encoding = client and client.offset_encoding or "utf-16"
+				local locations = vim.tbl_filter(function(location)
+					return location_is_in_workspace(location, roots)
+				end, response.result)
+
+				for _, item in ipairs(vim.lsp.util.locations_to_items(locations, encoding)) do
+					local item_path = normalize_path(item.filename)
+					if item_path ~= current_path or item.lnum ~= current_line then
+						item._offset_encoding = encoding
+						table.insert(items, item)
+					end
+				end
+			end
+		end
+
+		if vim.tbl_isempty(items) then
+			vim.notify("No workspace references found", vim.log.levels.INFO)
+			return
+		end
+
+		if #items == 1 then
+			vim.lsp.util.show_document(items[1].user_data, items[1]._offset_encoding, { reuse_win = false })
+			return
+		end
+
+		show_reference_picker(items)
+	end)
 end
 
 function M.open_items_float(items, title, context)

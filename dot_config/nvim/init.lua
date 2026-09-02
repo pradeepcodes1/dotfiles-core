@@ -7,6 +7,7 @@ require("core.options")
 require("core.keymaps")
 require("core.neovide")
 require("core.lsp_log")
+require("core.lsp_navigation_progress").setup()
 
 local theme_config = require("core.theme").sync_env_from_state()
 
