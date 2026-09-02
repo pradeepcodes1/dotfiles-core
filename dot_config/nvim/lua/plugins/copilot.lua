@@ -1,5 +1,5 @@
--- feed Copilot through cmp instead of competing ghost-text and panel UIs.
--- lazy.nvim spec
+-- feed Copilot through the completion menu instead of competing ghost-text
+-- and panel UIs. The blink-copilot provider is declared in plugins/blink.lua.
 return {
 	{
 		"zbirenbaum/copilot.lua",
@@ -10,8 +10,8 @@ return {
 		enabled = not vim.g.nvim_preview,
 		config = function()
 			require("copilot").setup({
-				suggestion = { enabled = false }, -- Disable ghost text, use cmp instead
-				panel = { enabled = false }, -- Disable panel, use cmp instead
+				suggestion = { enabled = false }, -- ghost text competes with the menu
+				panel = { enabled = false }, -- the menu is the only surface
 				-- Pin the interpreter instead of taking `node` off PATH. Neovide
 				-- spawns nvim through `zsh -c`, which does not source .zshrc and so
 				-- never activates mise, leaving Homebrew's node -- ad-hoc signed,
@@ -24,26 +24,6 @@ return {
 					java = false,
 				},
 			})
-		end,
-	},
-	{
-		"zbirenbaum/copilot-cmp",
-		enabled = not vim.g.nvim_preview,
-		config = function()
-			-- Keep compatibility with Neovim's method-form client API.
-			local source = require("copilot_cmp.source")
-			source.is_available = function(self)
-				local get_clients = vim.lsp.get_clients or vim.lsp.get_active_clients
-				return not self.client:is_stopped()
-					and self.client.name == "copilot"
-					and next(get_clients({
-							bufnr = vim.api.nvim_get_current_buf(),
-							id = self.client.id,
-						}))
-						~= nil
-			end
-
-			require("copilot_cmp").setup()
 		end,
 	},
 }

@@ -31,7 +31,6 @@ vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({ import = "plugins" })
 
-require("core.cmp")
 require("core.project").setup()
 
 -- Resolve theme from persisted dotfiles state, with env vars as fallback.

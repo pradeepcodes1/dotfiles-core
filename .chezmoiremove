@@ -15,6 +15,7 @@
 .config/colors/nightfox.sh
 
 # Retired Neovim modules and plugin specs.
+.config/nvim/lua/core/cmp.lua
 .config/nvim/lua/core/diagnostics.lua
 .config/nvim/lua/core/logging.lua
 .config/nvim/lua/core/lsp_navigation_progress.lua

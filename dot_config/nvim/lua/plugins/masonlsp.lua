@@ -62,7 +62,7 @@ end
 return {
 	{
 		"williamboman/mason-lspconfig.nvim",
-		dependencies = { "williamboman/mason.nvim", "neovim/nvim-lspconfig", "hrsh7th/cmp-nvim-lsp" },
+		dependencies = { "williamboman/mason.nvim", "neovim/nvim-lspconfig", "saghen/blink.cmp" },
 		-- Diagnostic display and the attach hook have to be in place before the
 		-- first server attaches, which can happen before this plugin loads.
 		init = function()
@@ -82,7 +82,7 @@ return {
 		end,
 		config = function()
 			vim.lsp.config("*", {
-				capabilities = require("cmp_nvim_lsp").default_capabilities(),
+				capabilities = require("blink.cmp").get_lsp_capabilities(),
 			})
 
 			vim.lsp.config("ts_ls", {
