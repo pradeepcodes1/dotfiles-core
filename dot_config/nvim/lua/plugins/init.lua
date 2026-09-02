@@ -180,7 +180,10 @@ return {
 			quickfile = { enabled = true },
 			scratch = { ft = "md" },
 			scope = { enabled = true },
-			statuscolumn = { enabled = true },
+			-- comfy-line-numbers owns 'statuscolumn': it writes its own label
+			-- column per window on every buffer/window enter, which would just
+			-- overwrite whatever the Snacks statuscolumn had put there.
+			statuscolumn = { enabled = false },
 			words = { enabled = true },
 		},
 		keys = {
