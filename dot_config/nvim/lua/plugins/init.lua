@@ -98,6 +98,9 @@ return {
 				},
 			},
 			input = { enabled = true },
+			-- Writes a lazygit theme from the active colorscheme, so the float
+			-- follows a `theme` switch like everything else here does.
+			lazygit = { configure = true },
 			picker = {
 				enabled = true,
 				ui_select = true,
@@ -158,6 +161,30 @@ return {
 					Snacks.scratch.select()
 				end,
 				desc = "Select Scratch Buffer",
+			},
+			-- Git. Rooted on the project when there is one; current_root() falls
+			-- back to the buffer's own root outside project mode, so these work
+			-- anywhere rather than being silent no-ops like the Kitty tools.
+			{
+				"<leader>gg",
+				function()
+					Snacks.lazygit({ cwd = require("core.project").current_root() })
+				end,
+				desc = "Lazygit",
+			},
+			{
+				"<leader>gp",
+				function()
+					Snacks.picker.gh_pr({ cwd = require("core.project").current_root() })
+				end,
+				desc = "GitHub pull requests",
+			},
+			{
+				"<leader>gi",
+				function()
+					Snacks.picker.gh_issue({ cwd = require("core.project").current_root() })
+				end,
+				desc = "GitHub issues",
 			},
 		},
 	},

@@ -404,9 +404,9 @@ end
 
 function M.setup()
 	M.set_open(false)
-	vim.keymap.set("n", "<leader>gg", function()
-		M.open_git_tool("lazygit")
-	end, { desc = "Git UI in Kitty" })
+	-- <leader>gg is Snacks.lazygit (plugins/init.lua), a float rather than a
+	-- Kitty window. open_git_tool still knows how to launch lazygit, so putting
+	-- it back is a one-line change if the OS window turns out to be preferable.
 	vim.keymap.set("n", "<leader>gd", function()
 		M.open_git_tool("diff")
 	end, { desc = "Git diff in Kitty" })
