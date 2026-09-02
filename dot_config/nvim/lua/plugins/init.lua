@@ -107,6 +107,15 @@ return {
 			picker = {
 				enabled = true,
 				ui_select = true,
+				-- Snacks binds toggle_hidden to <a-h>; <C-.> is the chord this
+				-- config used under Telescope. Both reach the same action, in
+				-- every picker that supports it. <C-.> needs the kitty keyboard
+				-- protocol to arrive at all, which Neovim turns on under
+				-- TERM=xterm-kitty -- <a-h> is the fallback anywhere it does not.
+				win = {
+					input = { keys = { ["<c-.>"] = { "toggle_hidden", mode = { "i", "n" } } } },
+					list = { keys = { ["<c-.>"] = "toggle_hidden" } },
+				},
 				sources = {
 					select = {
 						focus = "list",
@@ -123,7 +132,14 @@ return {
 					},
 					-- A file list is read by its names, not its contents; the
 					-- preview only narrows the column the names live in.
+					--
+					-- The two `hidden` keys here are unrelated: the source-level
+					-- one is dotfiles, the layout-level one is which picker
+					-- windows to leave out. Dotfiles stay off until <C-.> asks
+					-- for them, so a find never opens on .git objects.
 					files = {
+						hidden = false,
+						ignored = false,
 						layout = { preset = "vertical", hidden = { "preview" }, layout = { width = 0.45 } },
 					},
 				},
