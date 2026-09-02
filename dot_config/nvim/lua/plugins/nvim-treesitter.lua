@@ -53,14 +53,9 @@ return {
 
 			local select = require("nvim-treesitter-textobjects.select")
 			local move = require("nvim-treesitter-textobjects.move")
-			local swap = require("nvim-treesitter-textobjects.swap")
-			local function textobject(action, query, no_source)
+			local function textobject(action, query)
 				return function()
-					if no_source then
-						action(query)
-					else
-						action(query, "textobjects")
-					end
+					action(query, "textobjects")
 				end
 			end
 
@@ -84,9 +79,6 @@ return {
 			map(move_modes, "[a", textobject(move.goto_previous_start, "@parameter.inner"))
 			map(move_modes, "[M", textobject(move.goto_previous_end, "@function.outer"))
 			map(move_modes, "[]", textobject(move.goto_previous_end, "@class.outer"))
-
-			map("n", "<leader>sp", textobject(swap.swap_next, "@parameter.inner", true))
-			map("n", "<leader>sP", textobject(swap.swap_previous, "@parameter.inner", true))
 		end,
 	},
 }
