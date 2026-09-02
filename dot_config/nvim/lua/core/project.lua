@@ -4,6 +4,11 @@ local offered_roots = {}
 local pending_roots = {}
 local project_picker
 
+local function session_list()
+	local sessions = require("auto-session")
+	return require("auto-session.lib").get_session_list(sessions.get_root_dir())
+end
+
 local function normalize_path(path)
 	if type(path) ~= "string" or path == "" then
 		return nil
@@ -17,9 +22,7 @@ function M.set_open(value, root)
 	vim.g.project_open = value == true
 	if vim.g.project_open then
 		vim.g.project_root = normalize_path(root) or vim.g.project_root or normalize_path(vim.uv.cwd())
-		for root in pairs(pending_roots) do
-			pending_roots[root] = nil
-		end
+		pending_roots = {}
 		if project_picker then
 			pcall(function()
 				project_picker:close()
@@ -225,25 +228,30 @@ function M.open_picked_session(session_name)
 	return require("auto-session").autosave_and_restore(session_name)
 end
 
-local function configure_session_picker()
-	local actions = require("auto-session.pickers.telescope_actions")
-	actions.source_session = function(prompt_bufnr)
-		local action_state = require("telescope.actions.state")
-		local selection = action_state.get_selected_entry()
-		if not selection then
-			return
-		end
-
-		require("telescope.actions").close(prompt_bufnr)
-		vim.defer_fn(function()
-			M.open_picked_session(selection.value)
-		end, 50)
-	end
-end
-
+-- auto-session's own picker always restores in place. This one routes the
+-- choice through open_picked_session, which opens a new Kitty window instead
+-- when a project is already loaded here.
 function M.pick_session()
-	configure_session_picker()
-	vim.cmd("AutoSession search")
+	Snacks.picker.pick({
+		title = "Projects",
+		format = "text",
+		layout = { preset = "select" },
+		finder = function()
+			return session_list()
+		end,
+		transform = function(item)
+			item.text = item.display_name
+			item.file = item.path
+		end,
+		confirm = function(picker, item)
+			picker:close()
+			if item then
+				vim.schedule(function()
+					M.open_picked_session(item.session_name)
+				end)
+			end
+		end,
+	})
 end
 
 local function startup_file()
@@ -268,14 +276,7 @@ local function restore_in_progress()
 	return (loaded and sessions.restore_in_progress) or vim.g.SessionLoad == 1
 end
 
-local function git_branch(root, setting)
-	if type(setting) == "function" then
-		return setting(root)
-	end
-	if not setting then
-		return nil
-	end
-
+local function git_branch(root)
 	local result = vim.system({ "git", "-C", root, "rev-parse", "--abbrev-ref", "HEAD" }, { text = true }):wait()
 	if result.code ~= 0 then
 		return nil
@@ -284,22 +285,20 @@ local function git_branch(root, setting)
 	return branch ~= "" and branch or nil
 end
 
+-- Session names are "<root>" or "<root>|<branch>", already unescaped and with
+-- the legacy filename format folded in. Reading the list is what the session
+-- picker does; rebuilding the on-disk name here instead meant depending on
+-- auto-session's private escaping and its legacy fallback.
 function M.session_exists(root)
 	root = normalize_path(root)
 	if not root then
 		return false
 	end
 
-	local sessions = require("auto-session")
-	local config = require("auto-session.config")
-	local lib = require("auto-session.lib")
-	local branch = git_branch(root, config.git_use_branch_name)
-	local tag = config.custom_session_tag and config.custom_session_tag(root) or nil
-
-	for _, legacy in ipairs({ false, true }) do
-		local name = lib.combine_session_name_with_git_and_tag(root, branch, tag, legacy)
-		local escaped = legacy and lib.legacy_escape_session_name(name) or lib.escape_session_name(name)
-		if vim.fn.filereadable(sessions.get_root_dir() .. escaped .. ".vim") == 1 then
+	local branch = git_branch(root) or ""
+	for _, entry in ipairs(session_list()) do
+		local entry_root, entry_branch = entry.session_name:match("^([^|]*)|?(.*)$")
+		if normalize_path(entry_root) == root and entry_branch == branch then
 			return true
 		end
 	end

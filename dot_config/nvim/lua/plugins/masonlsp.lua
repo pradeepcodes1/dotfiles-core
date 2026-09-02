@@ -51,10 +51,7 @@ local function show_ts_references(command, ctx)
 		},
 	}, client.offset_encoding)
 
-	references.open_items_float(quickfix_items, command.title, {
-		command = command,
-		bufnr = ctx.bufnr,
-	})
+	references.open_items(quickfix_items, command.title)
 end
 
 vim.lsp.config("ts_ls", {

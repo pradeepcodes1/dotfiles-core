@@ -94,7 +94,7 @@ vim.api.nvim_create_autocmd("VimEnter", {
 			local buf = vim.api.nvim_get_current_buf()
 			vim.schedule(function()
 				vim.api.nvim_buf_delete(buf, { force = true })
-				_show_dashboard()
+				require("core.dashboard").show()
 			end)
 		end
 	end,

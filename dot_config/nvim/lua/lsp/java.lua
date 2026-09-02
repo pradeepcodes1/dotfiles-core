@@ -118,7 +118,7 @@ local function smart_definition()
 	end)
 end
 
---- Smart gr: on import lines, tries LSP references then falls back to Telescope workspace symbols.
+--- Smart gr: on import lines, tries LSP references then falls back to workspace symbols.
 local function smart_references()
 	if not require("core.project").is_open() then
 		return
@@ -139,14 +139,9 @@ local function smart_references()
 				references.open_float()
 			end)
 		else
-			-- Fall back to Telescope workspace symbols filtered by class name
+			-- Fall back to workspace symbols filtered by class name
 			vim.schedule(function()
-				local ok, builtin = pcall(require, "telescope.builtin")
-				if ok then
-					builtin.lsp_workspace_symbols({ query = simple_name or "" })
-				else
-					vim.lsp.buf.workspace_symbol(simple_name or "")
-				end
+				Snacks.picker.lsp_workspace_symbols({ search = simple_name or "" })
 			end)
 		end
 	end)

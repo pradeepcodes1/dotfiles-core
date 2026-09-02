@@ -16,7 +16,10 @@
 
 # Retired Neovim modules and plugin specs.
 .config/nvim/lua/core/notes.lua
+.config/nvim/lua/core/quickfix.lua
+.config/nvim/lua/core/trouble_float.lua
 .config/nvim/lua/plugins/themes.lua
+.config/nvim/lua/plugins/trouble.lua
 
 # Native theme packages no longer used by the Gogh adapters.
 .config/eza/eza-themes/themes/catppuccin-latte.yml

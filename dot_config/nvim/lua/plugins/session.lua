@@ -43,9 +43,6 @@ return {
 				project.set_open(root ~= nil, root)
 			end,
 		},
-		session_lens = {
-			picker = "telescope",
-		},
 		-- Use git branch name in session file name
 		git_use_branch_name = true,
 		-- Suppress session creation/restoration in these directories

@@ -3,279 +3,56 @@ local map = vim.keymap.set
 local diagnostics = require("core.diagnostics")
 local problems = require("core.problems")
 local project = require("core.project")
-local quickfix = require("core.quickfix")
 vim.g.mapleader = " "
-
-local function format_symbol_name(item, filetype)
-	local symbol_path = {}
-	local current = item
-	while current do
-		table.insert(symbol_path, 1, current.name)
-		current = current.parent
-	end
-
-	if filetype == "json" or filetype == "yaml" then
-		return table.concat(symbol_path, ".")
-	end
-
-	return symbol_path[#symbol_path]
-end
-
-local function symbol_type_label(bufnr, symbol_type)
-	local ok_aerial_config, aerial_config = pcall(require, "aerial.config")
-	local label = (symbol_type or "Unknown"):lower()
-	if ok_aerial_config then
-		local icon = aerial_config.get_icon(bufnr, symbol_type or "Unknown")
-		if icon and icon ~= "" then
-			label = string.format("%s %s", icon, label)
-		end
-	end
-	return label
-end
-
-local function document_symbol_picker(opts)
-	opts = opts or {}
-
-	local conf = require("telescope.config").values
-	local entry_display = require("telescope.pickers.entry_display")
-	local finders = require("telescope.finders")
-	local pickers = require("telescope.pickers")
-
-	local bufnr = vim.api.nvim_get_current_buf()
-	local filename = vim.api.nvim_buf_get_name(bufnr)
-	local filetype = vim.bo[bufnr].filetype
-
-	require("aerial").sync_load()
-	local backends = require("aerial.backends")
-	local data = require("aerial.data")
-
-	local backend = backends.get()
-	if not backend then
-		backends.log_support_err()
-		return
-	elseif not data.has_symbols(bufnr) then
-		backend.fetch_symbols_sync(bufnr, opts)
-	end
-
-	local displayer = entry_display.create({
-		separator = " ",
-		items = {
-			{ width = opts.symbol_width or 30 },
-			{ remaining = true },
-		},
-	})
-
-	local function make_entry(item)
-		local symbol_name = format_symbol_name(item, filetype)
-		local symbol_type = item.kind or "Unknown"
-		local type_label = symbol_type_label(bufnr, symbol_type)
-		local lnum = item.selection_range and item.selection_range.lnum or item.lnum
-		local col = item.selection_range and item.selection_range.col or item.col
-
-		return {
-			value = item,
-			ordinal = string.format("%s %s", symbol_name, symbol_type:lower()),
-			display = function(entry)
-				return displayer({
-					entry.symbol_name,
-					entry.type_label,
-				})
-			end,
-			symbol_name = symbol_name,
-			type_label = type_label,
-			filename = filename,
-			lnum = lnum,
-			col = col + 1,
-		}
-	end
-
-	local results = {}
-	local default_selection_index = 1
-	if data.has_symbols(bufnr) then
-		local bufdata = data.get_or_create(bufnr)
-		local position = bufdata.positions[bufdata.last_win]
-		for _, item in bufdata:iter({ skip_hidden = false }) do
-			table.insert(results, item)
-			if position and item == position.closest_symbol then
-				default_selection_index = #results
-			end
-		end
-	end
-
-	local sorting_strategy = opts.sorting_strategy or conf.sorting_strategy
-	if sorting_strategy == "descending" then
-		local reversed = {}
-		for index = #results, 1, -1 do
-			table.insert(reversed, results[index])
-		end
-		results = reversed
-		default_selection_index = #results - (default_selection_index - 1)
-	end
-
-	pickers
-		.new(opts, {
-			prompt_title = "Document Symbols",
-			finder = finders.new_table({
-				results = results,
-				entry_maker = make_entry,
-			}),
-			default_selection_index = default_selection_index,
-			sorter = conf.generic_sorter(opts),
-			previewer = conf.qflist_previewer(opts),
-			push_cursor_on_edit = true,
-		})
-		:find()
-end
-
-local function workspace_symbol_entry_maker(opts)
-	local entry_display = require("telescope.pickers.entry_display")
-	local make_entry = require("telescope.make_entry")
-	local telescope_utils = require("telescope.utils")
-	local base_entry_maker = make_entry.gen_from_lsp_symbols(opts)
-	local hidden = telescope_utils.is_path_hidden(opts)
-
-	local display_items = {
-		{ width = opts.symbol_width or 25 },
-		{ remaining = true },
-	}
-
-	if not hidden then
-		table.insert(display_items, 2, { width = vim.F.if_nil(opts.fname_width, 30) })
-	end
-
-	local displayer = entry_display.create({
-		separator = " ",
-		hl_chars = { ["["] = "TelescopeBorder", ["]"] = "TelescopeBorder" },
-		items = display_items,
-	})
-
-	return function(item)
-		-- Language servers may index dependencies as workspace symbols. JDTLS
-		-- additionally returns jdt:// virtual classfiles that Telescope can open
-		-- as decompiled buffers. fS is project search, so exclude both.
-		if not project.contains(item.filename) then
-			return nil
-		end
-
-		local entry = base_entry_maker(item)
-		if not entry then
-			return nil
-		end
-
-		local symbol_type = entry.symbol_type or "Unknown"
-		local symbol_label = symbol_type_label(0, symbol_type)
-
-		entry.display = function(current_entry)
-			if hidden then
-				return displayer({
-					current_entry.symbol_name,
-					symbol_label,
-				})
-			end
-
-			local filename_display = telescope_utils.transform_path(opts, current_entry.filename)
-			local icon
-			local icon_highlight
-			filename_display, icon_highlight, icon =
-				telescope_utils.transform_devicons(current_entry.filename, filename_display, opts.disable_devicons)
-
-			local display, highlights = displayer({
-				current_entry.symbol_name,
-				filename_display,
-				symbol_label,
-			})
-
-			if icon_highlight and icon and icon ~= "" then
-				local icon_start = display:find(filename_display, 1, true)
-				highlights = highlights or {}
-				if icon_start then
-					table.insert(highlights, { { icon_start - 1, icon_start - 1 + #icon }, icon_highlight })
-				end
-			end
-
-			return display, highlights
-		end
-
-		return entry
-	end
-end
 
 -- basics
 map("i", "jk", "<Esc>", { desc = "Exit insert mode with jk" })
 map("v", "jk", "<Esc>", { desc = "Exit visual mode with jk" })
 map("t", "<C-Space>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
--- Telescope
-if not vim.g.nvim_preview then
-	local function find_files(show_hidden, default_text)
-		local root = project.file_search_root()
-		if not root then
-			return
-		end
-		require("telescope.builtin").find_files({
-			cwd = root,
-			hidden = show_hidden,
-			default_text = default_text,
-			prompt_title = show_hidden and "Find Files · hidden" or "Find Files",
-			previewer = false,
-			layout_config = {
-				width = 0.45,
-			},
-			attach_mappings = function(prompt_bufnr, picker_map)
-				local function toggle_hidden()
-					local query = require("telescope.actions.state").get_current_line()
-					require("telescope.actions").close(prompt_bufnr)
-					vim.schedule(function()
-						find_files(not show_hidden, query)
-					end)
-				end
-				picker_map("i", "<C-.>", toggle_hidden)
-				picker_map("n", "<C-.>", toggle_hidden)
-				return true
-			end,
-		})
-	end
 
+-- Pickers. Workspace-wide searches are project-only; `ff` stays available
+-- everywhere but file_search_root() keeps it off `/` and $HOME.
+-- `<a-h>` toggles hidden files inside any file picker.
+if not vim.g.nvim_preview then
 	map("n", "<leader>ff", function()
-		find_files(false)
+		local root = project.file_search_root()
+		if root then
+			Snacks.picker.files({ cwd = root })
+		end
 	end, { desc = "Find Files" })
 	map(
 		"n",
 		"<leader>fg",
 		project.only(function()
-			require("telescope.builtin").live_grep()
+			Snacks.picker.grep({ cwd = project.current_root() })
 		end),
 		{ desc = "Grep project" }
 	)
-	map("n", "<leader>/", ":Telescope current_buffer_fuzzy_find<CR>", { desc = "Smart buffer search (symbols/fuzzy)" })
+	map("n", "<leader>/", function()
+		Snacks.picker.lines()
+	end, { desc = "Search lines in buffer" })
 	map("n", "<leader>fs", function()
-		local bufname = vim.api.nvim_buf_get_name(0)
-		local is_virtual = bufname:match("^%w+://") and not bufname:match("^file://")
-		document_symbol_picker({
-			previewer = not is_virtual,
-			layout_config = is_virtual and { width = 0.35 } or nil,
-		})
+		Snacks.picker.lsp_symbols()
 	end, { desc = "Find symbols in file" })
 	map(
 		"n",
 		"<leader>fS",
 		project.only(function()
-			local opts = {}
-			opts.entry_maker = workspace_symbol_entry_maker(opts)
-			local builtin = require("telescope.builtin")
-			if builtin.lsp_dynamic_workspace_symbols then
-				builtin.lsp_dynamic_workspace_symbols(opts)
-			else
-				builtin.lsp_workspace_symbols(opts)
-			end
+			Snacks.picker.lsp_workspace_symbols({ filter = { cwd = project.current_root() } })
 		end),
 		{ desc = "Find symbols in workspace" }
 	)
-	map("n", "<leader>fr", ":Telescope oldfiles<CR>", { desc = "Recent files" })
-	map("n", "<leader>`", ":Telescope buffers<CR>", { desc = "Search open buffers" })
+	map("n", "<leader>fr", function()
+		Snacks.picker.recent()
+	end, { desc = "Recent files" })
+	map("n", "<leader>`", function()
+		Snacks.picker.buffers()
+	end, { desc = "Search open buffers" })
 end
+
 -- LSP (gd, rename, code_action are in lsp/common.lua on_attach)
-map("n", "<leader>lc", quickfix.close, { desc = "Close quickfix view" })
+map("n", "<leader>lc", "<Cmd>cclose<CR>", { desc = "Close quickfix window" })
 map("n", "?", diagnostics.open_line_float, { desc = "Open diagnostic float" })
 map("n", "]d", function()
 	vim.diagnostic.jump({ count = 1 })
@@ -286,9 +63,11 @@ end, { desc = "Previous diagnostic" })
 map("n", "<leader>lh", function()
 	vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
 end, { desc = "Toggle inlay hints" })
-map("n", "<leader>vp", project.only(problems.toggle_workspace_float), { desc = "View: Problems (float)" })
-map("n", "<leader>vP", problems.toggle_buffer_float, { desc = "View: Problems (buffer float)" })
-map("n", "<leader>vq", quickfix.toggle_float, { desc = "View: Quickfix (float)" })
+map("n", "<leader>vp", project.only(problems.show_workspace), { desc = "View: Problems (project)" })
+map("n", "<leader>vP", problems.show_buffer, { desc = "View: Problems (buffer)" })
+map("n", "<leader>vq", function()
+	Snacks.picker.qflist()
+end, { desc = "View: Quickfix" })
 map("n", "<leader>vr", project.only(problems.refresh_workspace), { desc = "View: Refresh Problems" })
 map("n", "<leader>ud", function()
 	vim.diagnostic.enable(not vim.diagnostic.is_enabled())
@@ -305,22 +84,6 @@ map("n", "[[", function()
 
 	vim.cmd("normal! [[")
 end, { desc = "Parent symbol" })
-
--- Show dashboard and restore tabline when leaving it
-function _G._show_dashboard()
-	if Snacks and Snacks.dashboard then
-		local saved_tabline = vim.o.showtabline
-		Snacks.dashboard()
-		vim.api.nvim_create_autocmd("BufEnter", {
-			once = true,
-			callback = function()
-				if vim.bo.filetype ~= "snacks_dashboard" then
-					vim.o.showtabline = saved_tabline
-				end
-			end,
-		})
-	end
-end
 
 -- Split navigation
 map("n", "<C-h>", "<C-w>h", { desc = "Move to left split" })
@@ -345,7 +108,7 @@ if not vim.g.nvim_preview then
 				return vim.api.nvim_buf_is_valid(b) and vim.bo[b].buflisted and vim.api.nvim_buf_get_name(b) ~= ""
 			end, vim.api.nvim_list_bufs())
 			if #remaining == 0 then
-				_show_dashboard()
+				require("core.dashboard").show()
 			end
 		end)
 	end, { noremap = true, silent = true, desc = "Close buffer (dashboard if last)" })
@@ -426,12 +189,12 @@ map({ "n", "v" }, "<leader>e", "<cmd>Yazi<cr>", { desc = "Open yazi at current f
 map("n", "<leader>E", "<cmd>Yazi cwd<cr>", { desc = "Open yazi in cwd" })
 map("n", "<c-up>", "<cmd>Yazi toggle<cr>", { desc = "Resume last yazi session" })
 
--- Todo-comments
+-- Todo-comments. The source registers itself with Snacks.picker on setup.
 map(
 	"n",
 	"<leader>ft",
 	project.only(function()
-		vim.cmd("TodoTelescope")
+		Snacks.picker.todo_comments({ cwd = project.current_root() })
 	end),
 	{ desc = "Find TODOs in project" }
 )
@@ -442,7 +205,7 @@ map("n", "[t", function()
 	require("todo-comments").jump_prev()
 end, { desc = "Previous TODO" })
 
--- Copy the full nvim-notify history to the clipboard
+-- Copy the full notification history to the clipboard
 map("n", "<leader>..", function()
 	local ok, notify = pcall(require, "notify")
 	if not ok then

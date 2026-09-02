@@ -32,9 +32,6 @@ return {
 				pcall(function()
 					require("neotest").summary.close()
 				end)
-				pcall(function()
-					require("core.problems").close()
-				end)
 			end,
 			desc = "View: Code (close all)",
 		},
