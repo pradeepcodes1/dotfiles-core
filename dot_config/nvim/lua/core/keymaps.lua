@@ -2,6 +2,7 @@
 local map = vim.keymap.set
 local diagnostics = require("core.diagnostics")
 local problems = require("core.problems")
+local project = require("core.project")
 local quickfix = require("core.quickfix")
 vim.g.mapleader = " "
 
@@ -149,6 +150,13 @@ local function workspace_symbol_entry_maker(opts)
 	})
 
 	return function(item)
+		-- Language servers may index dependencies as workspace symbols. JDTLS
+		-- additionally returns jdt:// virtual classfiles that Telescope can open
+		-- as decompiled buffers. fS is project search, so exclude both.
+		if not project.contains(item.filename) then
+			return nil
+		end
+
 		local entry = base_entry_maker(item)
 		if not entry then
 			return nil
@@ -199,15 +207,46 @@ map("t", "<C-Space>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
 -- Telescope
 if not vim.g.nvim_preview then
-	map("n", "<leader>ff", function()
+	local function find_files(show_hidden, default_text)
+		local root = project.file_search_root()
+		if not root then
+			return
+		end
 		require("telescope.builtin").find_files({
+			cwd = root,
+			hidden = show_hidden,
+			default_text = default_text,
+			prompt_title = show_hidden and "Find Files · hidden" or "Find Files",
 			previewer = false,
 			layout_config = {
 				width = 0.45,
 			},
+			attach_mappings = function(prompt_bufnr, picker_map)
+				local function toggle_hidden()
+					local query = require("telescope.actions.state").get_current_line()
+					require("telescope.actions").close(prompt_bufnr)
+					vim.schedule(function()
+						find_files(not show_hidden, query)
+					end)
+				end
+				picker_map("i", "<C-.>", toggle_hidden)
+				picker_map("n", "<C-.>", toggle_hidden)
+				return true
+			end,
 		})
-	end, { desc = "Find Files (no preview)" })
-	map("n", "<leader>fg", ":Telescope live_grep<CR>", { desc = "Grep" })
+	end
+
+	map("n", "<leader>ff", function()
+		find_files(false)
+	end, { desc = "Find Files" })
+	map(
+		"n",
+		"<leader>fg",
+		project.only(function()
+			require("telescope.builtin").live_grep()
+		end),
+		{ desc = "Grep project" }
+	)
 	map("n", "<leader>/", ":Telescope current_buffer_fuzzy_find<CR>", { desc = "Smart buffer search (symbols/fuzzy)" })
 	map("n", "<leader>fs", function()
 		local bufname = vim.api.nvim_buf_get_name(0)
@@ -217,16 +256,21 @@ if not vim.g.nvim_preview then
 			layout_config = is_virtual and { width = 0.35 } or nil,
 		})
 	end, { desc = "Find symbols in file" })
-	map("n", "<leader>fS", function()
-		local opts = {}
-		opts.entry_maker = workspace_symbol_entry_maker(opts)
-		local builtin = require("telescope.builtin")
-		if builtin.lsp_dynamic_workspace_symbols then
-			builtin.lsp_dynamic_workspace_symbols(opts)
-		else
-			builtin.lsp_workspace_symbols(opts)
-		end
-	end, { desc = "Find symbols in workspace" })
+	map(
+		"n",
+		"<leader>fS",
+		project.only(function()
+			local opts = {}
+			opts.entry_maker = workspace_symbol_entry_maker(opts)
+			local builtin = require("telescope.builtin")
+			if builtin.lsp_dynamic_workspace_symbols then
+				builtin.lsp_dynamic_workspace_symbols(opts)
+			else
+				builtin.lsp_workspace_symbols(opts)
+			end
+		end),
+		{ desc = "Find symbols in workspace" }
+	)
 	map("n", "<leader>fr", ":Telescope oldfiles<CR>", { desc = "Recent files" })
 	map("n", "<leader>`", ":Telescope buffers<CR>", { desc = "Search open buffers" })
 end
@@ -242,10 +286,10 @@ end, { desc = "Previous diagnostic" })
 map("n", "<leader>lh", function()
 	vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
 end, { desc = "Toggle inlay hints" })
-map("n", "<leader>vp", problems.toggle_workspace_float, { desc = "View: Problems (float)" })
+map("n", "<leader>vp", project.only(problems.toggle_workspace_float), { desc = "View: Problems (float)" })
 map("n", "<leader>vP", problems.toggle_buffer_float, { desc = "View: Problems (buffer float)" })
 map("n", "<leader>vq", quickfix.toggle_float, { desc = "View: Quickfix (float)" })
-map("n", "<leader>vr", problems.refresh_workspace, { desc = "View: Refresh Problems" })
+map("n", "<leader>vr", project.only(problems.refresh_workspace), { desc = "View: Refresh Problems" })
 map("n", "<leader>ud", function()
 	vim.diagnostic.enable(not vim.diagnostic.is_enabled())
 end, { desc = "Toggle diagnostics" })
@@ -294,7 +338,6 @@ local opts = { noremap = true, silent = true }
 -- BarBar keymaps; unavailable in preview mode (barbar.nvim disabled there,
 -- see plugins/barbar.lua) — skip registering to avoid dangling E492 errors.
 if not vim.g.nvim_preview then
-	map("n", "<leader>bk", "<Cmd>BufferPick<CR>", opts)
 	map("n", "<leader>q", function()
 		vim.cmd("BufferClose")
 		vim.schedule(function()
@@ -311,7 +354,7 @@ end
 -- Project management. auto-session owns the cwd: its session list is keyed on
 -- directory + git branch, so the session picker *is* the project picker, and it
 -- restores the buffers and layout rather than only changing directory.
-map("n", "<leader>p", "<cmd>AutoSession search<CR>", { desc = "Projects" })
+map("n", "<leader>p", project.pick_session, { desc = "Projects" })
 
 -- Splits
 map("n", "<leader>|", "<cmd>vsplit<CR>", { desc = "Split vertical" })
@@ -379,13 +422,19 @@ map("n", "<leader>Q", "<cmd>qa<CR>", {
 })
 
 -- Yazi file manager
-map({ "n", "v" }, "<leader>-", "<cmd>Yazi<cr>", { desc = "Open yazi at current file" })
 map({ "n", "v" }, "<leader>e", "<cmd>Yazi<cr>", { desc = "Open yazi at current file" })
 map("n", "<leader>E", "<cmd>Yazi cwd<cr>", { desc = "Open yazi in cwd" })
 map("n", "<c-up>", "<cmd>Yazi toggle<cr>", { desc = "Resume last yazi session" })
 
 -- Todo-comments
-map("n", "<leader>ft", "<cmd>TodoTelescope<CR>", { desc = "Find TODOs" })
+map(
+	"n",
+	"<leader>ft",
+	project.only(function()
+		vim.cmd("TodoTelescope")
+	end),
+	{ desc = "Find TODOs in project" }
+)
 map("n", "]t", function()
 	require("todo-comments").jump_next()
 end, { desc = "Next TODO" })

@@ -56,7 +56,7 @@ vim.opt.rtp:prepend(lazypath)
 require("lazy").setup({ import = "plugins" })
 
 require("core.cmp")
-require("core.notes")
+require("core.project").setup()
 
 -- Resolve theme from persisted dotfiles state, with env vars as fallback.
 local nvim_colorscheme = theme_config.colorscheme

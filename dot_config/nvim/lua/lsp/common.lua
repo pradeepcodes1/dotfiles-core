@@ -21,8 +21,8 @@ function M.on_attach(client, bufnr)
 	nmap("gD", vim.lsp.buf.declaration, "Go to Declaration")
 	nmap("gr", references.open_float, "[G]oto [R]eferences")
 	nmap("K", vim.lsp.buf.hover, "Hover Documentation")
-	nmap("<leader>rn", vim.lsp.buf.rename, "[R]e[n]ame symbol")
-	nmap("<leader>ca", vim.lsp.buf.code_action, "[C]ode [A]ction")
+	nmap("<leader>lr", vim.lsp.buf.rename, "Rename symbol")
+	nmap("<leader>la", vim.lsp.buf.code_action, "Code action")
 
 	-- Format on save is handled by conform in plugins/conform.lua.
 end

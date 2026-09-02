@@ -126,7 +126,7 @@ return {
 			},
 			pickers = {
 				find_files = {
-					find_command = { "fd", "--type", "f", "--hidden", "--exclude", ".git" },
+					find_command = { "fd", "--type", "f", "--exclude", ".git" },
 				},
 
 				-- These two bind <C-Space> to the stock to_fuzzy_refine in
@@ -200,6 +200,17 @@ return {
 		"folke/snacks.nvim",
 		priority = 1000,
 		lazy = false,
+		init = function()
+			-- Snacks uses its filetype as the persistent scratch extension. Keep
+			-- the files as .md, then normalize the buffer to Neovim's canonical
+			-- markdown filetype when it opens.
+			vim.api.nvim_create_autocmd("FileType", {
+				pattern = "md",
+				callback = function(event)
+					vim.bo[event.buf].filetype = "markdown"
+				end,
+			})
+		end,
 		---@type snacks.Config
 		opts = {
 			-- your configuration comes here
@@ -236,7 +247,27 @@ return {
 				},
 			},
 			input = { enabled = true },
+			picker = {
+				enabled = true,
+				ui_select = true,
+				sources = {
+					select = {
+						focus = "list",
+						layout = {
+							preset = "select",
+							layout = {
+								width = 0.35,
+								min_width = 48,
+								max_width = 68,
+								height = 4,
+								min_height = 4,
+							},
+						},
+					},
+				},
+			},
 			quickfile = { enabled = true },
+			scratch = { ft = "md" },
 			scope = { enabled = true },
 			statuscolumn = { enabled = true },
 			words = { enabled = true },
@@ -250,7 +281,7 @@ return {
 				desc = "Toggle Scratch Buffer",
 			},
 			{
-				"<leader>S",
+				"<leader>>",
 				function()
 					Snacks.scratch.select()
 				end,

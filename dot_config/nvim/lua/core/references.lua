@@ -216,6 +216,10 @@ end
 -- their workspace roots, then open Telescope. Fuzzy typing, <C-Space> refine,
 -- and <C-q> continue to work; one surviving match still jumps directly.
 function M.open_float()
+	if not require("core.project").is_open() then
+		return
+	end
+
 	local bufnr = vim.api.nvim_get_current_buf()
 	local winnr = vim.api.nvim_get_current_win()
 	local current_path = normalize_path(vim.api.nvim_buf_get_name(bufnr))

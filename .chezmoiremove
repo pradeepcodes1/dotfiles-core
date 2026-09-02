@@ -14,8 +14,11 @@
 .config/colors/kanagawa-wave.sh
 .config/colors/nightfox.sh
 
-# Native theme packages no longer used by the Gogh adapters.
+# Retired Neovim modules and plugin specs.
+.config/nvim/lua/core/notes.lua
 .config/nvim/lua/plugins/themes.lua
+
+# Native theme packages no longer used by the Gogh adapters.
 .config/eza/eza-themes/themes/catppuccin-latte.yml
 .config/eza/eza-themes/themes/catppuccin-mocha.yml
 .config/eza/eza-themes/themes/dracula.yml

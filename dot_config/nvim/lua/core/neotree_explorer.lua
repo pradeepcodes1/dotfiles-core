@@ -1,17 +1,7 @@
 -- reveal the managed chezmoi source at its nearest project root, not the deployed target.
 local M = {}
 local library_paths = require("core.library_paths")
-
-local ROOT_MARKERS = {
-	".git",
-	"package.json",
-	"pyproject.toml",
-	"Cargo.toml",
-	"go.mod",
-	"pom.xml",
-	"build.gradle",
-	"Makefile",
-}
+local ROOT_MARKERS = require("core.project").root_markers
 
 local chezmoi_cache = {
 	managed_paths = {},

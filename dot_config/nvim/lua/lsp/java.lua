@@ -32,6 +32,10 @@ end
 
 --- Navigate to a class definition by its FQCN using workspace/symbol search.
 local function goto_class_by_fqcn(fqcn)
+	if not require("core.project").is_open() then
+		return
+	end
+
 	if fqcn:match("%*$") then
 		vim.notify("Cannot navigate to wildcard import", vim.log.levels.WARN)
 		return
@@ -116,6 +120,10 @@ end
 
 --- Smart gr: on import lines, tries LSP references then falls back to Telescope workspace symbols.
 local function smart_references()
+	if not require("core.project").is_open() then
+		return
+	end
+
 	local fqcn = parse_import_fqcn()
 	if not fqcn then
 		references.open_float()
