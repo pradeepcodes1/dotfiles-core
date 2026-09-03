@@ -152,9 +152,17 @@ function M.show(on_show)
 		return
 	end
 
+	-- `enter = false`, not `focus = false`. Both suppress the focus steal on open
+	-- -- picker.lua gates that on `focus ~= false and enter ~= false` -- but
+	-- `focus` doubles as the name of the picker's home window, and the explorer
+	-- source sets it to "list". Passing false there overwrites that name, so
+	-- `M:focus()` resolves `win or self.opts.focus or "input"` down to the filter
+	-- prompt, and the WinEnter handler on the layout box lands every later
+	-- <C-w>h on the prompt instead of the tree. `enter` is read at that one gate
+	-- and nowhere else.
 	Snacks.explorer.open({
 		cwd = root,
-		focus = false,
+		enter = false,
 		on_show = function(picker)
 			vim.b[picker.list.win.buf].snacks_explorer = true
 			if path then
