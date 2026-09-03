@@ -46,6 +46,18 @@ return {
 				return path
 			end
 
+			-- The builtin `location` component stops at the cursor; append the
+			-- buffer's line count so the position reads as "line X of Y" rather
+			-- than a number with nothing to measure against.
+			local function location()
+				return string.format(
+					"%d:%d/%d",
+					vim.fn.line("."),
+					vim.fn.col("."),
+					vim.api.nvim_buf_line_count(0)
+				)
+			end
+
 			local function breadcrumb_available()
 				local bufnr = vim.api.nvim_get_current_buf()
 				return vim.bo[bufnr].buftype == "" and vim.bo[bufnr].filetype ~= ""
@@ -69,7 +81,7 @@ return {
 						lualine_c = { "" },
 						lualine_x = { smart_path },
 						lualine_y = { "progress" },
-						lualine_z = { "location" },
+						lualine_z = { location },
 					},
 					winbar = {
 						lualine_c = {
