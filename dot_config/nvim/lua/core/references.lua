@@ -1,23 +1,24 @@
--- scope reference lookups to the open project rather than every indexed dependency.
+-- scope reference lookups to the buffer's project rather than every indexed dependency.
 local M = {}
 
 -- gr. Language servers index more than the project: jdtls returns jdt://
 -- virtual classfiles and attached JDK sources, and pyright/gopls reach into
--- site-packages and the module cache. project.picker_scope() drops everything
--- outside the project root -- which takes every non-file:// URI with it, since
--- vim.uri_to_fname leaves those unchanged and they cannot match the root --
--- and binds <C-.> to widen the picker back out to all of it.
+-- site-packages and the module cache. picker_scope() drops everything outside
+-- the root picker_root() resolves -- which takes every non-file:// URI with it,
+-- since vim.uri_to_fname leaves those unchanged and they cannot match the root
+-- -- and binds <C-.> to widen the picker back out to all of it.
+--
+-- That root is the open project when there is one, and otherwise the workspace
+-- of the buffer's own language server, so gr still works on a file opened from
+-- outside the project. A file belonging to no project scopes to nothing, which
+-- leaves the picker unfiltered -- there is no root to hold it to.
 --
 -- The picker's own defaults cover the rest of what this used to do by hand:
 -- `include_current = false` hides the reference under the cursor, and
 -- `auto_confirm = true` jumps straight there when only one survives.
 function M.open_float()
 	local project = require("core.project")
-	if not project.is_open() then
-		return
-	end
-
-	Snacks.picker.lsp_references(project.picker_scope())
+	Snacks.picker.lsp_references(project.picker_scope(project.picker_root()))
 end
 
 -- Locations a server hands us directly, rather than ones we requested --

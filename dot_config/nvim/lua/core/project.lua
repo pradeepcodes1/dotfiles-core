@@ -131,6 +131,57 @@ function M.contains(path)
 	return path_util.under(path_util.normalize(path), M.current_root())
 end
 
+--- The workspace the servers attached to this buffer actually indexed: the
+--- deepest LSP root or marker root that contains the file. Read back off the
+--- clients that are about to answer the request, so a scope derived from this
+--- can never point somewhere the results did not come from.
+function M.buffer_root(bufnr)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+	local name = vim.api.nvim_buf_get_name(bufnr)
+	if name == "" or name:match("^%w+://") then
+		return nil
+	end
+
+	local file = path_util.normalize(name)
+	if not file then
+		return nil
+	end
+
+	local candidates = path_util.lsp_roots(bufnr)
+	local marker = path_util.clean(M.root(file))
+	if marker then
+		candidates[marker] = true
+	end
+
+	return path_util.longest_containing(candidates, file)
+end
+
+--- The root fS and gr scope to: the workspace whose server is about to answer
+--- for this buffer, which is not always the open project.
+---
+--- Project mode wins only while the buffer actually belongs to the project.
+--- Open a file from project B while project A is loaded and its client is
+--- rooted at B (vim.lsp.start reuses a client only when the workspace folders
+--- match), so every symbol comes back under B -- scoping those to A filters
+--- the entire result set away and the picker looks empty. `fs` has no such
+--- filter, which is why document symbols keep working when fS looks broken.
+---
+--- nil means unscoped, the honest answer for a buffer belonging to no project.
+function M.picker_root(bufnr)
+	local buffer_root = M.buffer_root(bufnr)
+
+	if M.is_open() then
+		local root = M.current_root()
+		-- Nested workspace folders resolve deeper than the project root, so a
+		-- sub-package still scopes to the whole project rather than itself.
+		if root and buffer_root and path_util.under(buffer_root, root) then
+			return root
+		end
+	end
+
+	return buffer_root
+end
+
 -- Symbol and reference pickers are scoped to the project, which is what keeps
 -- jdtls' decompiled jdt:// classfiles, dependency sources and toolchain
 -- libraries out of them. <C-.> widens the picker to everything the servers
@@ -140,8 +191,11 @@ end
 -- every entry in `toggles`, which flips `picker.opts[name]` and re-finds. The
 -- item predicate cannot see the picker, so `transform` -- which can -- copies
 -- the flag onto the filter's own meta and returns true to force the refresh.
-function M.picker_scope()
-	local root = M.current_root()
+-- `root` is required, and a nil one means unscoped rather than "fall back to
+-- current_root()". That fallback would scope a file belonging to no project to
+-- whatever repo Neovim happened to start in, filtering away every result the
+-- server returned -- the exact failure this is supposed to prevent.
+function M.picker_scope(root)
 	if not root then
 		return {}
 	end

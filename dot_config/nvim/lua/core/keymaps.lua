@@ -10,7 +10,9 @@ map("v", "jk", "<Esc>", { desc = "Exit visual mode with jk" })
 map("t", "<C-Space>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
 
--- Pickers. Workspace-wide searches are project-only; `ff` stays available
+-- Pickers. `fg` and `ft` are project-only, since a directory-wide ripgrep needs
+-- a directory to be meaningful; `fS` is not, because picker_root() can ask the
+-- buffer's own language server which workspace it indexed. `ff` stays available
 -- everywhere but file_search_root() keeps it off `/` and $HOME.
 -- `<a-h>` toggles hidden files inside any file picker.
 if not vim.g.nvim_preview then
@@ -34,14 +36,9 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>fs", function()
 		Snacks.picker.lsp_symbols()
 	end, { desc = "Find symbols in file" })
-	map(
-		"n",
-		"<leader>fS",
-		project.only(function()
-			Snacks.picker.lsp_workspace_symbols(project.picker_scope())
-		end),
-		{ desc = "Find symbols in workspace" }
-	)
+	map("n", "<leader>fS", function()
+		Snacks.picker.lsp_workspace_symbols(project.picker_scope(project.picker_root()))
+	end, { desc = "Find symbols in workspace" })
 	map("n", "<leader>fr", function()
 		Snacks.picker.recent()
 	end, { desc = "Recent files" })
