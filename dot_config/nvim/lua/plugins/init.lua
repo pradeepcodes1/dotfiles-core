@@ -225,8 +225,24 @@ return {
 			-- overwrite whatever the Snacks statuscolumn had put there.
 			statuscolumn = { enabled = false },
 			words = { enabled = true },
+			-- Zen darkens two separate things. The float's backdrop shades the
+			-- screen behind the window, which is wanted. The `dim` toggle greys
+			-- every line outside the cursor's own scope, which is not -- the
+			-- buffer keeps its normal highlighting inside the zen column.
+			-- `toggles` merges, so git_signs and mini_diff_signs stay hidden as
+			-- upstream has them.
+			zen = {
+				toggles = { dim = false },
+			},
 		},
 		keys = {
+			{
+				"<leader>z",
+				function()
+					Snacks.zen()
+				end,
+				desc = "Toggle Zen Mode",
+			},
 			{
 				"<leader>.",
 				function()
