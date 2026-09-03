@@ -281,15 +281,43 @@ function M.open_session_window(session_name)
 	if type(session_name) ~= "string" or session_name == "" then
 		return false
 	end
-	if vim.fn.executable("kitty") ~= 1 or vim.fn.executable("nvim") ~= 1 then
-		vim.notify("Cannot open project window: Kitty or Neovim is missing", vim.log.levels.ERROR)
-		return false
-	end
 
 	local root = session_name:match("^([^|]+)")
 	if not root or vim.fn.isdirectory(root) ~= 1 then
 		root = vim.uv.cwd()
 	end
+
+	if vim.g.neovide then
+		if vim.fn.executable("open") ~= 1 or vim.fn.executable("neovide") ~= 1 then
+			vim.notify("Cannot open project window: Neovide is missing", vim.log.levels.ERROR)
+			return false
+		end
+
+		-- Launch through the app bundle so macOS and OmniWM see Neovide's stable
+		-- bundle ID. `-n` creates a separate GUI instance instead of forwarding
+		-- the request to the Neovide window that owns this picker.
+		local executable = vim.uv.fs_realpath(vim.fn.exepath("neovide")) or vim.fn.exepath("neovide")
+		local bundle = executable:match("^(.*%.app)/Contents/MacOS/") or "Neovide"
+		local command = {
+			"open",
+			"-na",
+			bundle,
+			"--env",
+			"NVIM_PROJECT_SESSION=" .. session_name,
+		}
+		local job = vim.fn.jobstart(command, { detach = true })
+		if job <= 0 then
+			vim.notify("Failed to open project in a new Neovide window", vim.log.levels.ERROR)
+			return false
+		end
+		return true
+	end
+
+	if vim.fn.executable("kitty") ~= 1 or vim.fn.executable("nvim") ~= 1 then
+		vim.notify("Cannot open project window: Kitty or Neovim is missing", vim.log.levels.ERROR)
+		return false
+	end
+
 	local title = ("Project · %s"):format(vim.fn.fnamemodify(root, ":t"))
 	local command = { "kitty", "--detach", "--directory", root, "--title", title, "nvim" }
 	local job = vim.fn.jobstart(command, {
