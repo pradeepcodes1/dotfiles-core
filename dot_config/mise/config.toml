@@ -10,5 +10,8 @@ java = "25.0.2"
 node = "24.20.0"
 protobuf = "35.1"
 python = "3.14.7"
-rust = "1.98.0"
+# rust-analyzer is not a default component. Without it the rustup proxy in
+# ~/.cargo/bin has no binary to forward to, falls back along PATH, and can
+# land on mise's own shim -- which points back at the proxy.
+rust = { version = "1.98.0", components = "rust-analyzer" }
 zig = "0.16.0"

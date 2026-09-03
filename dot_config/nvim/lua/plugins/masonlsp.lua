@@ -106,17 +106,22 @@ return {
 				},
 			})
 
-			-- clangd is intentionally not in ensure_installed (we prefer the system
-			-- binary), so mason-lspconfig's automatic_enable never sees it as
-			-- "installed" and skips it.
+			-- Neither of these is in ensure_installed -- clangd prefers the system
+			-- binary, rust_analyzer comes from the rustup toolchain -- and
+			-- automatic_enable only walks Mason's *installed packages*, so it never
+			-- sees either one and skips both.
 			vim.lsp.enable("clangd")
+			vim.lsp.enable("rust_analyzer")
 
 			require("mason-lspconfig").setup({
 				ensure_installed = {
 					"ts_ls",
 					"lua_ls",
 					"gopls",
-					"rust_analyzer",
+					-- rust_analyzer comes from the rustup toolchain instead, pinned as a
+					-- component in mise. A Mason copy would never be reached: lspconfig
+					-- spawns a bare `rust-analyzer` and Mason's bin is appended to PATH,
+					-- so ~/.cargo/bin resolves first.
 					"pyright",
 					"kotlin_language_server",
 					"jsonls",
