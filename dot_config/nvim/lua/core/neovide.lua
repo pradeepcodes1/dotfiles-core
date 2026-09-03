@@ -45,7 +45,9 @@ for _, path in ipairs({
 	prepend_path(path)
 end
 
-vim.o.guifont = vim.g.nvim_preview and "JetBrainsMono_NF:h19" or "JetBrainsMono_NF:h20"
+-- Sized to where two `<D-->` presses landed (20 / 1.1^2 = 16.5, 19 / 1.1^2 = 15.7),
+-- baked into guifont so <D-0> resets here instead of back to the old h20.
+vim.o.guifont = vim.g.nvim_preview and "JetBrainsMono_NF:h15.7" or "JetBrainsMono_NF:h16.5"
 vim.g.neovide_opacity = 1.0
 vim.g.neovide_normal_opacity = 1.0
 -- Neovide animates any large viewport jump as a scroll, so a buffer or tab
