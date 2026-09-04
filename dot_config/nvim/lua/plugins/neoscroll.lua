@@ -32,7 +32,10 @@ return {
 			["<C-y>"] = scroll(-0.1, false, 50),
 			["<C-e>"] = scroll(0.1, false, 50),
 			zt = action("zt", 100, "half_win_duration"),
-			zz = action("zz", 100, "half_win_duration"),
+			-- No `zz`: core/keymaps.lua takes it for the fold toggle. Builtin
+			-- `z.` and `z<CR>` still center the cursor line -- unanimated, since
+			-- neoscroll only wraps the keys listed here -- and visual-mode `zz`
+			-- keeps the builtin centering, which the fold map does not shadow.
 			zb = action("zb", 100, "half_win_duration"),
 		}
 

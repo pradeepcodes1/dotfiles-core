@@ -13,6 +13,18 @@ map("i", "jk", "<Esc>", { desc = "Exit insert mode with jk" })
 map("t", "<C-Space>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
 
+-- Folding. `zz` rather than `za` so the toggle is one key struck twice;
+-- plugins/neoscroll.lua gives the key up for it. Folds are treesitter
+-- expressions (core/options.lua), so a line between two top-level
+-- definitions sits in no fold at all and bare `za` answers E490 -- check
+-- the level first and stay silent rather than beep at the blank lines.
+map("n", "zz", function()
+	if vim.fn.foldlevel(vim.fn.line(".")) == 0 then
+		return
+	end
+	vim.cmd("normal! za")
+end, { desc = "Toggle fold" })
+
 -- Pickers. `fg` and `ft` are project-only, since a directory-wide ripgrep needs
 -- a directory to be meaningful; `fS` is not, because picker_root() can ask the
 -- buffer's own language server which workspace it indexed. `ff` stays available
