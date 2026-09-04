@@ -48,7 +48,7 @@ end
 -- Sized to where two `<D-->` presses landed (20 / 1.1^2 = 16.5, 19 / 1.1^2 = 15.7),
 -- baked into guifont so <D-0> resets here instead of back to the old h20.
 vim.o.guifont = vim.g.nvim_preview and "JetBrainsMono_NF:h15.7" or "JetBrainsMono_NF:h15"
-vim.g.neovide_opacity = 0.98
+vim.g.neovide_opacity = 0.99
 vim.g.neovide_normal_opacity = 1.0
 -- Neovide animates any large viewport jump as a scroll, so a buffer or tab
 -- switch slides the new file up into place while the old one is still on
