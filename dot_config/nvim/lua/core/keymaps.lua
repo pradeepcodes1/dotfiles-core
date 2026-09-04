@@ -6,7 +6,10 @@ vim.g.mapleader = " "
 
 -- basics
 map("i", "jk", "<Esc>", { desc = "Exit insert mode with jk" })
-map("v", "jk", "<Esc>", { desc = "Exit visual mode with jk" })
+-- No visual-mode `jk`: there, both halves are motions, so any run of `j`
+-- ending in a `k` inside timeoutlen drops the selection instead of moving
+-- up a line. `q` below, plain <Esc>, and re-pressing v/V all leave visual
+-- mode without that. Insert mode keeps `jk`, where neither key is a motion.
 map("t", "<C-Space>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
 
