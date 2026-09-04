@@ -18,6 +18,17 @@ __pycache__/
 .config/kitty/current-theme.conf
 .config/kitty/*.bak
 
+# qutebrowser resolves config.py differently per platform: standarddir.py
+# overrides the normal config location on macOS to ~/.qutebrowser, while every
+# other platform uses the XDG config dir. Both targets render the same
+# .chezmoitemplates/qutebrowser/config.py; only the one this OS actually reads
+# is deployed.
+{{ if eq .chezmoi.os "darwin" }}
+.config/qutebrowser/
+{{ else }}
+.qutebrowser/
+{{ end }}
+
 # Pacman is the package backend for the minimal Linux profile only.
 {{ if ne .chezmoi.os "linux" }}
 .config/pacman/

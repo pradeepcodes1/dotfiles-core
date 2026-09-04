@@ -7,3 +7,19 @@ linux-amd64 = "/home/linuxbrew/.linuxbrew"
 [paths.applicationsDir]
 darwin = "/Applications"
 linux = ""
+
+# qutebrowser sizing. These are display properties rather than preferences, so
+# they differ per OS: the Linux profile targets an unscaled 1440p panel at
+# ~109 DPI and compensates, while macOS scales through the window server and
+# would double up if given the same numbers. zoom multiplies the web sizes.
+[qutebrowser.linux]
+chromeFontSize = "15pt"
+zoom = "115%"
+webFontSize = 15
+webFixedFontSize = 15
+
+[qutebrowser.darwin]
+chromeFontSize = "12pt"
+zoom = "100%"
+webFontSize = 15
+webFixedFontSize = 15

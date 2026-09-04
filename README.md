@@ -31,6 +31,31 @@ Apply then fetches the Yazi plugin pinned in
 at launch without it. Like the package step, it does nothing when every pinned
 package is already deployed.
 
+## qutebrowser
+
+`.chezmoitemplates/qutebrowser/config.py` is the single source; two thin targets
+render it, because qutebrowser resolves `config.py` differently per platform.
+`standarddir.py` overrides the config location on macOS to `~/.qutebrowser`,
+while everything else uses the XDG config directory, so `.chezmoiignore` deploys
+only the one this OS actually reads.
+
+The bindings mirror the Neovim layer in `dot_config/nvim/lua/core/keymaps.lua`,
+with Space as leader. Tab switching sits on the leader rather than qutebrowser's
+default `<Alt-1>`..`<Alt-9>`, which are unusable on both platforms: a tiling
+compositor generally grabs Alt+digit on Linux, and Option+digit is a text-input
+dead key on macOS.
+
+Sizing lives in `.chezmoidata.toml` under `[qutebrowser.<os>]` rather than in
+the config, because it is a display property: the Linux profile compensates for
+an unscaled 1440p panel, macOS scales through the window server already.
+
+Every `.py` in `~/.config/qutebrowser/config.d/` is sourced before the settings
+here, the same seam kitty offers through `globinclude local.d/*.conf`. An
+overlay uses it to attach a generated colour scheme without either source
+claiming `config.py`. The package is deliberately not in core's manifests --
+`minimal-linux` is a terminal profile, so a GUI browser belongs to an overlay,
+exactly as neovide does.
+
 ## If the shell looks unconfigured
 
 No atuin on `^R`, no zoxide, a plain prompt: the account is still on its old
