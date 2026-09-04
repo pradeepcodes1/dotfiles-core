@@ -129,17 +129,10 @@ local opts = { noremap = true, silent = true }
 -- BarBar keymaps; unavailable in preview mode (barbar.nvim disabled there,
 -- see plugins/barbar.lua) — skip registering to avoid dangling E492 errors.
 if not vim.g.nvim_preview then
-	map("n", "<leader>q", function()
-		vim.cmd("BufferClose")
-		vim.schedule(function()
-			local remaining = vim.tbl_filter(function(b)
-				return vim.api.nvim_buf_is_valid(b) and vim.bo[b].buflisted and vim.api.nvim_buf_get_name(b) ~= ""
-			end, vim.api.nvim_list_bufs())
-			if #remaining == 0 then
-				require("core.dashboard").show()
-			end
-		end)
-	end, { noremap = true, silent = true, desc = "Close buffer (dashboard if last)" })
+	-- The dashboard is a startup screen only. Closing the last buffer leaves
+	-- barbar's own empty [No Name] buffer (see barbar/bbye.lua), which is what
+	-- an editor with nothing open should look like.
+	map("n", "<leader>q", "<Cmd>BufferClose<CR>", { noremap = true, silent = true, desc = "Close buffer" })
 end
 
 -- Project management. auto-session owns the cwd: its session list is keyed on
