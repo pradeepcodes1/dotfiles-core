@@ -1,5 +1,14 @@
-# pin the plugin used by init.lua; Gogh generates Yazi colors directly.
+# pin the plugins loaded by init.lua and keymap.toml; Gogh generates Yazi colors
+# directly.
 [[plugin.deps]]
 use = "yazi-rs/plugins:git"
 rev = "efa4d79"
 hash = "5bb0bfab901d3601c370eafdd66edd31"
+
+# `<C-o>` in keymap.toml: Vim's visual-mode `o`, jumping the cursor to the other
+# end of the selection without disturbing it. Needs the `visual_arrow` command,
+# which landed in Yazi 26.9.1 -- see the note in keymap.toml.
+[[plugin.deps]]
+use = "yazi-rs/plugins:visual-pivot"
+rev = "4dc7f1b"
+hash = "11e7b50ca963cc9a7779ddccd217ab7e"

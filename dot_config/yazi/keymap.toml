@@ -13,3 +13,15 @@ desc = "Quit and cd to current directory"
 on = ["F"]
 run = "search --via=fd --args='--hidden --no-ignore'"
 desc = "Search files by name via fd (include hidden/ignored)"
+
+# Vim's visual-mode `o`. Plain `o` is Yazi's "open", so this takes the control
+# variant; the plugin is a no-op outside visual mode.
+#
+# The plugin calls `visual_arrow`, added in Yazi 26.9.1. Arch extra still ships
+# 26.8.15, where the binding is a silent no-op -- the failure only reaches
+# ~/.local/state/yazi/yazi.log, with no error shown in the UI. It starts working
+# on its own once the yazi package updates.
+[[mgr.prepend_keymap]]
+on = ["<C-o>"]
+run = "plugin visual-pivot"
+desc = "Move cursor to the other end of the selection"
