@@ -85,9 +85,15 @@ shell_integration    enabled
 notify_on_cmd_finish invisible 10.0
 
 # ── Remote control ────────────────────────────────────────────────────────
-# Permit only the two color operations used by the theme and SSH integrations.
-# Windows launched with `--allow-remote-control` retain their private socketpair
-# for scoped workflows such as returning Yazi's cwd; no global socket is open.
+# Permit only the two colour operations used by `kitten themes` and the SSH
+# integration. Windows launched with `--allow-remote-control` retain their
+# private socketpair for scoped workflows such as returning Yazi's cwd; no
+# global socket is open.
+#
+# Palette switching deliberately does not come through here. With no
+# `listen_on`, remote control is unreachable from outside a kitty window, so a
+# colour-scheme hook run by the desktop could never use it; the theme adapter
+# reloads running instances with SIGUSR1 instead. See theme/apps/kitty.zsh.
 allow_remote_control password
 remote_control_password "" set-colors set-tab-color
 

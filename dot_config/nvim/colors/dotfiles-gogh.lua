@@ -163,6 +163,14 @@ for name, spec in pairs({
 	SnacksDashboardSpecial = { fg = syntax.magenta },
 	SnacksPickerListCursorLine = { link = "Visual" },
 	SnacksPickerMatch = { fg = syntax.yellow, bold = true },
+	-- Left to itself this links to Search, whose base16 foreground is base01 --
+	-- the very color CursorLine uses as its background. In the preview the
+	-- selected row's cursorline (SnacksPickerPreviewCursorLine -> Visual,
+	-- base02) paints over Search's yellow background, leaving base01 text on
+	-- base02: two blends of the same pair, 5.5% apart, and the match vanishes
+	-- on exactly the row being previewed. Match the list-side group instead --
+	-- a foreground with no background survives whatever the cursorline paints.
+	SnacksPickerSearch = { fg = syntax.yellow, bold = true },
 
 	TodoBgFIX = { fg = p.bg, bg = syntax.red, bold = true },
 	TodoBgNOTE = { fg = p.bg, bg = syntax.cyan, bold = true },

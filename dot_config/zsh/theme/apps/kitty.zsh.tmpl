@@ -67,26 +67,23 @@ if [[ ! -f "$current_theme_file" ]] || [[ "$(< "$current_theme_file")" != "$kitt
   fi
 fi
 
-local -a kitten_cmd
-if (( $+commands[kitten] )); then
-  kitten_cmd=(kitten)
-elif [[ -x "$APPLICATIONS_DIR/kitty.app/Contents/MacOS/kitten" ]]; then
-  kitten_cmd=("$APPLICATIONS_DIR/kitty.app/Contents/MacOS/kitten")
-elif (( $+commands[kitty] )); then
-  kitten_cmd=(kitty +kitten)
-else
-  if [[ "$apply_reason" == "command" ]]; then
-    warn_log "theme" "kitty kitten not found; saved theme will apply to new Kitty windows"
-  fi
-  return
-fi
-
 mkdir -p "$state_dir"
 
-# Persisting current-theme.conf covers new windows. Remote control updates every
-# running window and its configured colors without editing themes.conf.
-if "${kitten_cmd[@]}" @ set-colors --all --configured "$current_theme_file" >/dev/null 2>&1; then
-  print -r -- "$expected_state" > "$state_file"
-elif [[ "$apply_reason" == "command" ]]; then
-  warn_log "theme" "Saved Gogh palette for Kitty, but could not reload running windows"
-fi
+# Persisting current-theme.conf covers new windows: kitty.conf includes
+# themes.conf, which includes this file. SIGUSR1 makes every running instance
+# re-read that chain, so already-open windows pick the palette up as well.
+#
+# This deliberately does not use `kitten @ set-colors`. Remote control is only
+# reachable over a socket (`listen_on`, which is not set) or the private
+# socketpair a window inherits, exposed as $KITTY_LISTEN_ON. A palette change
+# driven from outside kitty -- a desktop colour-scheme hook, say -- has neither,
+# so `kitten @` fell back to the controlling terminal and died with
+# "open /dev/tty: no such device or address", leaving running windows stale
+# while new ones came up correct. A signal needs no socket, no password grant
+# and no tty, so it works from any parent.
+#
+# A non-zero exit just means no instance is running; the saved palette still
+# applies to the next window opened, so it is not a failure worth warning about.
+pkill -USR1 -x kitty 2>/dev/null
+
+print -r -- "$expected_state" > "$state_file"
