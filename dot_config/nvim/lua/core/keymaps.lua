@@ -29,7 +29,8 @@ end, { desc = "Toggle fold" })
 -- a directory to be meaningful; `fS` is not, because picker_root() can ask the
 -- buffer's own language server which workspace it indexed. `ff` stays available
 -- everywhere but file_search_root() keeps it off `/` and $HOME.
--- `<a-h>` toggles hidden files inside any file picker.
+-- Inside any file picker, dotfiles are shown and gitignored files are not:
+-- `<a-h>` hides the former, `<C-.>`/`<a-i>` reveals the latter.
 if not vim.g.nvim_preview then
 	map("n", "<leader>ff", function()
 		local root = project.file_search_root()

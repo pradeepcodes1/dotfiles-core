@@ -161,17 +161,44 @@ return {
 			picker = {
 				enabled = true,
 				ui_select = true,
-				-- Snacks binds toggle_hidden to <a-h>; <C-.> is the chord this
-				-- config used under Telescope. Both reach the same action, in
-				-- every picker that supports it. <C-.> needs the kitty keyboard
-				-- protocol to arrive at all, which Neovim turns on under
-				-- TERM=xterm-kitty -- <a-h> is the fallback anywhere it does not.
+				-- <C-.> is the chord this config used under Telescope. It toggles
+				-- *ignored* rather than hidden, matching `.` in the explorer:
+				-- hidden is on by default in every file source below, so
+				-- gitignored files are the only thing left worth revealing. It
+				-- cannot be `.` here the way it is in the explorer -- these
+				-- pickers open focused on the input, where a `.` has to stay a
+				-- literal character. Snacks' own <a-h>/<a-i> stay bound for both
+				-- directions, and <C-.> needs the kitty keyboard protocol to
+				-- arrive at all, which Neovim turns on under TERM=xterm-kitty --
+				-- <a-i> is the fallback anywhere it does not.
 				win = {
-					input = { keys = { ["<c-.>"] = { "toggle_hidden", mode = { "i", "n" } } } },
-					list = { keys = { ["<c-.>"] = "toggle_hidden" } },
+					input = { keys = { ["<c-.>"] = { "toggle_ignored", mode = { "i", "n" } } } },
+					list = { keys = { ["<c-.>"] = "toggle_ignored" } },
 				},
 				sources = {
+					-- hidden has to be set per-source: a source's own config merges
+					-- *after* the global picker opts (config/init.lua orders them
+					-- defaults, user, source, call-site), so a top-level
+					-- `hidden = true` would lose to the `hidden = false` Snacks sets
+					-- on `files` itself. `grep` declares no default and would take a
+					-- global one, but is spelled out so both read the same way. Each
+					-- excludes .git on its own (files passes fd -E .git, grep passes
+					-- rg --glob=!.git), so this surfaces real dotfiles without the
+					-- object store -- 24 files rather than 493, measured in this
+					-- repo. `smart` needs no entry: config.multi merges
+					-- opts.sources[name] into each leg, so its files leg picks this
+					-- up. Deliberately NOT set on `buffers`, where `hidden` is an
+					-- unrelated option -- unlisted buffers, not dotfiles.
+					grep = { hidden = true },
 					explorer = {
+						-- Dotfiles are the point of this machine, not an edge case:
+						-- a chezmoi source tree is mostly .chezmoi* entries and the
+						-- config dirs they render into. Snacks defaults this to false.
+						-- Nothing excludes .git in the explorer (unlike the files
+						-- source, which hardcodes -E .git), so it shows up here as one
+						-- collapsed directory row -- add `exclude = { ".git" }` beside
+						-- this if that row ever gets in the way.
+						hidden = true,
 						actions = {
 							close_explorer = function()
 								require("core.snacks_explorer").close()
@@ -180,6 +207,17 @@ return {
 						win = {
 							list = {
 								keys = {
+									-- Ignored files are the only thing left worth toggling
+									-- now that hidden is on by default, so `.` is a second,
+									-- more reachable spelling of Snacks' own I. Both stay
+									-- bound, as does H for turning hidden back off. List
+									-- window only: the explorer's other window is the live
+									-- filter prompt, where a `.` has to stay a literal
+									-- character. This overrides the Snacks default of
+									-- `.` = explorer_focus (set_cwd to the directory under
+									-- the cursor), leaving that unbound and its inverse
+									-- `<BS>` still in place.
+									["."] = "toggle_ignored",
 									["q"] = "close_explorer",
 									["<C-q>"] = "close_explorer",
 									["Q"] = "close_explorer",
@@ -208,10 +246,15 @@ return {
 					--
 					-- The two `hidden` keys here are unrelated: the source-level
 					-- one is dotfiles, the layout-level one is which picker
-					-- windows to leave out. Dotfiles stay off until <C-.> asks
-					-- for them, so a find never opens on .git objects.
+					-- windows to leave out. Dotfiles are on -- fd is given
+					-- -E .git either way, so a find never opens on .git objects --
+					-- and gitignored files stay off until <C-.> asks for them.
+					--
+					-- This is the only `files` entry in this table. A second one
+					-- higher up would not merge with it, it would replace it: Lua
+					-- takes the last value for a duplicate key in a constructor.
 					files = {
-						hidden = false,
+						hidden = true,
 						ignored = false,
 						layout = { preset = "vertical", hidden = { "preview" }, layout = { width = 0.45 } },
 					},
