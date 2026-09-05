@@ -311,6 +311,13 @@ return {
 				desc = "Lazygit",
 			},
 			{
+				"<leader>gs",
+				function()
+					Snacks.picker.git_status({ cwd = require("core.project").current_root() })
+				end,
+				desc = "Git changed files",
+			},
+			{
 				"<leader>gp",
 				function()
 					Snacks.picker.gh_pr({ cwd = require("core.project").current_root() })
@@ -338,8 +345,14 @@ return {
 		},
 		opts = {
 			view = {
+				default = {
+					winbar_info = true,
+				},
 				merge_tool = {
 					layout = "diff3_horizontal",
+				},
+				file_history = {
+					winbar_info = true,
 				},
 			},
 		},

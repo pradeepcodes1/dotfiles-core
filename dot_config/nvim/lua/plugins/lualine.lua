@@ -4,6 +4,7 @@ return {
 		"nvim-lualine/lualine.nvim",
 		config = function()
 			local jdt = require("core.jdt")
+			local diffview_commit_ages = {}
 			local statusline_disabled = {
 				"dap-repl",
 				"dapui_console",
@@ -23,10 +24,79 @@ return {
 				"snacks_dashboard",
 			})
 
+			local function diffview_revision()
+				local ok_lib, lib = pcall(require, "diffview.lib")
+				local ok_rev, rev_module = pcall(require, "diffview.vcs.rev")
+				if not ok_lib or not ok_rev then
+					return nil
+				end
+
+				local view = lib.get_current_view()
+				if not view or not view.cur_layout then
+					return nil
+				end
+
+				local file
+				local winid = vim.api.nvim_get_current_win()
+				for _, window in ipairs(view.cur_layout.windows or {}) do
+					if window.id == winid then
+						file = window.file
+						break
+					end
+				end
+
+				local rev = file and file.rev
+				if not rev then
+					return nil
+				end
+
+				local RevType = rev_module.RevType
+				if rev.type == RevType.LOCAL then
+					return "WORKING TREE"
+				elseif rev.type == RevType.STAGE then
+					return ({ [0] = "INDEX", [1] = "BASE", [2] = "OURS", [3] = "THEIRS" })[rev.stage]
+				elseif rev.type ~= RevType.COMMIT or not rev.commit then
+					return nil
+				end
+
+				local root = view.adapter and view.adapter.ctx and view.adapter.ctx.toplevel
+				local cache_key = (root or "") .. "\0" .. rev.commit
+				local age = diffview_commit_ages[cache_key]
+				if age == nil then
+					local output = root
+							and vim.fn.systemlist({
+								"git",
+								"-C",
+								root,
+								"show",
+								"-s",
+								"--format=%cr",
+								rev.commit,
+							})
+						or {}
+					age = vim.v.shell_error == 0 and vim.trim(output[1] or "") or ""
+					diffview_commit_ages[cache_key] = age
+				end
+
+				local label = rev.track_head and "HEAD" or rev:abbrev(7)
+				return age ~= "" and (label .. " · " .. age) or label
+			end
+
 			local function smart_path()
+				local revision = diffview_revision()
+				if revision then
+					return revision
+				end
+
 				local path = vim.fn.expand("%:p")
 				if path == "" then
 					return ""
+				end
+
+				-- Diffview's winbar identifies the revision; avoid repeating its
+				-- internal diffview:// buffer URI in the statusline.
+				if vim.startswith(path, "diffview://") then
+					return vim.fn.expand("%:t")
 				end
 
 				if jdt.is_jdt(path) then
@@ -50,12 +120,7 @@ return {
 			-- buffer's line count so the position reads as "line X of Y" rather
 			-- than a number with nothing to measure against.
 			local function location()
-				return string.format(
-					"%d:%d/%d",
-					vim.fn.line("."),
-					vim.fn.col("."),
-					vim.api.nvim_buf_line_count(0)
-				)
+				return string.format("%d:%d/%d", vim.fn.line("."), vim.fn.col("."), vim.api.nvim_buf_line_count(0))
 			end
 
 			local function breadcrumb_available()

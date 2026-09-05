@@ -145,6 +145,9 @@ map("n", "<leader>p", project.pick_session, { desc = "Projects" })
 map("n", "<leader>|", "<cmd>vsplit<CR>", { desc = "Split vertical" })
 map("n", "<leader>\\", "<cmd>split<CR>", { desc = "Split horizontal" })
 map("n", "<leader>x", "<C-w>c", { desc = "Close split" })
+map("n", "<leader>X", "<Cmd>tabclose<CR>", { desc = "Close tab page" })
+map("n", "<leader><Tab>", "<Cmd>tabnext<CR>", { desc = "Next tab page" })
+map("n", "<leader><S-Tab>", "<Cmd>tabprevious<CR>", { desc = "Previous tab page" })
 
 -- Stop search highlighting and disable bare-q macro recording; in preview
 -- mode (single read-only buffer, see nvim-float.py) map it to quit instead,

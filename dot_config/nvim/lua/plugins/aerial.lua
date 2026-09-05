@@ -22,6 +22,9 @@ return {
 			min_width = 30,
 			max_width = 30,
 			resize_to_content = false,
+			win_opts = {
+				winbar = " Symbols",
+			},
 		},
 		attach_mode = "global",
 		filter_kind = false,

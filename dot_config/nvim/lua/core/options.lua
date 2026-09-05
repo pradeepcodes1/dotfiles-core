@@ -22,6 +22,7 @@ opt.splitkeep = "screen"
 opt.ignorecase = true
 opt.cursorline = true
 opt.wrap = false
+opt.confirm = true
 
 -- Persistent undo
 opt.undofile = true
