@@ -19,7 +19,7 @@ webFontSize = 15
 webFixedFontSize = 15
 
 [qutebrowser.darwin]
-chromeFontSize = "12pt"
+chromeFontSize = "15pt"
 zoom = "100%"
-webFontSize = 15
-webFixedFontSize = 15
+webFontSize = 18
+webFixedFontSize = 18

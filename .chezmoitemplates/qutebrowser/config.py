@@ -27,22 +27,6 @@
 # the intended trade for a tracked config.
 config.load_autoconfig(False)
 
-# --- local overrides ---------------------------------------------------------
-# The seam this file offers to an overlay or a single machine, mirroring the
-# `globinclude local.d/*.conf` at the end of the portable kitty config. Every
-# .py in config.d/ is sourced, sorted, before the settings below -- so an
-# overlay can drop in a generated colour scheme or a host-only tweak without
-# either source having to own this file.
-#
-# The is_dir check and the sorted glob are both load-bearing: config.source()
-# on a missing file raises, and a raise here aborts the whole config, leaving a
-# browser with no bindings at all. An absent config.d/ is the normal state on a
-# machine with no overlay.
-_local_dir = config.configdir / 'config.d'
-if _local_dir.is_dir():
-    for _local in sorted(_local_dir.glob('*.py')):
-        config.source(str(_local.relative_to(config.configdir)))
-
 # --- sizing ------------------------------------------------------------------
 # Chromium-family browsers expose one device-scale knob for chrome and content
 # together. qutebrowser splits them, so this is four settings rather than one:
@@ -295,3 +279,31 @@ config.bind('<Space>i', 'open -t https://github.com/')
 #
 # `?` is left as qutebrowser's reverse search. Neovim only rebinds it because a
 # diagnostic float needed a home, and nothing here does.
+
+# --- local overrides ---------------------------------------------------------
+# The seam this file offers to an overlay or a single machine, mirroring the
+# `globinclude local.d/*.conf` at the end of the portable kitty config -- and,
+# like that glob, deliberately the *last* thing this file does. Every .py in
+# config.d/ is sourced, in sorted order, after every setting above, so an
+# overlay can drop in a generated colour scheme, add a host-only tweak, or
+# replace something this file assigns, without either source having to own this
+# file.
+#
+# Sourcing last is the whole point, and was not always the case. This block used
+# to sit near the top, ahead of the settings, which made the seam write-only for
+# anything core also declared: fonts.default_size, zoom.default, fonts.web.size.*,
+# url.searchengines and every binding above were reassigned afterwards, so an
+# overlay's version of any of them was silently ineffective rather than an
+# error, and only settings core never touched survived. Moving it here is what
+# makes the comparison to the kitty seam true rather than aspirational -- an
+# overlay now wins a conflict, the same way an overlay `map` wins a chord there.
+#
+# The is_dir check and the sorted glob are both load-bearing: config.source()
+# on a missing file raises, and a raise here aborts the whole config. Running
+# last also bounds that blast radius -- core's own settings and bindings have
+# already applied by the time an overlay gets the chance to fail. An absent
+# config.d/ is the normal state on a machine with no overlay.
+_local_dir = config.configdir / 'config.d'
+if _local_dir.is_dir():
+    for _local in sorted(_local_dir.glob('*.py')):
+        config.source(str(_local.relative_to(config.configdir)))
