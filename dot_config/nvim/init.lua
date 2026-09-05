@@ -36,27 +36,6 @@ require("core.project").setup()
 -- Resolve theme from persisted dotfiles state, with env vars as fallback.
 local nvim_colorscheme = theme_config.colorscheme
 local nvim_background = theme_config.background -- nil, "dark", or "light"
-local theme_transparent = theme_config.transparent
-
--- Only enable transparent background if theme metadata says it's ok
-if theme_transparent and not vim.g.neovide then
-	vim.api.nvim_create_augroup("TransparentBG", { clear = true })
-	vim.api.nvim_create_autocmd("ColorScheme", {
-		pattern = "*",
-		group = "TransparentBG",
-		callback = function()
-			-- nvim_set_hl() replaces a group's whole definition rather than
-			-- merging into it, so passing only {bg=...} would silently drop
-			-- fg and any other attributes the colorscheme set. Fetch the
-			-- resolved highlight first and clear just bg.
-			for _, name in ipairs({ "Normal", "NormalNC", "LineNr", "SignColumn", "EndOfBuffer" }) do
-				local hl = vim.api.nvim_get_hl(0, { name = name, link = false })
-				hl.bg = nil
-				vim.api.nvim_set_hl(0, name, hl)
-			end
-		end,
-	})
-end
 
 -- When Neovim starts with a directory argument, cd into it and show dashboard
 vim.api.nvim_create_autocmd("VimEnter", {

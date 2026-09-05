@@ -48,8 +48,6 @@ end
 -- Sized to where two `<D-->` presses landed (20 / 1.1^2 = 16.5, 19 / 1.1^2 = 15.7),
 -- baked into guifont so <D-0> resets here instead of back to the old h20.
 vim.o.guifont = vim.g.nvim_preview and "JetBrainsMono_NF:h15.7" or "JetBrainsMono_NF:h15"
-vim.g.neovide_opacity = 0.99
-vim.g.neovide_normal_opacity = 1.0
 -- Neovide animates any large viewport jump as a scroll, so a buffer or tab
 -- switch slides the new file up into place while the old one is still on
 -- screen. Snap instead: this also covers Aerial replacing its Loading buffer
@@ -133,10 +131,10 @@ vim.keymap.set({ "n", "i", "v", "c", "t" }, "<D-v>", paste, { silent = true, des
 
 local zoom_modes = { "n", "i", "v", "c", "t" }
 for _, mapping in ipairs({
-	{ "<D-=>", 1.1,     "Increase" },
-	{ "<D-+>", 1.1,     "Increase" },
+	{ "<D-=>", 1.1, "Increase" },
+	{ "<D-+>", 1.1, "Increase" },
 	{ "<D-->", 1 / 1.1, "Decrease" },
-	{ "<D-0>", 0,       "Reset" },
+	{ "<D-0>", 0, "Reset" },
 }) do
 	vim.keymap.set(zoom_modes, mapping[1], zoom(mapping[2]), { silent = true, desc = mapping[3] .. " font size" })
 end

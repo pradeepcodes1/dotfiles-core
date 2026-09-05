@@ -116,11 +116,6 @@ local function parse_theme(theme_name)
 
 		theme.mode = theme.mode or line:match("^# Mode:%s*(%S+)$")
 
-		local transparent = line:match("^# Transparent:%s*([01])$")
-		if transparent then
-			theme.transparent = transparent == "1"
-		end
-
 		theme.colorscheme = theme.colorscheme or parse_assignment(line, "nvim_colorscheme")
 		theme.lualine = theme.lualine or parse_assignment(line, "nvim_lualine")
 		theme.background = theme.background or parse_assignment(line, "nvim_background")
@@ -149,7 +144,6 @@ function M.resolve()
 			path = parsed.path,
 			source = parsed.source,
 			mode = parsed.mode or vim.env._DOTFILES_THEME_MODE,
-			transparent = parsed.transparent == true,
 			colorscheme = parsed.colorscheme or "dotfiles-gogh",
 			lualine = parsed.lualine or "dotfiles-gogh",
 			background = parsed.background or (parsed.colorscheme == "dotfiles-gogh" and parsed.mode or nil),
@@ -160,7 +154,6 @@ function M.resolve()
 	return {
 		name = vim.env._DOTFILES_THEME_NAME,
 		mode = vim.env._DOTFILES_THEME_MODE,
-		transparent = vim.env._DOTFILES_THEME_TRANSPARENT == "1",
 		colorscheme = vim.env._DOTFILES_NVIM_COLORSCHEME or "dotfiles-gogh",
 		lualine = vim.env._DOTFILES_NVIM_LUALINE or "dotfiles-gogh",
 		background = vim.env._DOTFILES_NVIM_BACKGROUND,
@@ -183,7 +176,6 @@ function M.sync_env_from_state()
 		vim.env._DOTFILES_THEME_MODE = theme.mode
 	end
 
-	vim.env._DOTFILES_THEME_TRANSPARENT = theme.transparent and "1" or "0"
 	vim.env._DOTFILES_NVIM_COLORSCHEME = theme.colorscheme
 	vim.env._DOTFILES_NVIM_LUALINE = theme.lualine
 

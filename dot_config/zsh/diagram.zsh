@@ -4,7 +4,7 @@ _DIAGRAM_MMDC_WIDTH=1600
 _DIAGRAM_MMDC_SCALE=2
 
 # Theme-aware defaults (overridden by theme/apps/diagram.zsh)
-: "${_DIAGRAM_MMDC_BG:=transparent}"
+: "${_DIAGRAM_MMDC_BG:=white}"
 : "${_DIAGRAM_MMDC_THEME:=}"
 
 _diagram_mktemp() {

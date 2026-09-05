@@ -4,8 +4,7 @@
 # Store base opts once (without colors) to avoid accumulation on theme switch
 (( ${+_FZF_BASE_OPTS} )) || export _FZF_BASE_OPTS="$FZF_DEFAULT_OPTS"
 
-local fzf_bg="-1"
-[[ "$_DOTFILES_THEME_TRANSPARENT" != "1" ]] && fzf_bg="$bg"
+local fzf_bg="$bg"
 
 export FZF_DEFAULT_OPTS="$_FZF_BASE_OPTS \
   --color=fg:$fg,bg:$fzf_bg,hl:$magenta \

@@ -80,7 +80,6 @@ _load_theme_colors() {
 
   export _DOTFILES_THEME_NAME="$theme_name"
   export _DOTFILES_THEME_MODE=$(_get_theme_field "$color_file" "Mode")
-  export _DOTFILES_THEME_TRANSPARENT=$(_get_theme_field "$color_file" "Transparent")
 
   _export_or_unset _DOTFILES_NVIM_COLORSCHEME "$nvim_colorscheme"
   _export_or_unset _DOTFILES_NVIM_LUALINE "$nvim_lualine"
