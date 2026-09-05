@@ -7,37 +7,28 @@
 -- takes what has to exist before any server attaches; config() takes the rest.
 local paths = require("core.paths")
 
-local function first_executable(candidates)
-	for _, candidate in ipairs(candidates) do
-		if candidate ~= "" and vim.fn.executable(candidate) == 1 then
-			return candidate
-		end
-	end
-
-	return "clangd"
-end
-
+-- cmd[1] is the bare name: vim.lsp resolves it through PATH, and PATH already
+-- answers /usr/bin/clangd -- an xcode-select shim onto the Xcode toolchain on
+-- macOS, the distro package on Linux. An earlier version pinned that absolute
+-- path with an executable() guard, which turned out to defend nothing: the two
+-- spellings name the same binary (measured, exepath("clangd") in nvim), nothing
+-- shadows it (mason.lua sets Mason's PATH mode to "append", not its "prepend"
+-- default), /usr/bin is in the LaunchServices PATH a GUI Neovide inherits, and
+-- when clangd is absent entirely both branches fall back to the same failing
+-- spawn. Homebrew's keg-only llvm led the list before that, so the editor ran a
+-- clangd the shell could not find by name; at C++20 it bought nothing.
+--
+-- --query-driver is an allow-list of globs matched against the compiler named
+-- in compile_commands.json, not a driver to run, so one glob per prefix covers
+-- clang, clang++ and versioned names alike.
 local function clangd_cmd()
-	local clangd_bin = first_executable({
-		paths.homebrew("opt/llvm/bin/clangd"),
-		"/usr/bin/clangd",
-		vim.fn.exepath("clangd"),
-		vim.fn.stdpath("data") .. "/mason/bin/clangd",
-	})
-
-	local query_drivers = {
-		paths.homebrew("opt/llvm/bin/clang++"),
-		paths.homebrew("opt/llvm/bin/clang"),
-		paths.application("Xcode", "Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++"),
-		paths.application("Xcode", "Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang"),
-		"/usr/bin/clang++",
-		"/usr/bin/clang",
-	}
+	local xcode_clang =
+		paths.application("Xcode", "Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang*")
 
 	return {
-		clangd_bin,
+		"clangd",
 		"--background-index",
-		"--query-driver=" .. table.concat(query_drivers, ","),
+		"--query-driver=" .. xcode_clang .. ",/usr/bin/clang*",
 	}
 end
 
@@ -106,10 +97,12 @@ return {
 				},
 			})
 
-			-- Neither of these is in ensure_installed -- clangd prefers the system
-			-- binary, rust_analyzer comes from the rustup toolchain -- and
-			-- automatic_enable only walks Mason's *installed packages*, so it never
-			-- sees either one and skips both.
+			-- Neither of these is in ensure_installed, and automatic_enable only walks
+			-- Mason's *installed packages*, so it never sees either one and skips both.
+			-- clangd prefers the system binary; rust_analyzer comes from the rustup
+			-- toolchain, pinned as a component in mise. A Mason copy of it would never
+			-- be reached anyway: lspconfig spawns a bare `rust-analyzer` and Mason's bin
+			-- is appended to PATH, so ~/.cargo/bin resolves first.
 			vim.lsp.enable("clangd")
 			vim.lsp.enable("rust_analyzer")
 
@@ -118,10 +111,6 @@ return {
 					"ts_ls",
 					"lua_ls",
 					"gopls",
-					-- rust_analyzer comes from the rustup toolchain instead, pinned as a
-					-- component in mise. A Mason copy would never be reached: lspconfig
-					-- spawns a bare `rust-analyzer` and Mason's bin is appended to PATH,
-					-- so ~/.cargo/bin resolves first.
 					"pyright",
 					"kotlin_language_server",
 					"jsonls",
