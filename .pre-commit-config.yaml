@@ -68,6 +68,14 @@ repos:
         entry: ruff check --select E4,E7,E9,F
         language: system
         files: \.py$
+        # .chezmoitemplates holds Go templates whatever their extension, and
+        # qutebrowser/config.py is one -- `{{- $q := index .qutebrowser ... }}`
+        # on line 1, so it does not parse as Python at all. Rendering it first
+        # the way the sibling hook does for *.py.tmpl would not help either: a
+        # qutebrowser config runs with `config` and `c` injected by the app, so
+        # a rendered check reports 42 F821s for names that are correct. prettier
+        # already excludes this directory for the same reason.
+        exclude: ^\.chezmoitemplates/
 
       # Render executable Python templates before checking them.
       - id: ruff-python-templates
