@@ -49,8 +49,8 @@ local function close_panels()
 end
 
 -- Pickers. `fg` and `ft` are project-only, since a directory-wide ripgrep needs
--- a directory to be meaningful; `fS` is not, because picker_root() can ask the
--- buffer's own language server which workspace it indexed. `ff` stays available
+-- a directory to be meaningful. `fS` queries all active project servers in
+-- project mode, and the buffer's servers in file-only mode. `ff` stays available
 -- everywhere but file_search_root() keeps it off `/` and $HOME.
 -- Inside any file picker, dotfiles are shown and gitignored files are not:
 -- `<a-h>` hides the former, `<C-.>`/`<a-i>` reveals the latter.
@@ -90,7 +90,7 @@ if not vim.g.nvim_preview then
 		Snacks.picker.lsp_symbols()
 	end, { desc = "Find symbols in file" })
 	map("n", "<leader>fS", function()
-		Snacks.picker.lsp_workspace_symbols(project.picker_scope(project.picker_root()))
+		require("core.workspace_symbols").open()
 	end, { desc = "Find symbols in workspace" })
 	map("n", "<leader>fr", function()
 		Snacks.picker.recent()
