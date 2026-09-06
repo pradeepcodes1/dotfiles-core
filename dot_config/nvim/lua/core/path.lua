@@ -46,32 +46,57 @@ function M.longest_containing(roots, path)
 	return best
 end
 
---- Every root the servers attached to `bufnr` claim, as a set. Clients report
---- these three ways and disagree about which they populate.
-function M.lsp_roots(bufnr)
+--- Every root one client claims, as a set. Clients report these three ways and
+--- disagree about which they populate.
+---
+--- WorkspaceFolder.uri is the location; .name is only a display label, which the
+--- spec never requires to be a path. Reading .name first would replace a real
+--- root with something like "Backend Services" -- inert, since no absolute file
+--- can sit under it, but the real root then goes missing from the set entirely
+--- and buffer_root() falls back to a marker root or to nil. nil scopes nothing,
+--- so grr would quietly widen to every dependency it was meant to exclude.
+---
+--- Each root is offered in both spellings, symlink-resolved and not, because the
+--- callers compare against differently-normalized paths: project.lua realpaths
+--- the buffer's file while snacks_explorer.lua only cleans it. Only a spelling
+--- that actually contains the file can win longest_containing(), so the extra
+--- entries are inert wherever they do not apply.
+function M.client_roots(client)
 	local roots = {}
 
 	local function add(root)
-		root = M.clean(root)
-		if root then
-			roots[root] = true
+		local cleaned = M.clean(root)
+		if cleaned then
+			roots[cleaned] = true
+		end
+
+		local real = M.normalize(root)
+		if real then
+			roots[real] = true
 		end
 	end
 
-	for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
-		add(client.root_dir)
-		if client.config then
-			add(client.config.root_dir)
-		end
+	add(client.root_dir)
+	if client.config then
+		add(client.config.root_dir)
+	end
 
-		local folders = client.workspace_folders or (client.config and client.config.workspace_folders)
-		for _, folder in ipairs(type(folders) == "table" and folders or {}) do
-			local root = folder.name
-			if (not root or root == "") and folder.uri then
-				local ok, fname = pcall(vim.uri_to_fname, folder.uri)
-				root = ok and fname or nil
-			end
-			add(root)
+	local folders = client.workspace_folders or (client.config and client.config.workspace_folders)
+	for _, folder in ipairs(type(folders) == "table" and folders or {}) do
+		local ok, fname = pcall(vim.uri_to_fname, folder.uri or "")
+		add(ok and fname or folder.name)
+	end
+
+	return roots
+end
+
+--- Every root the servers attached to `bufnr` claim, as a set.
+function M.lsp_roots(bufnr)
+	local roots = {}
+
+	for _, client in ipairs(vim.lsp.get_clients({ bufnr = bufnr })) do
+		for root in pairs(M.client_roots(client)) do
+			roots[root] = true
 		end
 	end
 

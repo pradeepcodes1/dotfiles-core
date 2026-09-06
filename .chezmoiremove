@@ -16,15 +16,25 @@
 
 # Retired Neovim modules and plugin specs.
 .config/nvim/lua/core/cmp.lua
+.config/nvim/lua/core/dashboard.lua
 .config/nvim/lua/core/diagnostics.lua
 .config/nvim/lua/core/logging.lua
 .config/nvim/lua/core/lsp_navigation_progress.lua
+.config/nvim/lua/core/library_paths.lua
+.config/nvim/lua/core/problems.lua
+.config/nvim/lua/core/project_lsp.lua
+.config/nvim/lua/core/references.lua
+.config/nvim/lua/core/workspace_symbols.lua
 .config/nvim/lua/core/neotree_explorer.lua
 .config/nvim/lua/core/neotree_columns.lua
 .config/nvim/lua/core/notes.lua
 .config/nvim/lua/core/quickfix.lua
 .config/nvim/lua/core/sidebar.lua
+.config/nvim/lua/core/snacks_explorer.lua
 .config/nvim/lua/core/trouble_float.lua
+.config/nvim/lua/core/palette.lua
+.config/nvim/lua/core/theme.lua
+.config/nvim/lua/lualine/themes/dotfiles-gogh.lua
 .config/nvim/lua/plugins/edgy.lua
 .config/nvim/lua/plugins/neotree.lua
 .config/nvim/lua/plugins/notify.lua

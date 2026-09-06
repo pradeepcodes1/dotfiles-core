@@ -56,7 +56,7 @@ if vim.g.nvim_preview then
 	opt.titlestring = "Neovide Preview · %t"
 else
 	_G.nvim_project_title = function()
-		local root = require("core.project").current_root() or vim.fn.getcwd()
+		local root = require("project.paths").current_root() or vim.fn.getcwd()
 		return vim.fn.fnamemodify(root, ":t") .. " · " .. root
 	end
 	opt.titlestring = "%t%( %M%) · %{v:lua.nvim_project_title()}"

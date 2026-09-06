@@ -60,10 +60,6 @@ local function save()
 	vim.cmd.write()
 end
 
-local function close_window()
-	vim.cmd("confirm qall")
-end
-
 local function copy()
 	vim.cmd([[normal! "+y]])
 end
@@ -79,53 +75,7 @@ local function zoom(factor)
 	end
 end
 
-local function close_terminal_buffer(terminal)
-	local bufnr = terminal.buf
-	if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
-		return
-	end
-
-	-- Keep the current window alive when Snacks handles the terminal's
-	-- TermClose/BufWipeout events; only this terminal buffer should disappear.
-	terminal.win = nil
-	local channel = vim.bo[bufnr].channel
-	if channel and channel > 0 then
-		pcall(vim.fn.jobstop, channel)
-	end
-	vim.api.nvim_buf_delete(bufnr, { force = true })
-end
-
-local function open_terminal_buffer()
-	local terminal = Snacks.terminal.get(nil, { count = 2, create = false })
-	if terminal and terminal:win_valid() then
-		terminal:focus()
-		return
-	end
-	if terminal and terminal:buf_valid() then
-		terminal:show()
-		return
-	end
-
-	Snacks.terminal.open(nil, {
-		count = 2,
-		auto_close = false,
-		win = {
-			position = "current",
-			on_buf = function(self)
-				vim.keymap.set("n", "<leader>q", function()
-					close_terminal_buffer(self)
-				end, {
-					buffer = self.buf,
-					silent = true,
-					desc = "Kill and close terminal buffer",
-				})
-			end,
-		},
-	})
-end
-
 vim.keymap.set({ "n", "i", "v" }, "<D-s>", save, { desc = "Save" })
-vim.keymap.set({ "n", "i", "v", "c", "t" }, "<D-w>", close_window, { silent = true, desc = "Close Neovide window" })
 vim.keymap.set("v", "<D-c>", copy, { silent = true, desc = "Copy" })
 vim.keymap.set({ "n", "i", "v", "c", "t" }, "<D-v>", paste, { silent = true, desc = "Paste" })
 
@@ -137,11 +87,4 @@ for _, mapping in ipairs({
 	{ "<D-0>", 0, "Reset" },
 }) do
 	vim.keymap.set(zoom_modes, mapping[1], zoom(mapping[2]), { silent = true, desc = mapping[3] .. " font size" })
-end
-
-if not vim.g.nvim_preview then
-	vim.keymap.set({ "n", "i", "t" }, "<D-S-j>", open_terminal_buffer, {
-		silent = true,
-		desc = "Open full-window terminal buffer",
-	})
 end

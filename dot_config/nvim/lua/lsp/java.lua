@@ -3,7 +3,7 @@
 -- Smart gd/gr for Java: falls back to workspace/symbol search on import lines
 -- where jdtls doesn't resolve textDocument/definition.
 local M = {}
-local references = require("core.references")
+local references = require("lsp.references")
 
 --- Detect if the current line is a Java import statement and return the FQCN.
 --- Handles regular imports (`import com.example.MyClass;`) and
@@ -32,7 +32,7 @@ end
 
 --- Navigate to a class definition by its FQCN using workspace/symbol search.
 local function goto_class_by_fqcn(fqcn)
-	if not require("core.project").is_open() then
+	if not require("project.state").is_open() then
 		return
 	end
 
@@ -120,7 +120,7 @@ end
 
 --- Smart gr: on import lines, tries LSP references then falls back to workspace symbols.
 local function smart_references()
-	if not require("core.project").is_open() then
+	if not require("project.state").is_open() then
 		return
 	end
 

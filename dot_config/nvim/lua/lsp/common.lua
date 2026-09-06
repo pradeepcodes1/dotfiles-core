@@ -1,7 +1,7 @@
 -- give every language server the same diagnostics, capabilities, and keymaps.
 -- lua/lsp/common.lua
 local M = {}
-local references = require("core.references")
+local references = require("lsp.references")
 
 -- The cursor line renders its diagnostics in full as virtual lines, and drops
 -- the truncated virtual text that would otherwise say the same thing twice on

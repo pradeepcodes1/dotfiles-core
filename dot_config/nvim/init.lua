@@ -6,9 +6,9 @@ vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
 require("core.options")
 require("core.keymaps")
 require("core.neovide")
-require("core.lsp_log")
+require("lsp.lsp_log")
 
-local theme = require("core.theme")
+local theme = require("theme")
 local theme_config = theme.prepare()
 
 -- Bootstrap lazy.nvim if missing
@@ -30,9 +30,22 @@ if not vim.uv.fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
-require("lazy").setup({ import = "plugins" })
+require("lazy").setup({
+	spec = {
+		{ import = "plugins" },
+		{ import = "plugins.editor" },
+		{ import = "plugins.layout" },
+		{ import = "plugins.snacks" },
+		{ import = "plugins.vcs" },
+		{ import = "plugins.lsp" },
+		{ import = "plugins.lsp-extras" },
+		{ import = "plugins.tools" },
+		{ import = "plugins.extras" },
+		{ import = "plugins.theme" },
+	},
+})
 
-require("core.project").setup()
+require("project").setup()
 
 -- When Neovim starts with a directory argument, cd into it and show dashboard
 vim.api.nvim_create_autocmd("VimEnter", {
@@ -45,14 +58,14 @@ vim.api.nvim_create_autocmd("VimEnter", {
 			local buf = vim.api.nvim_get_current_buf()
 			vim.schedule(function()
 				vim.api.nvim_buf_delete(buf, { force = true })
-				require("core.dashboard").show()
+				require("snacks.dashboard_controller").show()
 			end)
 		end
 	end,
 })
 
 local readonly_libs = vim.api.nvim_create_augroup("readonly_libs", { clear = true })
-local library_paths = require("core.library_paths")
+local library_paths = require("lsp.library_paths")
 
 vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 	group = readonly_libs,

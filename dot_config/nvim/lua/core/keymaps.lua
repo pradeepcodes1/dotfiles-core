@@ -1,7 +1,12 @@
 -- keep cross-plugin navigation and actions in one discoverable key layer.
 local map = vim.keymap.set
-local problems = require("core.problems")
-local project = require("core.project")
+local problems = require("lsp.problems")
+local project_pickers = require("project.actions.pickers")
+local project_deleter = require("project.actions.deleter")
+local project_info = require("project.info")
+local project_reset = require("project.actions.reset")
+local project_state = require("project.state")
+local project_paths = require("project.paths")
 vim.g.mapleader = " "
 
 -- Yank context. Keep the prefix unmapped so complete shortcuts never wait.
@@ -39,7 +44,7 @@ end, { desc = "Toggle fold" })
 -- leave dapui and neotest believing they are still open, so both <leader>vc and
 -- the project reset go through this.
 local function close_panels()
-	require("core.snacks_explorer").close_all()
+	require("snacks.explorer_controller").close_all()
 	pcall(function()
 		require("dapui").close()
 	end)
@@ -56,7 +61,7 @@ end
 -- `<a-h>` hides the former, `<C-.>`/`<a-i>` reveals the latter.
 if not vim.g.nvim_preview then
 	map("n", "<leader>ff", function()
-		local root = project.file_search_root()
+		local root = project_paths.file_search_root()
 		if root then
 			Snacks.picker.files({ cwd = root })
 		end
@@ -64,16 +69,16 @@ if not vim.g.nvim_preview then
 	map(
 		"n",
 		"<leader>fg",
-		project.only(function()
-			Snacks.picker.grep({ cwd = project.current_root() })
+		project_state.only(function()
+			Snacks.picker.grep({ cwd = project_paths.current_root() })
 		end),
 		{ desc = "Grep project" }
 	)
 	map(
 		"n",
 		"<leader>fw",
-		project.only(function()
-			Snacks.picker.grep_word({ cwd = project.current_root() })
+		project_state.only(function()
+			Snacks.picker.grep_word({ cwd = project_paths.current_root() })
 		end),
 		{ desc = "Find word in project" }
 	)
@@ -90,7 +95,7 @@ if not vim.g.nvim_preview then
 		Snacks.picker.lsp_symbols()
 	end, { desc = "Find symbols in file" })
 	map("n", "<leader>fS", function()
-		require("core.workspace_symbols").open()
+		require("lsp.workspace_symbols").open()
 	end, { desc = "Find symbols in workspace" })
 	map("n", "<leader>fr", function()
 		Snacks.picker.recent()
@@ -102,7 +107,7 @@ if not vim.g.nvim_preview then
 		vim.cmd("AerialToggle! right")
 	end, { desc = "View: Symbols" })
 	map("n", "<leader>e", function()
-		require("core.snacks_explorer").toggle()
+		require("snacks.explorer_controller").toggle()
 	end, { desc = "View: Explorer" })
 	map("n", "<leader>vc", close_panels, { desc = "View: Code (close all)" })
 end
@@ -121,12 +126,12 @@ end, { desc = "Previous diagnostic" })
 map("n", "<leader>lh", function()
 	vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
 end, { desc = "Toggle inlay hints" })
-map("n", "<leader>vp", project.only(problems.show_workspace), { desc = "View: Problems (project)" })
+map("n", "<leader>vp", project_state.only(problems.show_workspace), { desc = "View: Problems (project)" })
 map("n", "<leader>vP", problems.show_buffer, { desc = "View: Problems (buffer)" })
 map("n", "<leader>vq", function()
 	Snacks.picker.qflist()
 end, { desc = "View: Quickfix" })
-map("n", "<leader>vr", project.only(problems.refresh_workspace), { desc = "View: Refresh Problems" })
+map("n", "<leader>vr", project_state.only(problems.refresh_workspace), { desc = "View: Refresh Problems" })
 map("n", "<leader>ud", function()
 	vim.diagnostic.enable(not vim.diagnostic.is_enabled())
 end, { desc = "Toggle diagnostics" })
@@ -187,21 +192,24 @@ end
 -- The whole group is off in preview mode, where the window is one read-only
 -- file in a float: restoring a session into it is nothing anyone wants.
 if not vim.g.nvim_preview then
-	map("n", "<leader>pp", project.pick_session, { desc = "Project: Switch" })
-	map("n", "<leader>po", project.open_current, { desc = "Project: Open current root" })
-	map("n", "<leader>pd", project.delete_session, { desc = "Project: Delete session" })
-	map("n", "<leader>pi", project.info, { desc = "Project: Info" })
+	map("n", "<leader>pp", project_pickers.pick_session, { desc = "Project: Switch" })
+	map("n", "<leader>po", project_pickers.open_current, { desc = "Project: Open current root" })
+	map("n", "<leader>pd", project_deleter.delete_session, { desc = "Project: Delete session" })
+	map("n", "<leader>pi", project_info.info, { desc = "Project: Info" })
+	map("n", "<leader>pl", function()
+		require("lsp.project_lsp").toggle()
+	end, { desc = "Project: Toggle automatic LSP startup" })
 	map(
 		"n",
 		"<leader>pr",
-		project.only(function()
+		project_state.only(function()
 			close_panels()
-			project.reset()
+			project_reset.reset()
 		end),
 		{ desc = "Project: Reset workspace" }
 	)
-	map("n", "<leader>pn", project.open_new_window, { desc = "Project: New window" })
-	map("n", "<leader>pt", project.open_terminal, { desc = "Project: Terminal at root" })
+	map("n", "<leader>pn", project_pickers.open_new_window, { desc = "Project: New window" })
+	map("n", "<leader>pt", project_pickers.open_terminal, { desc = "Project: Terminal at root" })
 end
 
 -- Splits
@@ -291,8 +299,8 @@ map("n", "<c-up>", "<cmd>Yazi toggle<cr>", { desc = "Resume last yazi session" }
 map(
 	"n",
 	"<leader>ft",
-	project.only(function()
-		Snacks.picker.todo_comments({ cwd = project.current_root() })
+	project_state.only(function()
+		Snacks.picker.todo_comments({ cwd = project_paths.current_root() })
 	end),
 	{ desc = "Find TODOs in project" }
 )
