@@ -8,7 +8,8 @@ require("core.keymaps")
 require("core.neovide")
 require("core.lsp_log")
 
-local theme_config = require("core.theme").sync_env_from_state()
+local theme = require("core.theme")
+local theme_config = theme.prepare()
 
 -- Bootstrap lazy.nvim if missing
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
@@ -32,10 +33,6 @@ vim.opt.rtp:prepend(lazypath)
 require("lazy").setup({ import = "plugins" })
 
 require("core.project").setup()
-
--- Resolve theme from persisted dotfiles state, with env vars as fallback.
-local nvim_colorscheme = theme_config.colorscheme
-local nvim_background = theme_config.background -- nil, "dark", or "light"
 
 -- When Neovim starts with a directory argument, cd into it and show dashboard
 vim.api.nvim_create_autocmd("VimEnter", {
@@ -66,8 +63,6 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 	end,
 })
 
--- Apply resolved theme
-if nvim_background then
-	vim.o.background = nvim_background
-end
-vim.cmd.colorscheme(nvim_colorscheme)
+-- Startup and live reload share the same application path. The startup
+-- snapshot was prepared before plugins loaded so every consumer sees it.
+theme.apply(theme_config)

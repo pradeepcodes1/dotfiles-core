@@ -10,7 +10,7 @@ return {
 	---@module "auto-session"
 	---@type AutoSession.Config
 	opts = {
-		-- Sessions are restored deliberately through <leader>p or the confirmed
+		-- Sessions are restored deliberately through <leader>pp or the confirmed
 		-- single-file project prompt, never unconditionally on startup.
 		-- This was originally set to work around project.nvim silently chdir'ing
 		-- on BufEnter/LspAttach (issue #129); that plugin is gone and cwd is now

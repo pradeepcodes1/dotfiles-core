@@ -12,3 +12,9 @@ hash = "5bb0bfab901d3601c370eafdd66edd31"
 use = "yazi-rs/plugins:visual-pivot"
 rev = "4dc7f1b"
 hash = "11e7b50ca963cc9a7779ddccd217ab7e"
+
+# `ya pkg` writes this section itself on a newer Yazi and rewrites the file
+# without it -- which reads as drift on the next apply, and prompts. No flavors
+# are installed because Gogh generates Yazi's colors directly.
+[flavor]
+deps = []

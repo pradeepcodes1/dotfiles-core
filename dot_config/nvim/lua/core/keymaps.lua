@@ -4,6 +4,20 @@ local problems = require("core.problems")
 local project = require("core.project")
 vim.g.mapleader = " "
 
+-- Yank context. Keep the prefix unmapped so complete shortcuts never wait.
+for key, target in pairs({
+	p = { "project", "project path" },
+	r = { "relative", "relative file path" },
+	a = { "absolute", "absolute file path" },
+	n = { "filename", "filename" },
+	c = { "commit", "Git HEAD commit" },
+	b = { "branch", "Git branch name" },
+}) do
+	map("n", "<leader>y" .. key, function()
+		require("core.yank").copy(target[1])
+	end, { desc = "Yank " .. target[2] })
+end
+
 -- basics
 map("i", "jk", "<Esc>", { desc = "Exit insert mode with jk" })
 -- No visual-mode `jk`: there, both halves are motions, so any run of `j`
@@ -13,17 +27,26 @@ map("i", "jk", "<Esc>", { desc = "Exit insert mode with jk" })
 map("t", "<C-Space>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
 
--- Folding. `zz` rather than `za` so the toggle is one key struck twice;
--- plugins/neoscroll.lua gives the key up for it. Folds are treesitter
--- expressions (core/options.lua), so a line between two top-level
--- definitions sits in no fold at all and bare `za` answers E490 -- check
--- the level first and stay silent rather than beep at the blank lines.
-map("n", "zz", function()
+-- Keep native centering on zz; silently ignore fold toggles outside folds.
+map("n", "za", function()
 	if vim.fn.foldlevel(vim.fn.line(".")) == 0 then
 		return
 	end
 	vim.cmd("normal! za")
 end, { desc = "Toggle fold" })
+
+-- Panels that own their own teardown. Closing their windows directly would
+-- leave dapui and neotest believing they are still open, so both <leader>vc and
+-- the project reset go through this.
+local function close_panels()
+	require("core.snacks_explorer").close_all()
+	pcall(function()
+		require("dapui").close()
+	end)
+	pcall(function()
+		require("neotest").summary.close()
+	end)
+end
 
 -- Pickers. `fg` and `ft` are project-only, since a directory-wide ripgrep needs
 -- a directory to be meaningful; `fS` is not, because picker_root() can ask the
@@ -46,6 +69,20 @@ if not vim.g.nvim_preview then
 		end),
 		{ desc = "Grep project" }
 	)
+	map(
+		"n",
+		"<leader>fw",
+		project.only(function()
+			Snacks.picker.grep_word({ cwd = project.current_root() })
+		end),
+		{ desc = "Find word in project" }
+	)
+	map("n", "<leader>fu", function()
+		Snacks.picker.undo()
+	end, { desc = "Find undo history" })
+	map("n", "<leader>fb", function()
+		Snacks.picker.buffers()
+	end, { desc = "Find open buffers" })
 	map("n", "<leader>/", function()
 		Snacks.picker.lines()
 	end, { desc = "Search lines in buffer" })
@@ -67,20 +104,12 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>e", function()
 		require("core.snacks_explorer").toggle()
 	end, { desc = "View: Explorer" })
-	map("n", "<leader>vc", function()
-		require("core.snacks_explorer").close_all()
-		pcall(function()
-			require("dapui").close()
-		end)
-		pcall(function()
-			require("neotest").summary.close()
-		end)
-	end, { desc = "View: Code (close all)" })
+	map("n", "<leader>vc", close_panels, { desc = "View: Code (close all)" })
 end
 
 -- LSP (gd, rename, code_action are in lsp/common.lua on_attach)
 map("n", "<leader>lc", "<Cmd>cclose<CR>", { desc = "Close quickfix window" })
-map("n", "?", function()
+map("n", "<leader>ld", function()
 	vim.diagnostic.open_float({ scope = "line" })
 end, { desc = "Open diagnostic float" })
 map("n", "]d", function()
@@ -101,7 +130,7 @@ map("n", "<leader>vr", project.only(problems.refresh_workspace), { desc = "View:
 map("n", "<leader>ud", function()
 	vim.diagnostic.enable(not vim.diagnostic.is_enabled())
 end, { desc = "Toggle diagnostics" })
-map("n", "[[", function()
+map("n", "[p", function()
 	local ok, aerial = pcall(require, "aerial")
 	if ok then
 		local ok_symbols, symbols = pcall(aerial.get_location, false)
@@ -119,10 +148,19 @@ map("n", "<C-h>", "<C-w>h", { desc = "Move to left split" })
 map("n", "<C-l>", "<C-w>l", { desc = "Move to right split" })
 map("n", "<C-k>", "<C-w>k", { desc = "Move to split above" })
 map("n", "<C-j>", "<C-w>j", { desc = "Move to split below" })
-map("n", "<leader>w<Left>", "<Cmd>vertical resize -10<CR>", { desc = "Resize split narrower" })
-map("n", "<leader>w<Right>", "<Cmd>vertical resize +10<CR>", { desc = "Resize split wider" })
-map("n", "<leader>w<Up>", "<Cmd>resize +10<CR>", { desc = "Resize split taller" })
-map("n", "<leader>w<Down>", "<Cmd>resize -10<CR>", { desc = "Resize split shorter" })
+-- A count multiplies the ten-column/line step; arrows remain aliases.
+for _, resize in ipairs({
+	{ "h", "<Left>", "vertical resize -", "narrower" },
+	{ "l", "<Right>", "vertical resize +", "wider" },
+	{ "k", "<Up>", "resize +", "taller" },
+	{ "j", "<Down>", "resize -", "shorter" },
+}) do
+	for _, key in ipairs({ resize[1], resize[2] }) do
+		map("n", "<leader>w" .. key, function()
+			vim.cmd(resize[3] .. (10 * vim.v.count1))
+		end, { desc = "Resize split " .. resize[4] })
+	end
+end
 map("n", "<leader>w=", "<C-w>=", { desc = "Equalize splits" })
 
 local opts = { noremap = true, silent = true }
@@ -139,7 +177,32 @@ end
 -- Project management. auto-session owns the cwd: its session list is keyed on
 -- directory + git branch, so the session picker *is* the project picker, and it
 -- restores the buffers and layout rather than only changing directory.
-map("n", "<leader>p", project.pick_session, { desc = "Projects" })
+--
+-- <leader>p is a prefix rather than the picker itself: everything under it acts
+-- on the project as a whole, where the f group finds things inside one. Nothing
+-- here is a second spelling of an f-group key -- ff, fg, fS and ft are already
+-- project-rooted. plugins/init.lua names the group for which-key; the `Project:`
+-- desc prefix is what labels each entry under it.
+--
+-- The whole group is off in preview mode, where the window is one read-only
+-- file in a float: restoring a session into it is nothing anyone wants.
+if not vim.g.nvim_preview then
+	map("n", "<leader>pp", project.pick_session, { desc = "Project: Switch" })
+	map("n", "<leader>po", project.open_current, { desc = "Project: Open current root" })
+	map("n", "<leader>pd", project.delete_session, { desc = "Project: Delete session" })
+	map("n", "<leader>pi", project.info, { desc = "Project: Info" })
+	map(
+		"n",
+		"<leader>pr",
+		project.only(function()
+			close_panels()
+			project.reset()
+		end),
+		{ desc = "Project: Reset workspace" }
+	)
+	map("n", "<leader>pn", project.open_new_window, { desc = "Project: New window" })
+	map("n", "<leader>pt", project.open_terminal, { desc = "Project: Terminal at root" })
+end
 
 -- Splits
 map("n", "<leader>|", "<cmd>vsplit<CR>", { desc = "Split vertical" })
@@ -149,13 +212,11 @@ map("n", "<leader>X", "<Cmd>tabclose<CR>", { desc = "Close tab page" })
 map("n", "<leader><Tab>", "<Cmd>tabnext<CR>", { desc = "Next tab page" })
 map("n", "<leader><S-Tab>", "<Cmd>tabprevious<CR>", { desc = "Previous tab page" })
 
--- Stop search highlighting and disable bare-q macro recording; in preview
--- mode (single read-only buffer, see nvim-float.py) map it to quit instead,
--- matching the old bat-pager "q to close" behavior this replaced.
+-- Preserve native macro recording in the editor and pager-style quit in preview.
 if vim.g.nvim_preview then
 	map("n", "q", ":qa<CR>", { desc = "Quit preview" })
 else
-	map("n", "q", ":nohlsearch<CR><Esc>", { desc = "Clear search highlighting" })
+	map("n", "<Esc>", "<Cmd>nohlsearch<CR><Esc>", { desc = "Clear search highlighting" })
 end
 
 map("i", "<A-Left>", "<C-o>b", opts) -- back one word
@@ -163,13 +224,18 @@ map("i", "<A-Right>", "<C-o>w", opts) -- forward one word
 
 if not vim.g.nvim_preview then
 	for i = 1, 9 do
-		map("n", "<leader>" .. i, "<Cmd>BufferGoto " .. i .. "<CR>", opts)
+		map("n", "<leader>" .. i, "<Cmd>BufferGoto " .. i .. "<CR>", { silent = true, desc = "Go to buffer " .. i })
 	end
-	map("n", "<leader>0", "<Cmd>BufferPin<CR>", opts)
+	map("n", "<leader>0", "<Cmd>BufferPin<CR>", { silent = true, desc = "Pin buffer" })
 
 	local move_keys = { "!", "@", "#", "$", "%", "^", "&", "*", "(" }
 	for i, key in ipairs(move_keys) do
-		map("n", "<leader>" .. key, "<Cmd>BufferMove " .. i .. "<CR>", opts)
+		map(
+			"n",
+			"<leader>" .. key,
+			"<Cmd>BufferMove " .. i .. "<CR>",
+			{ silent = true, desc = "Move buffer to slot " .. i }
+		)
 	end
 end
 
@@ -199,9 +265,17 @@ local function diffview_close()
 	end
 end
 
-map("n", "<leader>gr", diffview_review, { desc = "Diffview review" })
-map("n", "<leader>df", diffview_file, { desc = "Diffview current file" })
+map("n", "<leader>gD", diffview_review, { desc = "Diffview review" })
+map("n", "<leader>gd", diffview_file, { desc = "Diffview current file" })
 map("n", "<leader>gc", diffview_close, { desc = "Diffview close" })
+map("n", "<leader>gh", function()
+	local file = vim.api.nvim_buf_get_name(0)
+	if file ~= "" then
+		vim.cmd("DiffviewFileHistory " .. vim.fn.fnameescape(file))
+	end
+end, { desc = "Git file history" })
+-- A colon mapping supplies the actual visual range to Diffview's line history.
+map("x", "<leader>gh", ":DiffviewFileHistory<CR>", { desc = "Git selected-line history" })
 
 map("n", "<leader>Q", "<cmd>qa<CR>", {
 	noremap = true,

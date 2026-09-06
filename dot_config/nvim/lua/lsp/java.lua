@@ -153,7 +153,7 @@ function M.on_attach(bufnr)
 		vim.keymap.set("n", lhs, rhs, { buffer = bufnr, desc = "LSP/Java: " .. desc })
 	end
 	nmap("gd", smart_definition, "[G]oto [D]efinition (import-aware)")
-	nmap("gr", smart_references, "[G]oto [R]eferences (import-aware)")
+	nmap("grr", smart_references, "[G]oto [R]eferences (import-aware)")
 end
 
 return M

@@ -49,9 +49,8 @@ return {
 			desc = "Treesitter Search",
 		},
 		-- Toggles labels during an active search. `modes.search.enabled` is
-		-- false by default, so this is the only way in -- and it only ever
-		-- reaches `/`, since core/keymaps.lua rebinds normal-mode `?` to the
-		-- diagnostic float. Unrelated to the picker's own `<C-s>` split action,
+		-- false by default; this enables labels for `/` and `?`.
+		-- Unrelated to the picker's `<C-s>` split action,
 		-- which is a different mode in a different window.
 		{
 			"<c-s>",

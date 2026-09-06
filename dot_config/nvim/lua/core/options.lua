@@ -55,7 +55,11 @@ opt.title = true
 if vim.g.nvim_preview then
 	opt.titlestring = "Neovide Preview · %t"
 else
-	opt.titlestring = "%t%( %M%) · %{fnamemodify(getcwd(), ':t')}"
+	_G.nvim_project_title = function()
+		local root = require("core.project").current_root() or vim.fn.getcwd()
+		return vim.fn.fnamemodify(root, ":t") .. " · " .. root
+	end
+	opt.titlestring = "%t%( %M%) · %{v:lua.nvim_project_title()}"
 end
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1

@@ -21,6 +21,7 @@ return {
 			"rcasia/neotest-java",
 		},
 		keys = {
+			{ "<leader>tl", neotest_action("run", "run_last"), desc = "Test: Rerun last (same strategy)" },
 			{ "<leader>tt", neotest_action("run", "run"), desc = "Test: Run nearest" },
 			{
 				"<leader>tf",

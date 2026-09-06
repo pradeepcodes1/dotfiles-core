@@ -61,24 +61,64 @@ return {
 
 			local map = vim.keymap.set
 			local select_modes = { "x", "o" }
-			map(select_modes, "af", textobject(select.select_textobject, "@function.outer"))
-			map(select_modes, "if", textobject(select.select_textobject, "@function.inner"))
-			map(select_modes, "ac", textobject(select.select_textobject, "@class.outer"))
-			map(select_modes, "ic", textobject(select.select_textobject, "@class.inner"))
-			map(select_modes, "aa", textobject(select.select_textobject, "@parameter.outer"))
-			map(select_modes, "ia", textobject(select.select_textobject, "@parameter.inner"))
+			map(
+				select_modes,
+				"af",
+				textobject(select.select_textobject, "@function.outer"),
+				{ desc = "Around function" }
+			)
+			map(
+				select_modes,
+				"if",
+				textobject(select.select_textobject, "@function.inner"),
+				{ desc = "Inside function" }
+			)
+			map(select_modes, "ac", textobject(select.select_textobject, "@class.outer"), { desc = "Around class" })
+			map(select_modes, "ic", textobject(select.select_textobject, "@class.inner"), { desc = "Inside class" })
+			map(
+				select_modes,
+				"aa",
+				textobject(select.select_textobject, "@parameter.outer"),
+				{ desc = "Around parameter" }
+			)
+			map(
+				select_modes,
+				"ia",
+				textobject(select.select_textobject, "@parameter.inner"),
+				{ desc = "Inside parameter" }
+			)
 
 			local move_modes = { "n", "x", "o" }
-			map(move_modes, "]m", textobject(move.goto_next_start, "@function.outer"))
-			map(move_modes, "]]", textobject(move.goto_next_start, "@class.outer"))
-			map(move_modes, "]a", textobject(move.goto_next_start, "@parameter.inner"))
-			map(move_modes, "]M", textobject(move.goto_next_end, "@function.outer"))
-			map(move_modes, "][", textobject(move.goto_next_end, "@class.outer"))
-			map(move_modes, "[m", textobject(move.goto_previous_start, "@function.outer"))
-			map(move_modes, "[[", textobject(move.goto_previous_start, "@class.outer"))
-			map(move_modes, "[a", textobject(move.goto_previous_start, "@parameter.inner"))
-			map(move_modes, "[M", textobject(move.goto_previous_end, "@function.outer"))
-			map(move_modes, "[]", textobject(move.goto_previous_end, "@class.outer"))
+			map(move_modes, "]m", textobject(move.goto_next_start, "@function.outer"), { desc = "Next function start" })
+			map(move_modes, "]]", textobject(move.goto_next_start, "@class.outer"), { desc = "Next class start" })
+			map(move_modes, "]a", textobject(move.goto_next_start, "@parameter.inner"), { desc = "Next parameter" })
+			map(move_modes, "]M", textobject(move.goto_next_end, "@function.outer"), { desc = "Next function end" })
+			map(move_modes, "][", textobject(move.goto_next_end, "@class.outer"), { desc = "Next class end" })
+			map(
+				move_modes,
+				"[m",
+				textobject(move.goto_previous_start, "@function.outer"),
+				{ desc = "Previous function start" }
+			)
+			map(
+				move_modes,
+				"[[",
+				textobject(move.goto_previous_start, "@class.outer"),
+				{ desc = "Previous class start" }
+			)
+			map(
+				move_modes,
+				"[a",
+				textobject(move.goto_previous_start, "@parameter.inner"),
+				{ desc = "Previous parameter" }
+			)
+			map(
+				move_modes,
+				"[M",
+				textobject(move.goto_previous_end, "@function.outer"),
+				{ desc = "Previous function end" }
+			)
+			map(move_modes, "[]", textobject(move.goto_previous_end, "@class.outer"), { desc = "Previous class end" })
 		end,
 	},
 }

@@ -4,6 +4,9 @@ return {
 		"nvim-lualine/lualine.nvim",
 		config = function()
 			local jdt = require("core.jdt")
+			local project = require("core.project")
+			local path_util = require("core.path")
+			local theme_state = require("core.theme")
 			local diffview_commit_ages = {}
 			local statusline_disabled = {
 				"dap-repl",
@@ -104,6 +107,14 @@ return {
 					return jdt.JAVA_ICON .. " " .. (fqcn or path) .. " (decompiled)"
 				end
 
+				if vim.bo.buftype == "" and project.is_open() then
+					local root = project.current_root()
+					local normalized = path_util.normalize(path)
+					if path_util.under(normalized, root) then
+						return vim.fs.relpath(root, normalized)
+					end
+				end
+
 				if vim.fn.winwidth(0) < 80 then
 					return vim.fn.expand("%:t")
 				end
@@ -136,8 +147,11 @@ return {
 			}
 
 			local function apply()
-				-- Lualine theme compiled from the active Gogh palette.
-				local lualine_theme = os.getenv("_DOTFILES_NVIM_LUALINE") or "dotfiles-gogh"
+				local resolved = theme_state.current()
+				local lualine_theme = resolved.lualine
+				if lualine_theme == "dotfiles-gogh" then
+					lualine_theme = require("lualine.themes.dotfiles-gogh").build(resolved)
+				end
 
 				require("lualine").setup({
 					sections = {
@@ -170,15 +184,10 @@ return {
 
 			apply()
 
-			-- A live theme reload (`:DotfilesThemeReload`, from a Noctalia palette
-			-- change) re-sources core/theme.lua's env vars but Lua caches the
-			-- required theme module, so drop that cache entry before reapplying.
+			-- A live reload publishes a new snapshot before notifying consumers.
 			vim.api.nvim_create_autocmd("User", {
 				pattern = "DotfilesThemeChanged",
-				callback = function()
-					package.loaded["lualine.themes.dotfiles-gogh"] = nil
-					apply()
-				end,
+				callback = apply,
 			})
 		end,
 	},

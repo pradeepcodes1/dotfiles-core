@@ -9,6 +9,17 @@ return {
 	{
 		"mfussenegger/nvim-dap",
 		keys = {
+			{
+				"<leader>dB",
+				function()
+					vim.ui.input({ prompt = "Breakpoint condition: " }, function(condition)
+						if condition and vim.trim(condition) ~= "" then
+							require("dap").set_breakpoint(condition)
+						end
+					end)
+				end,
+				desc = "Conditional breakpoint",
+			},
 			{ "<leader>db", dap_action("toggle_breakpoint"), desc = "Toggle breakpoint" },
 			{ "<leader>dc", dap_action("continue"), desc = "Continue / Start" },
 			{ "<leader>do", dap_action("step_over"), desc = "Step over" },

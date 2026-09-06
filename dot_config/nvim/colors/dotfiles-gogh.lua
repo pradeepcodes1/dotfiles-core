@@ -5,79 +5,20 @@
 -- two plus mini.base16. That covers builtin groups, Treesitter, LSP semantic
 -- tokens and a long list of plugins, in place of the ~450 hand-written groups
 -- this file used to carry.
-local raw, theme = require("core.theme").get_palette()
-raw = raw or {}
-theme = theme or {}
-local palette = require("core.palette")
-local blend = palette.blend
-local rgb = palette.rgb
+local theme = require("core.theme").current()
+local blend = require("core.palette").blend
+local p = theme.palette
+local syntax = theme.syntax
+local accent = theme.accents.normal
+local comment = theme.comment
 
-local function pick(name, fallback)
-	return palette.pick(raw, name, fallback)
-end
-
-local p = {
-	bg = pick("bg", "ui_bg"),
-	fg = pick("fg", "ui_fg"),
-	black = pick("black", "bg"),
-	red = pick("red", "bright_red"),
-	green = pick("green", "bright_green"),
-	yellow = pick("yellow", "bright_yellow"),
-	blue = pick("blue", "bright_blue"),
-	magenta = pick("magenta", "bright_magenta"),
-	cyan = pick("cyan", "bright_cyan"),
-	white = pick("white", "fg"),
-	bright_black = pick("bright_black", "black"),
-	bright_red = pick("bright_red", "red"),
-	bright_green = pick("bright_green", "green"),
-	bright_yellow = pick("bright_yellow", "yellow"),
-	bright_blue = pick("bright_blue", "blue"),
-	bright_magenta = pick("bright_magenta", "magenta"),
-	bright_cyan = pick("bright_cyan", "cyan"),
-	bright_white = pick("bright_white", "white"),
-}
-
-local function luminance(hex)
-	local r, g, b = rgb(hex)
-	return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255
-end
-
-local mode = theme.background or theme.mode
-if mode ~= "dark" and mode ~= "light" then
-	mode = luminance(p.bg) > 0.55 and "light" or "dark"
-end
-vim.o.background = mode
-
--- A dark terminal reads the bright half as its syntax colors and the normal
--- half as its dimmer variants; a light one is the other way round.
-local syntax = mode == "dark"
-		and {
-			red = p.bright_red,
-			green = p.bright_green,
-			yellow = p.bright_yellow,
-			blue = p.bright_blue,
-			magenta = p.bright_magenta,
-			cyan = p.bright_cyan,
-		}
-	or {
-		red = p.red,
-		green = p.green,
-		yellow = p.yellow,
-		blue = p.blue,
-		magenta = p.magenta,
-		cyan = p.cyan,
-	}
-
-local accent = raw.ui_accent or raw.ui_active or syntax.blue
-local comment = raw.prompt_path or p.bright_black
-local surface = blend(p.fg, p.bg, 0.055)
-local surface_high = blend(p.fg, p.bg, 0.11)
+vim.o.background = theme.mode
 
 require("mini.base16").setup({
 	palette = {
 		base00 = p.bg, -- default background
-		base01 = surface, -- float and status backgrounds
-		base02 = surface_high, -- selection background
+		base01 = theme.surface, -- float and status backgrounds
+		base02 = theme.surface_high, -- selection background
 		base03 = comment, -- comments, invisibles
 		base04 = p.white, -- dim foreground
 		base05 = p.fg, -- default foreground
@@ -122,7 +63,7 @@ for index, color in ipairs({
 	vim.g["terminal_color_" .. (index - 1)] = color
 end
 
-local inactive = raw.ui_inactive or blend(p.fg, p.bg, 0.09)
+local inactive = theme.inactive
 
 -- Deliberate departures from the base16 spec, which mini.base16 follows
 -- faithfully. base08 is "variables" there, so Identifier -- and every group
@@ -161,6 +102,8 @@ for name, spec in pairs({
 	SnacksDashboardIcon = { fg = syntax.cyan },
 	SnacksDashboardKey = { fg = syntax.yellow, bold = true },
 	SnacksDashboardSpecial = { fg = syntax.magenta },
+	-- Keep directory paths readable without overriding the picker background.
+	SnacksPickerDir = { fg = p.fg },
 	SnacksPickerListCursorLine = { link = "Visual" },
 	SnacksPickerMatch = { fg = syntax.yellow, bold = true },
 	-- Left to itself this links to Search, whose base16 foreground is base01 --

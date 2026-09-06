@@ -5,7 +5,25 @@ return {
 	----------------------------------------
 	{ "nvim-lua/plenary.nvim" }, -- lua helpers
 	{ "nvim-tree/nvim-web-devicons" },
-	{ "folke/which-key.nvim", event = "VeryLazy", config = true },
+	{
+		"folke/which-key.nvim",
+		event = "VeryLazy",
+		opts = {
+			spec = {
+				{ "<leader>f", group = "Find" },
+				-- The f group finds things inside a project; p acts on the project itself.
+				{ "<leader>p", group = "Project" },
+				{ "<leader>g", group = "Git", mode = { "n", "x" } },
+				{ "<leader>h", group = "Hunk", mode = { "n", "x" } },
+				{ "<leader>l", group = "LSP", mode = { "n", "x" } },
+				{ "<leader>d", group = "Debug", mode = { "n", "x" } },
+				{ "<leader>t", group = "Test" },
+				{ "<leader>v", group = "View" },
+				{ "<leader>w", group = "Window" },
+				{ "<leader>u", group = "Toggle" },
+			},
+		},
+	},
 
 	----------------------------------------
 	-- Git & coding aids
@@ -132,7 +150,7 @@ return {
 								Snacks.picker.recent()
 							end,
 						},
-						{ icon = "", key = "p", desc = "Projects", action = "<leader>p" },
+						{ icon = "", key = "p", desc = "Projects", action = "<leader>pp" },
 						{ icon = " ", key = "q", desc = "Quit", action = ":qa" },
 					},
 				},
@@ -311,7 +329,7 @@ return {
 				desc = "Lazygit",
 			},
 			{
-				"<leader>gs",
+				"<leader>gf",
 				function()
 					Snacks.picker.git_status({ cwd = require("core.project").current_root() })
 				end,

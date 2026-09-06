@@ -10,6 +10,20 @@ local function session_list()
 	return require("auto-session.lib").get_session_list(sessions.get_root_dir())
 end
 
+--- The loaded session as auto-session names it ("<root>" or "<root>|<branch>"),
+--- unescaped back out of the on-disk path in v:this_session.
+local function current_session_name()
+	if vim.v.this_session == "" then
+		return nil
+	end
+
+	local loaded, lib = pcall(require, "auto-session.lib")
+	if not loaded then
+		return nil
+	end
+	return lib.escaped_session_path_to_session_name(vim.v.this_session)
+end
+
 function M.set_open(value, root)
 	vim.g.project_open = value == true
 	if vim.g.project_open then
@@ -27,15 +41,11 @@ function M.set_open(value, root)
 end
 
 function M.session_root()
-	if vim.v.this_session == "" then
+	local session_name = current_session_name()
+	if not session_name then
 		return nil
 	end
 
-	local loaded, lib = pcall(require, "auto-session.lib")
-	if not loaded then
-		return nil
-	end
-	local session_name = lib.escaped_session_path_to_session_name(vim.v.this_session)
 	local root = path_util.normalize(session_name:match("^([^|]+)"))
 	return root and vim.fn.isdirectory(root) == 1 and root or nil
 end
@@ -347,30 +357,102 @@ function M.open_picked_session(session_name)
 	return require("auto-session").autosave_and_restore(session_name)
 end
 
--- auto-session's own picker always restores in place. This one routes the
--- choice through open_picked_session, which opens a new Kitty window instead
--- when a project is already loaded here.
-function M.pick_session()
-	Snacks.picker.pick({
-		title = "Projects",
-		format = "text",
+-- Keep missing projects visible until explicitly pruned. An inaccessible
+-- directory is not evidence that its saved session should be removed.
+local function stale_session(item)
+	local root = item.session_name:match("^([^|]+)")
+	if not root then
+		return false
+	end
+	local stat, _, code = vim.uv.fs_stat(root)
+	return (stat and stat.type ~= "directory") or code == "ENOENT" or code == "ENOTDIR"
+end
+
+function M.prune_stale_sessions()
+	local sessions = require("auto-session")
+	local removed = 0
+	for _, item in ipairs(session_list()) do
+		if stale_session(item) and sessions.delete_session_file(item.path, item.display_name) then
+			removed = removed + 1
+		end
+	end
+	vim.notify(("Pruned %d stale project session%s"):format(removed, removed == 1 and "" or "s"))
+	return removed
+end
+
+local function session_picker(title, confirm)
+	return Snacks.picker.pick({
+		title = title,
+		format = function(item)
+			return { { item.text, item.stale and "Comment" or "Normal" } }
+		end,
 		layout = { preset = "select" },
+		actions = {
+			prune_stale = function(picker)
+				M.prune_stale_sessions()
+				picker.list:set_selected()
+				picker:find()
+			end,
+		},
+		win = {
+			input = { keys = { ["<c-x>"] = { "prune_stale", mode = { "n", "i" }, desc = "Prune stale projects" } } },
+			list = { keys = { ["<c-x>"] = { "prune_stale", desc = "Prune stale projects" } } },
+		},
 		finder = function()
 			return session_list()
 		end,
 		transform = function(item)
-			item.text = item.display_name
+			item.stale = stale_session(item)
+			item.text = item.display_name .. (item.stale and " (missing directory)" or "")
 			item.file = item.path
 		end,
-		confirm = function(picker, item)
-			picker:close()
-			if item then
-				vim.schedule(function()
-					M.open_picked_session(item.session_name)
-				end)
-			end
-		end,
+		confirm = confirm,
 	})
+end
+
+-- auto-session's own picker always restores in place. This one routes the
+-- choice through open_picked_session, which opens a new Kitty window instead
+-- when a project is already loaded here.
+function M.pick_session()
+	session_picker("Projects", function(picker, item)
+		if item and stale_session(item) then
+			vim.notify("Project directory is missing. Press Ctrl-X to prune stale entries.", vim.log.levels.WARN)
+			return
+		end
+		picker:close()
+		if item then
+			vim.schedule(function()
+				M.open_picked_session(item.session_name)
+			end)
+		end
+	end)
+end
+
+-- Sessions are keyed on root *and* branch (git_use_branch_name), so every
+-- feature branch leaves one behind and nothing ever collects them. <Tab>
+-- selects several and the picker re-finds rather than closing, so clearing out
+-- a directory's worth is one visit.
+--
+-- delete_session_file, not delete_session: the list already carries the escaped
+-- on-disk path, and re-deriving it from the name means re-entering
+-- auto-session's private escaping. Deleting the session this instance has
+-- loaded is auto-session's own special case -- it turns autosave off here and
+-- says so -- so it is left alone rather than reimplemented.
+function M.delete_session()
+	session_picker("Delete project session", function(picker)
+		local items = picker:selected({ fallback = true })
+		if #items == 0 then
+			picker:close()
+			return
+		end
+
+		local sessions = require("auto-session")
+		for _, item in ipairs(items) do
+			sessions.delete_session_file(item.path, item.display_name)
+		end
+		picker.list:set_selected()
+		picker:find()
+	end)
 end
 
 local function startup_file()
@@ -463,10 +545,13 @@ function M.offer(file)
 	return true
 end
 
+--- `file` is the buffer the launch was about, kept as the active buffer across
+--- the restore. open_current passes nil for a directory-launched instance,
+--- where the project itself is the whole request.
 function M.open(file, root)
 	file = path_util.normalize(file)
 	root = path_util.normalize(root)
-	if not file or not root then
+	if not root then
 		return false
 	end
 
@@ -478,29 +563,312 @@ function M.open(file, root)
 
 	local sessions = require("auto-session")
 	if sessions.session_exists_for_cwd() then
-		if not sessions.restore_session(nil, { is_startup_autorestore = true, show_message = false }) then
-			vim.cmd.edit({ args = { file } })
-			return false
-		end
+		local restored = sessions.restore_session(nil, { is_startup_autorestore = true, show_message = false })
 		-- The requested file is the reason for this launch. Keep the restored
 		-- layout and buffers, but make that file the active buffer.
-		vim.cmd.edit({ args = { file } })
-		return true
+		if file then
+			vim.cmd.edit({ args = { file } })
+		end
+		return restored == true
 	end
 
-	-- Saving immediately makes the root visible in <leader>p without waiting
+	-- Saving immediately makes the root visible in <leader>pp without waiting
 	-- for this Neovim instance to exit.
 	return sessions.save_session(nil)
 end
 
+--- Turn a file-launched instance into a project from the current buffer. The
+--- BufEnter offer fires once per root (offered_roots latches), so declining it
+--- -- or landing in a root the offer never covered -- otherwise leaves no way
+--- into project mode short of restarting Neovim.
+function M.open_current()
+	if M.is_open() then
+		local root = M.current_root()
+		vim.notify(("Already in project `%s`"):format(root and vim.fn.fnamemodify(root, ":t") or "?"))
+		return false
+	end
+
+	local name = vim.api.nvim_buf_get_name(0)
+	local file = nil
+	if name ~= "" and not name:match("^%w+://") and vim.bo.buftype == "" then
+		file = path_util.normalize(name)
+	end
+
+	local root = M.root(file or vim.uv.cwd())
+	if not root then
+		vim.notify("No project root above this buffer", vim.log.levels.WARN)
+		return false
+	end
+
+	return M.open(file, root)
+end
+
+--- Collapse the layout down to one window. Floats go first, since `:only`
+--- leaves them behind; then the other tab pages, then the other windows. The
+--- panels with teardown of their own (explorer, aerial, dapui, neotest) are
+--- closed by the caller before this runs, so they are not merely hidden.
+local function close_windows()
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		if vim.api.nvim_win_get_config(win).relative ~= "" then
+			pcall(vim.api.nvim_win_close, win, true)
+		end
+	end
+
+	-- `:only` keeps whichever window is current, so pressing this from a scratch
+	-- pane -- the info split, a leftover panel -- would make that pane the one
+	-- survivor. Hand it a real file window to keep instead.
+	if vim.bo.buftype ~= "" then
+		for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+			if vim.bo[vim.api.nvim_win_get_buf(win)].buftype == "" then
+				vim.api.nvim_set_current_win(win)
+				break
+			end
+		end
+	end
+
+	-- Silent because both are informational when there is nothing to close
+	-- ("Already only one window"), and this runs off a key press.
+	vim.cmd("silent! tabonly")
+	vim.cmd("silent! only")
+end
+
+--- Back to what a freshly restored project looks like: one window, no buffers,
+--- the file picker open. The session on disk is left alone, so this is a clean
+--- slate to work from and not a discard. Modified buffers stay -- nothing here
+--- is worth losing an edit over -- and so does anything outside the root, which
+--- is why the layout is collapsed before the wipe rather than after: a window
+--- left showing a kept buffer is the point.
+function M.reset()
+	local root = M.current_root()
+	if not root then
+		return false
+	end
+
+	close_windows()
+
+	local kept = 0
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.bo[buf].buflisted and M.contains(vim.api.nvim_buf_get_name(buf)) then
+			if vim.bo[buf].modified then
+				kept = kept + 1
+			else
+				pcall(vim.api.nvim_buf_delete, buf, {})
+			end
+		end
+	end
+
+	if kept > 0 then
+		vim.notify(("Kept %d modified buffer%s"):format(kept, kept == 1 and "" or "s"), vim.log.levels.WARN)
+	end
+
+	Snacks.picker.files({ cwd = root })
+	return true
+end
+
+--- The same project in a second window. open_session_window restores by session
+--- name in the new instance, so save first: an unsaved project has no name to
+--- hand over, and the macOS Neovide branch has no directory of its own to fall
+--- back on if that restore fails.
+function M.open_new_window()
+	if not M.is_open() then
+		return false
+	end
+
+	require("auto-session").save_session(nil, { show_message = false })
+	local session_name = current_session_name()
+	if not session_name then
+		vim.notify("Cannot open a second window: this project has no session", vim.log.levels.ERROR)
+		return false
+	end
+
+	return M.open_session_window(session_name)
+end
+
+--- A shell at the project root, the plain sibling of the git tools above. Not
+--- gated on project mode: current_root() answers for a lone file too, and its
+--- directory is still where a shell belongs.
+function M.open_terminal()
+	local root = M.current_root() or path_util.cwd()
+	if not root then
+		return false
+	end
+
+	if vim.fn.executable("kitty") ~= 1 then
+		vim.notify("Cannot open a terminal: Kitty is missing", vim.log.levels.ERROR)
+		return false
+	end
+
+	local title = ("Shell · %s"):format(vim.fn.fnamemodify(root, ":t"))
+	local job = vim.fn.jobstart({ "kitty", "--detach", "--directory", root, "--title", title }, { detach = true })
+	if job <= 0 then
+		vim.notify("Failed to open a Kitty window", vim.log.levels.ERROR)
+		return false
+	end
+
+	return true
+end
+
+--- The window holding a previous M.info() render, if one is still open.
+local function info_window()
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		if vim.b[vim.api.nvim_win_get_buf(win)].project_info then
+			return win
+		end
+	end
+end
+
+--- Terminal escapes, so the tools' colored output lands as text. NO_COLOR is
+--- set for them too; this is the belt to that pair of braces.
+local function strip_ansi(text)
+	return (text:gsub("\27%[[%d;?]*[ -/]*[@-~]", ""):gsub("\27%][^\7]*\7", ""))
+end
+
+--- Sized to the widest line it holds, since these are paths and tables read
+--- across rather than down. Recomputed as the async blocks land.
+local function fit_info_width(buf)
+	local window = info_window()
+	if not window then
+		return
+	end
+
+	local width = 0
+	for _, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+		width = math.max(width, vim.fn.strdisplaywidth(line))
+	end
+	vim.api.nvim_win_set_width(window, math.min(math.max(width + 2, 40), 80))
+end
+
+--- `render` is the render this block belongs to. A second <leader>pi while an
+--- onefetch is still walking the history would otherwise append that run's
+--- output underneath the new one.
+local function append_info(buf, render, lines)
+	if not vim.api.nvim_buf_is_valid(buf) or vim.b[buf].project_info_render ~= render or #lines == 0 then
+		return
+	end
+
+	vim.bo[buf].modifiable = true
+	vim.api.nvim_buf_set_lines(buf, -1, -1, false, vim.list_extend({ "" }, lines))
+	vim.bo[buf].modifiable = false
+	fit_info_width(buf)
+end
+
+--- The repository summary Kitty's cmd+shift+i shows, same tools, same flags,
+--- same order. Both are handed `git rev-parse --show-toplevel` rather than the
+--- project root: from a subdirectory onefetch reports the whole repo while
+--- tokei counts only that subtree, so two different paths would print two
+--- answers about two different trees. Their line counts still differ by design,
+--- since onefetch counts only its default `programming markup` types.
+---
+--- Chained rather than run together, so the order is the script's order, and
+--- async because onefetch walks the history -- the roots above are the part
+--- worth having immediately, and they are already on screen when these land.
+local function append_repo_stats(buf, render, toplevel)
+	local tools = {
+		{ "onefetch", "--no-art", "--no-color-palette", "--nerd-fonts", toplevel },
+		{ "tokei", toplevel },
+	}
+
+	local function run(index)
+		local cmd = tools[index]
+		if not cmd then
+			return
+		end
+		if vim.fn.executable(cmd[1]) ~= 1 then
+			return run(index + 1)
+		end
+
+		vim.system(cmd, { text = true, env = { NO_COLOR = "1" } }, function(result)
+			vim.schedule(function()
+				local text = vim.trim((result.code == 0 and result.stdout or result.stderr) or "")
+				if text == "" then
+					text = ("%s exited %d with no output"):format(cmd[1], result.code)
+				end
+				append_info(buf, render, vim.split(strip_ansi(text), "\n", { plain = true }))
+				run(index + 1)
+			end)
+		end)
+	end
+
+	run(1)
+end
+
+--- Every root this instance is holding, side by side. The scoping failures
+--- this config has hit -- jdtls' cwd-named workspace, fS scoped to a root the
+--- servers never indexed -- all look identical from the outside (an empty
+--- picker) and all come apart the moment these are printed together.
+---
+--- A right-hand split rather than a notification: these are long paths read
+--- against each other, and a toast that times out mid-comparison is the wrong
+--- shape for that. Pressing the key again re-renders in place instead of
+--- stacking a second pane. The repository summary follows once it arrives.
+function M.info()
+	-- Gathered before the split exists. Every one of these answers for the
+	-- current buffer, which the scratch pane is about to become.
+	local root = M.current_root()
+	local lines = {
+		("mode:        %s"):format(M.is_open() and "project" or "file only"),
+		("root:        %s"):format(root or "none"),
+		("cwd:         %s"):format(path_util.cwd() or "none"),
+		("branch:      %s"):format((root and git_branch(root)) or "none"),
+		("session:     %s"):format(current_session_name() or "not loaded"),
+		("saved:       %s"):format(root and M.session_exists(root) and "yes" or "no"),
+		("buffer root: %s"):format(M.buffer_root() or "none"),
+		("picker root: %s"):format(M.picker_root() or "unscoped"),
+	}
+
+	local clients = vim.lsp.get_clients({ bufnr = 0 })
+	table.insert(lines, ("clients:     %s"):format(#clients == 0 and "none" or ""))
+	for _, client in ipairs(clients) do
+		table.insert(lines, ("  %s  %s"):format(client.name, client.root_dir or "no root"))
+	end
+
+	local window = info_window()
+	local buf
+	if window then
+		vim.api.nvim_set_current_win(window)
+		buf = vim.api.nvim_win_get_buf(window)
+	else
+		buf = vim.api.nvim_create_buf(false, true)
+		vim.b[buf].project_info = true
+		vim.bo[buf].bufhidden = "wipe"
+		vim.bo[buf].filetype = "projectinfo"
+		vim.api.nvim_buf_set_name(buf, "Project Info")
+		-- `q` closes read-only panes here the way it closes a preview window;
+		-- buffer-local, so macro recording is untouched everywhere else.
+		vim.keymap.set("n", "q", "<C-w>c", { buffer = buf, desc = "Close project info" })
+
+		vim.cmd("botright vsplit")
+		vim.api.nvim_win_set_buf(0, buf)
+		vim.wo.number = false
+		vim.wo.relativenumber = false
+		vim.wo.signcolumn = "no"
+		vim.wo.wrap = false
+	end
+
+	vim.bo[buf].modifiable = true
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.bo[buf].modifiable = false
+	fit_info_width(buf)
+
+	local render = (vim.b[buf].project_info_render or 0) + 1
+	vim.b[buf].project_info_render = render
+	if root then
+		local toplevel = vim.system({ "git", "-C", root, "rev-parse", "--show-toplevel" }, { text = true }):wait()
+		if toplevel.code == 0 then
+			append_repo_stats(buf, render, vim.trim(toplevel.stdout or ""))
+		end
+	end
+
+	return true
+end
+
 function M.setup()
 	M.set_open(false)
-	-- <leader>gg is Snacks.lazygit (plugins/init.lua), a float rather than a
-	-- Kitty window. open_git_tool still knows how to launch lazygit, so putting
-	-- it back is a one-line change if the OS window turns out to be preferable.
-	vim.keymap.set("n", "<leader>gd", function()
-		M.open_git_tool("diff")
-	end, { desc = "Git diff in Kitty" })
+	-- Only the log tool is bound here now. <leader>gg is Snacks.lazygit
+	-- (plugins/init.lua) and <leader>gd is Diffview (core/keymaps.lua), both
+	-- floats rather than Kitty windows; open_git_tool still knows how to launch
+	-- either, so putting one back is a one-line change if the OS window turns
+	-- out to be preferable.
 	vim.keymap.set("n", "<leader>gl", function()
 		M.open_git_tool("log")
 	end, { desc = "Serie in Kitty" })

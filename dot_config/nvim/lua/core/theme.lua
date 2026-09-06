@@ -1,5 +1,7 @@
 -- read the shell's persisted theme so Neovim and terminal tools switch together.
 local M = {}
+local palette = require("core.palette")
+local current
 
 local palette_keys = {
 	bg = true,
@@ -139,50 +141,75 @@ function M.resolve()
 	local parsed = theme_name and parse_theme(theme_name) or nil
 
 	if parsed then
-		return {
+		return palette.resolve({
 			name = parsed.name,
 			path = parsed.path,
 			source = parsed.source,
 			mode = parsed.mode or vim.env._DOTFILES_THEME_MODE,
 			colorscheme = parsed.colorscheme or "dotfiles-gogh",
 			lualine = parsed.lualine or "dotfiles-gogh",
-			background = parsed.background or (parsed.colorscheme == "dotfiles-gogh" and parsed.mode or nil),
+			background = parsed.background,
 			palette = parsed.palette,
-		}
+		})
 	end
 
-	return {
+	return palette.resolve({
 		name = vim.env._DOTFILES_THEME_NAME,
 		mode = vim.env._DOTFILES_THEME_MODE,
 		colorscheme = vim.env._DOTFILES_NVIM_COLORSCHEME or "dotfiles-gogh",
 		lualine = vim.env._DOTFILES_NVIM_LUALINE or "dotfiles-gogh",
 		background = vim.env._DOTFILES_NVIM_BACKGROUND,
 		palette = nil,
-	}
+	})
 end
 
-function M.get_palette()
-	local theme = M.resolve()
-	return vim.deepcopy(theme.palette), theme
+function M.current()
+	if not current then
+		current = M.resolve()
+	end
+	return current
 end
 
-function M.sync_env_from_state()
-	local theme = M.resolve()
-
-	if theme.name then
-		vim.env._DOTFILES_THEME_NAME = theme.name
-	end
-	if theme.mode then
-		vim.env._DOTFILES_THEME_MODE = theme.mode
-	end
-
+local function publish(theme)
+	vim.env._DOTFILES_THEME_NAME = theme.name
+	vim.env._DOTFILES_THEME_MODE = theme.mode
 	vim.env._DOTFILES_NVIM_COLORSCHEME = theme.colorscheme
 	vim.env._DOTFILES_NVIM_LUALINE = theme.lualine
-
 	vim.env._DOTFILES_NVIM_BACKGROUND = theme.background
 	vim.g.dotfiles_theme_name = theme.name
 	vim.g.dotfiles_theme_path = theme.path
-	vim.g.dotfiles_theme_palette = theme.palette
+	vim.g.dotfiles_theme_palette = theme.raw_palette
+	current = theme
+
+	return theme
+end
+
+-- Resolve once before plugins load so early consumers (notably lualine) see
+-- the same snapshot that the colorscheme application will use.
+function M.prepare()
+	return publish(M.resolve())
+end
+
+-- Kept as a compatibility alias for config outside this repository.
+function M.sync_env_from_state()
+	return M.prepare()
+end
+
+function M.get_palette()
+	-- The return shape is intentionally unchanged for external consumers;
+	-- repository code consumes current() directly.
+	local theme = M.current()
+	return vim.deepcopy(theme.raw_palette), theme
+end
+
+function M.apply(theme)
+	theme = publish(theme or M.resolve())
+	vim.o.background = theme.mode
+	vim.cmd.colorscheme(theme.colorscheme)
+	vim.api.nvim_exec_autocmds("User", {
+		pattern = "DotfilesThemeChanged",
+		data = { theme = theme },
+	})
 
 	return theme
 end
@@ -190,16 +217,7 @@ end
 -- Re-read the persisted state and reapply it to a session that's already
 -- running (e.g. a Noctalia theme change broadcast via `nvim --server`).
 function M.reapply()
-	local theme = M.sync_env_from_state()
-
-	if theme.background then
-		vim.o.background = theme.background
-	end
-
-	vim.cmd.colorscheme(theme.colorscheme)
-	vim.api.nvim_exec_autocmds("User", { pattern = "DotfilesThemeChanged" })
-
-	return theme
+	return M.apply(M.resolve())
 end
 
 vim.api.nvim_create_user_command("DotfilesThemeReload", M.reapply, {
