@@ -1,6 +1,6 @@
 -- load one modular editor configuration for terminal, GUI, and preview modes.
 -- Set by nvim-float.py for the read-only Neovide preview window; checked
--- by core.neovide (font size) and plugins/lazy specs (barbar, dashboard).
+-- by core.neovide (font size) and plugins/lazy specs (lualine, dashboard).
 vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
 
 require("core.options")

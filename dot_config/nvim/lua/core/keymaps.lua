@@ -53,34 +53,56 @@ local function close_panels()
 	end)
 end
 
--- Pickers. `fg` and `ft` are project-only, since a directory-wide ripgrep needs
+-- Pickers. `fg`, `fz`, `fw`, and `ft` are project-only, since a directory-wide search needs
 -- a directory to be meaningful. `fS` queries all active project servers in
 -- project mode, and the buffer's servers in file-only mode. `ff` stays available
 -- everywhere but file_search_root() keeps it off `/` and $HOME.
--- Inside any file picker, dotfiles are shown and gitignored files are not:
--- `<a-h>` hides the former, `<C-.>`/`<a-i>` reveals the latter.
+-- fff owns file and text search; Snacks remains the picker for buffers, symbols,
+-- history, diagnostics, projects, and plugin-specific sources.
 if not vim.g.nvim_preview then
+	local function fff_at(root)
+		-- fff snapshots cwd when its config module first loads, which can precede
+		-- auto-session's project restore. Seed the intended root before fff's
+		-- native index initializes to avoid racing a home scan with this one.
+		require("fff.conf").get().base_path = root
+		return require("fff")
+	end
+
 	map("n", "<leader>ff", function()
 		local root = project_paths.file_search_root()
 		if root then
-			Snacks.picker.files({ cwd = root })
+			fff_at(root).find_files({ cwd = root })
 		end
 	end, { desc = "Find Files" })
 	map(
 		"n",
 		"<leader>fg",
 		project_state.only(function()
-			Snacks.picker.grep({ cwd = project_paths.current_root() })
+			local root = project_paths.current_root()
+			fff_at(root).live_grep({ cwd = root })
 		end),
 		{ desc = "Grep project" }
 	)
 	map(
-		"n",
+		{ "n", "x" },
 		"<leader>fw",
 		project_state.only(function()
-			Snacks.picker.grep_word({ cwd = project_paths.current_root() })
+			local root = project_paths.current_root()
+			fff_at(root).live_grep_under_cursor({ cwd = root })
 		end),
-		{ desc = "Find word in project" }
+		{ desc = "Find word/selection in project" }
+	)
+	map(
+		"n",
+		"<leader>fz",
+		project_state.only(function()
+			local root = project_paths.current_root()
+			fff_at(root).live_grep({
+				cwd = root,
+				grep = { modes = { "fuzzy", "plain" } },
+			})
+		end),
+		{ desc = "Fuzzy grep project" }
 	)
 	map("n", "<leader>fu", function()
 		Snacks.picker.undo()
@@ -153,6 +175,10 @@ map("n", "<C-h>", "<C-w>h", { desc = "Move to left split" })
 map("n", "<C-l>", "<C-w>l", { desc = "Move to right split" })
 map("n", "<C-k>", "<C-w>k", { desc = "Move to split above" })
 map("n", "<C-j>", "<C-w>j", { desc = "Move to split below" })
+map("t", "<C-h>", [[<C-\><C-n><C-w>h]], { desc = "Move to left split" })
+map("t", "<C-l>", [[<C-\><C-n><C-w>l]], { desc = "Move to right split" })
+map("t", "<C-k>", [[<C-\><C-n><C-w>k]], { desc = "Move to split above" })
+map("t", "<C-j>", [[<C-\><C-n><C-w>j]], { desc = "Move to split below" })
 -- A count multiplies the ten-column/line step; arrows remain aliases.
 for _, resize in ipairs({
 	{ "h", "<Left>", "vertical resize -", "narrower" },
@@ -170,13 +196,12 @@ map("n", "<leader>w=", "<C-w>=", { desc = "Equalize splits" })
 
 local opts = { noremap = true, silent = true }
 
--- BarBar keymaps; unavailable in preview mode (barbar.nvim disabled there,
--- see plugins/barbar.lua) — skip registering to avoid dangling E492 errors.
+-- Harpoon owns the curated file list. Snacks closes buffers without collapsing
+-- the window layout; preview mode remains a single file.
 if not vim.g.nvim_preview then
-	-- The dashboard is a startup screen only. Closing the last buffer leaves
-	-- barbar's own empty [No Name] buffer (see barbar/bbye.lua), which is what
-	-- an editor with nothing open should look like.
-	map("n", "<leader>q", "<Cmd>BufferClose<CR>", { noremap = true, silent = true, desc = "Close buffer" })
+	map("n", "<leader>q", function()
+		Snacks.bufdelete()
+	end, { desc = "Close buffer" })
 end
 
 -- Project management. auto-session owns the cwd: its session list is keyed on
@@ -229,23 +254,6 @@ end
 
 map("i", "<A-Left>", "<C-o>b", opts) -- back one word
 map("i", "<A-Right>", "<C-o>w", opts) -- forward one word
-
-if not vim.g.nvim_preview then
-	for i = 1, 9 do
-		map("n", "<leader>" .. i, "<Cmd>BufferGoto " .. i .. "<CR>", { silent = true, desc = "Go to buffer " .. i })
-	end
-	map("n", "<leader>0", "<Cmd>BufferPin<CR>", { silent = true, desc = "Pin buffer" })
-
-	local move_keys = { "!", "@", "#", "$", "%", "^", "&", "*", "(" }
-	for i, key in ipairs(move_keys) do
-		map(
-			"n",
-			"<leader>" .. key,
-			"<Cmd>BufferMove " .. i .. "<CR>",
-			{ silent = true, desc = "Move buffer to slot " .. i }
-		)
-	end
-end
 
 local function is_diffview_open()
 	for _, win in ipairs(vim.api.nvim_list_wins()) do

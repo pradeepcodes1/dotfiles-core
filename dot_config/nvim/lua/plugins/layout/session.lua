@@ -4,6 +4,10 @@ return {
 	lazy = false,
 	init = function()
 		vim.opt.sessionoptions:append("localoptions")
+		-- A session can only restart a terminal command, not restore its shell
+		-- process or scrollback. Leave terminals out and open a fresh one on
+		-- demand with <leader>pt instead of presenting a misleading empty shell.
+		vim.opt.sessionoptions:remove("terminal")
 	end,
 
 	---enables autocomplete for opts

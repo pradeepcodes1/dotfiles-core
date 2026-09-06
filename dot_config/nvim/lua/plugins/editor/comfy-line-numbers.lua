@@ -9,6 +9,6 @@ return {
 	event = "VeryLazy",
 
 	-- Defaults already blank the column for terminal and nofile buffers, which
-	-- covers betterterm, the Snacks explorer, dashboard and Aerial here.
+	-- covers terminal buffers, the Snacks explorer, dashboard and Aerial here.
 	opts = {},
 }

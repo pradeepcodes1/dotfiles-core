@@ -163,8 +163,22 @@ return {
 							vim.deepcopy(breadcrumb_component),
 						},
 					},
+					tabline = vim.g.nvim_preview and {} or {
+						lualine_a = {
+							{
+								"tabs",
+								mode = 2,
+								path = 0,
+								max_length = function()
+									return vim.o.columns
+								end,
+								symbols = { modified = " " },
+							},
+						},
+					},
 					options = {
 						theme = lualine_theme,
+						always_show_tabline = false,
 						disabled_filetypes = {
 							statusline = statusline_disabled,
 							winbar = winbar_disabled,

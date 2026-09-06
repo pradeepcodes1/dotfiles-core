@@ -4,6 +4,7 @@ return {
 	opts = {
 		spec = {
 			{ "<leader>f", group = "Find" },
+			{ "<leader>m", group = "Marks" },
 			-- The f group finds things inside a project; p acts on the project itself.
 			{ "<leader>p", group = "Project" },
 			{ "<leader>g", group = "Git", mode = { "n", "x" } },

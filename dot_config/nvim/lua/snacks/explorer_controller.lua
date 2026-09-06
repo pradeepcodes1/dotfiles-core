@@ -113,16 +113,6 @@ local function reveal(picker, path, root)
 	end
 end
 
--- Shared with plugins/betterterm.lua, so the floating terminal opens on the
--- same project root the explorer reveals. Falls back the way M.show does:
--- buffers with no resolvable root (terminals, the dashboard) get the tab's
--- last explorer root, then Neovim's cwd.
-function M.root_for_buffer(bufnr)
-	local _, root = target_for_buffer(bufnr or vim.api.nvim_get_current_buf())
-
-	return root or active_roots[vim.api.nvim_get_current_tabpage()] or path_util.cwd()
-end
-
 function M.show(on_show)
 	local tabpage = vim.api.nvim_get_current_tabpage()
 	local path, root = target_for_buffer(vim.api.nvim_get_current_buf())

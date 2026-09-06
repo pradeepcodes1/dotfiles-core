@@ -171,21 +171,20 @@ function M.open_new_window()
 	return M.open_session_window(session_name)
 end
 
---- A shell at the project root, opened as a detached Kitty window. Not
---- gated on project mode: current_root() answers for a lone file too, and its
---- directory is still where a shell belongs.
+--- A native terminal split at the project root. Not gated on project mode:
+--- current_root() answers for a lone file too, and its directory is still
+--- where a shell belongs.
 function M.open_terminal()
 	local root = project_paths.current_root() or path_util.cwd()
 	if not root then
 		return false
 	end
 
-	if cli.missing("open a terminal", "kitty") then
-		return false
-	end
-
-	local title = ("Shell · %s"):format(vim.fn.fnamemodify(root, ":t"))
-	return cli.detach("open a Kitty window", cli.kitty_argv(root, title))
+	vim.cmd("botright 15new")
+	vim.cmd({ cmd = "lcd", args = { root } })
+	vim.cmd.terminal()
+	vim.cmd.startinsert()
+	return true
 end
 
 --- `file` is the buffer the launch was about, kept as the active buffer across

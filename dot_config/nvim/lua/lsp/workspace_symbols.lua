@@ -5,6 +5,30 @@ local project_pickers = require("project.actions.pickers")
 local project_state = require("project.state")
 local path_util = require("core.path")
 
+local prose_extensions = {
+	adoc = true,
+	asciidoc = true,
+	markdown = true,
+	md = true,
+	mdown = true,
+	mdx = true,
+	mkd = true,
+	mkdn = true,
+	norg = true,
+	org = true,
+	rmd = true,
+	rst = true,
+	txt = true,
+}
+
+function M.include_file(file)
+	if type(file) ~= "string" or file == "" then
+		return true
+	end
+	local extension = file:match("%.([^./]+)$")
+	return extension == nil or not prose_extensions[extension:lower()]
+end
+
 function M.clients(root)
 	local clients = {}
 	for _, client in ipairs(vim.lsp.get_clients()) do
@@ -149,9 +173,11 @@ function M.finder(root)
 				cancel = M.request(clients, ctx.filter.search or "", function(client, symbols)
 					local items = lsp.results_to_items(client, symbols, { text_with_file = true })
 					for _, item in ipairs(items) do
-						item.buf = bufmap[item.file]
-						item.tree = false
-						queue[#queue + 1] = item
+						if M.include_file(item.file) then
+							item.buf = bufmap[item.file]
+							item.tree = false
+							queue[#queue + 1] = item
+						end
 					end
 					async:resume()
 				end, function(failures)
