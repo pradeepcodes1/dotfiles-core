@@ -1,6 +1,10 @@
 -- load Git status data used by the configured fetchers and file-list columns.
 require("git"):setup()
 
+-- Frame the file list and the tab, so the panes read as panels rather than
+-- columns separated by whitespace.
+require("full-border"):setup()
+
 -- Keep the useful size column while also showing Unix file permissions.
 function Linemode:size_permissions()
 	local size = self._file:size()
