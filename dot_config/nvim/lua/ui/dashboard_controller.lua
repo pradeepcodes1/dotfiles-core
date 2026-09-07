@@ -1,4 +1,4 @@
--- Show the dashboard without leaving the tabline behind when a buffer replaces it.
+-- Keep dashboard behavior with the other user-interface controllers.
 local M = {}
 
 function M.show()

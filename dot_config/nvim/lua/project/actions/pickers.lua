@@ -7,23 +7,13 @@ local cli = require("core.cli")
 local path_util = require("core.path")
 
 local function session_picker(title, confirm)
+	-- Stale entries are pruned at startup, so this picker needs no cleanup action.
 	return Snacks.picker.pick({
 		title = title,
 		format = function(item)
 			return { { item.text, item.stale and "Comment" or "Normal" } }
 		end,
 		layout = { preset = "select" },
-		actions = {
-			prune_stale = function(picker)
-				pruner.prune_stale_sessions()
-				picker.list:set_selected()
-				picker:find()
-			end,
-		},
-		win = {
-			input = { keys = { ["<c-x>"] = { "prune_stale", mode = { "n", "i" }, desc = "Prune stale projects" } } },
-			list = { keys = { ["<c-x>"] = { "prune_stale", desc = "Prune stale projects" } } },
-		},
 		finder = function()
 			return project_state.session_list()
 		end,
@@ -99,7 +89,10 @@ end
 function M.pick_session()
 	session_picker("Projects", function(picker, item)
 		if item and pruner.stale_session(item) then
-			vim.notify("Project directory is missing. Press Ctrl-X to prune stale entries.", vim.log.levels.WARN)
+			vim.notify(
+				"Project directory is missing; its stale session will be pruned on the next start.",
+				vim.log.levels.WARN
+			)
 			return
 		end
 		picker:close()
@@ -185,64 +178,6 @@ function M.open_terminal()
 	vim.cmd.terminal()
 	vim.cmd.startinsert()
 	return true
-end
-
---- `file` is the buffer the launch was about, kept as the active buffer across
---- the restore. open_current passes nil for a directory-launched instance,
---- where the project itself is the whole request.
-function M.open(file, root)
-	file = path_util.normalize(file)
-	root = path_util.normalize(root)
-	if not root then
-		return false
-	end
-
-	-- Keep DirChangedPre from saving the file under the launch directory. Once
-	-- cwd is the project root, allow this file-launched instance to autosave.
-	project_state.set_open(false)
-	vim.api.nvim_set_current_dir(root)
-	project_state.set_open(true, root)
-
-	local sessions = require("auto-session")
-	if sessions.session_exists_for_cwd() then
-		local restored = sessions.restore_session(nil, { is_startup_autorestore = true, show_message = false })
-		-- The requested file is the reason for this launch. Keep the restored
-		-- layout and buffers, but make that file the active buffer.
-		if file then
-			vim.cmd.edit({ args = { file } })
-		end
-		return restored == true
-	end
-
-	-- Saving immediately makes the root visible in <leader>pp without waiting
-	-- for this Neovim instance to exit.
-	return sessions.save_session(nil)
-end
-
---- Turn a file-launched instance into a project from the current buffer. The
---- BufEnter offer fires once per root (offered_roots latches), so declining it
---- -- or landing in a root the offer never covered -- otherwise leaves no way
---- into project mode short of restarting Neovim.
-function M.open_current()
-	if project_state.is_open() then
-		local root = project_paths.current_root()
-		vim.notify(("Already in project `%s`"):format(root and vim.fn.fnamemodify(root, ":t") or "?"))
-		return false
-	end
-
-	local name = vim.api.nvim_buf_get_name(0)
-	local file = nil
-	if name ~= "" and not name:match("^%w+://") and vim.bo.buftype == "" then
-		file = path_util.normalize(name)
-	end
-
-	local root = project_paths.root(file or vim.uv.cwd())
-	if not root then
-		vim.notify("No project root above this buffer", vim.log.levels.WARN)
-		return false
-	end
-
-	return M.open(file, root)
 end
 
 return M

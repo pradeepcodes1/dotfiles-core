@@ -113,7 +113,9 @@ function M.file_search_root()
 
 	local buffer_path = vim.api.nvim_buf_get_name(0)
 	if buffer_path ~= "" and not buffer_path:match("^%w+://") and vim.bo.buftype == "" then
-		return vim.fs.dirname(path_util.normalize(buffer_path))
+		local path = path_util.normalize(buffer_path)
+		-- A directly opened file should search its containing project when a marker identifies one.
+		return M.root(path) or vim.fs.dirname(path)
 	end
 
 	local cwd = path_util.normalize(vim.uv.cwd())
@@ -122,6 +124,20 @@ function M.file_search_root()
 		return nil
 	end
 	return cwd
+end
+
+function M.project_search_root()
+	if project_state.is_open() then
+		return M.current_root()
+	end
+
+	local buffer_path = vim.api.nvim_buf_get_name(0)
+	if buffer_path ~= "" and not buffer_path:match("^%w+://") and vim.bo.buftype == "" then
+		-- Grep stays unavailable for an unowned file instead of silently searching an arbitrary directory.
+		return M.root(buffer_path)
+	end
+
+	return nil
 end
 
 return M

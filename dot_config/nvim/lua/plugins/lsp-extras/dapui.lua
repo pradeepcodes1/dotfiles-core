@@ -43,8 +43,8 @@ return {
 			{
 				"<leader>vd",
 				function()
-					require("snacks.explorer_controller").close_all()
-					require("dapui").toggle()
+					-- Keep the normal editing layout intact by toggling DAP UI in its own tab.
+					require("ui.dapui").toggle()
 				end,
 				desc = "View: Debug",
 			},
@@ -82,17 +82,16 @@ return {
 				},
 			})
 
-			-- Auto open/close dap-ui with debug sessions
+			-- Debug-session events share the manual tab lifecycle so every entry path behaves alike.
 			local dap = require("dap")
 			dap.listeners.after.event_initialized["dapui_config"] = function()
-				require("snacks.explorer_controller").close_all()
-				dapui.open()
+				require("ui.dapui").open()
 			end
 			dap.listeners.before.event_terminated["dapui_config"] = function()
-				dapui.close()
+				require("ui.dapui").close()
 			end
 			dap.listeners.before.event_exited["dapui_config"] = function()
-				dapui.close()
+				require("ui.dapui").close()
 			end
 		end,
 	},

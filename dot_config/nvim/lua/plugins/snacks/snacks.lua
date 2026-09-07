@@ -87,6 +87,23 @@ return {
 				list = { keys = { ["<c-.>"] = "toggle_ignored" } },
 			},
 			sources = {
+				buffers = {
+					-- Marked buffers lead in slot order; idx preserves last-used order for the rest.
+					format = require("ui.harpoon_buffers").format,
+					transform = require("ui.harpoon_buffers").transform,
+					on_show = require("ui.harpoon_buffers").show_relative_numbers,
+					-- Buffer switching starts on the results so navigation is immediately in Normal mode.
+					focus = "list",
+					-- Apply Harpoon ordering immediately, before the user types a filter.
+					matcher = { sort_empty = true },
+					sort = { fields = { "harpooned", "harpoon_slot", "score:desc", "idx" } },
+					-- Swallow Tab locally so it cannot select or relaunch the globally mapped picker.
+					actions = { ignore_tab = function() end },
+					win = {
+						input = { keys = { ["<Tab>"] = "ignore_tab", ["<S-Tab>"] = false } },
+						list = { keys = { ["<Tab>"] = "ignore_tab", ["<S-Tab>"] = false } },
+					},
+				},
 				-- hidden has to be set per-source: a source's own config merges
 				-- *after* the global picker opts (config/init.lua orders them
 				-- defaults, user, source, call-site), so a top-level
@@ -112,7 +129,7 @@ return {
 					hidden = true,
 					actions = {
 						close_explorer = function()
-							require("snacks.explorer_controller").close()
+							require("ui.explorer_controller").close()
 						end,
 					},
 					win = {
@@ -172,7 +189,10 @@ return {
 			},
 		},
 		quickfile = { enabled = true },
-		scratch = { ft = "md" },
+		-- Scratch notes are persisted as ordinary files. Mark their buffers so
+		-- project-aware features do not treat Snacks' storage directory as the
+		-- active project when a scratch window receives focus.
+		scratch = { ft = "md", win = { b = { snacks_scratch = true } } },
 		scope = { enabled = true },
 		-- comfy-line-numbers owns 'statuscolumn': it writes its own label
 		-- column per window on every buffer/window enter, which would just

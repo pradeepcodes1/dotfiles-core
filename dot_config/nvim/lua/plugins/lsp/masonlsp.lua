@@ -5,7 +5,7 @@
 -- declaring/enabling servers -- rather than when this plugin loads. It worked,
 -- but it made LSP setup an invisible side effect of reading a file. init()
 -- takes what has to exist before any server attaches; config() takes the rest.
-local paths = require("core.paths")
+local paths = require("core.path")
 
 -- cmd[1] is the bare name: vim.lsp resolves it through PATH, and PATH already
 -- answers /usr/bin/clangd -- an xcode-select shim onto the Xcode toolchain on
@@ -94,6 +94,15 @@ return {
 					"CMakeLists.txt",
 					"CMakePresets.json",
 					".git",
+				},
+			})
+
+			vim.lsp.config("rust_analyzer", {
+				settings = {
+					["rust-analyzer"] = {
+						-- fS should browse functions and constants too, without requiring a trailing # query.
+						workspace = { symbol = { search = { kind = "all_symbols" } } },
+					},
 				},
 			})
 

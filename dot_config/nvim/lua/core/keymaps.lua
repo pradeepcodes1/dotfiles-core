@@ -44,19 +44,21 @@ end, { desc = "Toggle fold" })
 -- leave dapui and neotest believing they are still open, so both <leader>vc and
 -- the project reset go through this.
 local function close_panels()
-	require("snacks.explorer_controller").close_all()
+	require("ui.explorer_controller").close_all()
 	pcall(function()
-		require("dapui").close()
+		-- Close the owning debug tab as well as its dap-ui windows.
+		require("ui.dapui").close()
 	end)
 	pcall(function()
 		require("neotest").summary.close()
 	end)
 end
 
--- Pickers. `fg`, `fz`, `fw`, and `ft` are project-only, since a directory-wide search needs
+-- Pickers. `fz`, `fw`, and `ft` are project-only, since a directory-wide search needs
 -- a directory to be meaningful. `fS` queries all active project servers in
--- project mode, and the buffer's servers in file-only mode. `ff` stays available
--- everywhere but file_search_root() keeps it off `/` and $HOME.
+-- project mode, and the buffer's servers in file-only mode. `ff` and `fg` also
+-- recognize a marker root around a directly opened file; `ff` alone falls back
+-- to that file's parent when no project marker exists.
 -- fff owns file and text search; Snacks remains the picker for buffers, symbols,
 -- history, diagnostics, projects, and plugin-specific sources.
 if not vim.g.nvim_preview then
@@ -74,15 +76,12 @@ if not vim.g.nvim_preview then
 			fff_at(root).find_files({ cwd = root })
 		end
 	end, { desc = "Find Files" })
-	map(
-		"n",
-		"<leader>fg",
-		project_state.only(function()
-			local root = project_paths.current_root()
+	map("n", "<leader>fg", function()
+		local root = project_paths.project_search_root()
+		if root then
 			fff_at(root).live_grep({ cwd = root })
-		end),
-		{ desc = "Grep project" }
-	)
+		end
+	end, { desc = "Grep project" })
 	map(
 		{ "n", "x" },
 		"<leader>fw",
@@ -108,28 +107,28 @@ if not vim.g.nvim_preview then
 		Snacks.picker.undo()
 	end, { desc = "Find undo history" })
 	map("n", "<leader>fb", function()
-		Snacks.picker.buffers()
+		require("ui.harpoon_buffers").open()
 	end, { desc = "Find open buffers" })
 	map("n", "<leader>/", function()
 		Snacks.picker.lines()
 	end, { desc = "Search lines in buffer" })
-	map("n", "<leader>fs", function()
-		Snacks.picker.lsp_symbols()
+	map("n", "<leader>s", function()
+		-- LuaLS reports table entries as variables, objects, arrays, and keys, so
+		-- include every symbol kind instead of hiding most of the document tree.
+		Snacks.picker.lsp_symbols({ filter = { default = true, lua = true } })
 	end, { desc = "Find symbols in file" })
-	map("n", "<leader>fS", function()
+	-- Uppercase S keeps workspace symbols beside the document-symbol picker.
+	map("n", "<leader>S", function()
 		require("lsp.workspace_symbols").open()
 	end, { desc = "Find symbols in workspace" })
 	map("n", "<leader>fr", function()
 		Snacks.picker.recent()
 	end, { desc = "Recent files" })
 	map("n", "<leader>`", function()
-		Snacks.picker.buffers()
+		require("ui.harpoon_buffers").open()
 	end, { desc = "Search open buffers" })
-	map("n", "<leader>s", function()
-		vim.cmd("AerialToggle! right")
-	end, { desc = "View: Symbols" })
 	map("n", "<leader>e", function()
-		require("snacks.explorer_controller").toggle()
+		require("ui.explorer_controller").toggle()
 	end, { desc = "View: Explorer" })
 	map("n", "<leader>vc", close_panels, { desc = "View: Code (close all)" })
 end
@@ -179,20 +178,7 @@ map("t", "<C-h>", [[<C-\><C-n><C-w>h]], { desc = "Move to left split" })
 map("t", "<C-l>", [[<C-\><C-n><C-w>l]], { desc = "Move to right split" })
 map("t", "<C-k>", [[<C-\><C-n><C-w>k]], { desc = "Move to split above" })
 map("t", "<C-j>", [[<C-\><C-n><C-w>j]], { desc = "Move to split below" })
--- A count multiplies the ten-column/line step; arrows remain aliases.
-for _, resize in ipairs({
-	{ "h", "<Left>", "vertical resize -", "narrower" },
-	{ "l", "<Right>", "vertical resize +", "wider" },
-	{ "k", "<Up>", "resize +", "taller" },
-	{ "j", "<Down>", "resize -", "shorter" },
-}) do
-	for _, key in ipairs({ resize[1], resize[2] }) do
-		map("n", "<leader>w" .. key, function()
-			vim.cmd(resize[3] .. (10 * vim.v.count1))
-		end, { desc = "Resize split " .. resize[4] })
-	end
-end
-map("n", "<leader>w=", "<C-w>=", { desc = "Equalize splits" })
+-- The resize Hydra owns <leader>w so one prefix can start several adjustments.
 
 local opts = { noremap = true, silent = true }
 
@@ -217,8 +203,8 @@ end
 -- The whole group is off in preview mode, where the window is one read-only
 -- file in a float: restoring a session into it is nothing anyone wants.
 if not vim.g.nvim_preview then
+	-- Keep project restoration behind one explicit picker instead of inferring it from the current file.
 	map("n", "<leader>pp", project_pickers.pick_session, { desc = "Project: Switch" })
-	map("n", "<leader>po", project_pickers.open_current, { desc = "Project: Open current root" })
 	map("n", "<leader>pd", project_deleter.delete_session, { desc = "Project: Delete session" })
 	map("n", "<leader>pi", project_info.info, { desc = "Project: Info" })
 	map("n", "<leader>pl", function()

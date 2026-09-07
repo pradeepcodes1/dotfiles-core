@@ -16,7 +16,7 @@ return {
 	keys = function()
 		local keys = {
 			{
-				"<leader>ma",
+				"<leader>m",
 				function()
 					require("harpoon"):list():add()
 				end,
@@ -43,6 +43,14 @@ return {
 					require("harpoon"):list():next()
 				end,
 				desc = "Marks: Next file",
+			},
+			{
+				"<leader><leader>",
+				function()
+					-- Double leader keeps the combined buffer list quick without consuming Ctrl-I/Tab.
+					require("ui.harpoon_buffers").open()
+				end,
+				desc = "Find buffers",
 			},
 		}
 

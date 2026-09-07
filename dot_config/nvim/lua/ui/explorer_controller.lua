@@ -1,4 +1,4 @@
--- Control the explorer at the managed chezmoi source's nearest project root.
+-- Keep the Snacks explorer rooted at the managed source's nearest project root.
 local M = {}
 local cli = require("core.cli")
 local library_paths = require("lsp.library_paths")
@@ -10,6 +10,7 @@ local chezmoi_cache = {
 }
 local active_roots = {}
 local active_paths = {}
+local session_open = {}
 
 local function current_buffer_path(bufnr)
 	local path = vim.api.nvim_buf_get_name(bufnr)
@@ -33,7 +34,7 @@ local function current_buffer_path(bufnr)
 end
 
 local function source_buffer_path(bufnr)
-	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "" then
+	if not vim.api.nvim_buf_is_valid(bufnr) or vim.bo[bufnr].buftype ~= "" or vim.b[bufnr].snacks_scratch then
 		return nil
 	end
 
@@ -113,12 +114,39 @@ local function reveal(picker, path, root)
 	end
 end
 
+-- VimLeave can dismantle picker windows before auto-session asks for custom data.
+-- Track the user's last open/close choice independently of the live window.
+function M.session_state(tabs)
+	local states = {}
+	local tab_indexes = {}
+	for index, tabpage in ipairs(tabs) do
+		tab_indexes[tabpage] = index
+		states[index] = {
+			open = session_open[tabpage] == true,
+		}
+	end
+
+	-- A live picker has the freshest cwd; tracked state remains the exit-time fallback.
+	for _, picker in ipairs(Snacks.picker.get({ source = "explorer", tab = false })) do
+		-- The list may be a float that follows the active tab; the layout root owns the split.
+		local win = picker.layout and picker.layout.root and picker.layout.root.win
+		local tabpage = win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_tabpage(win) or nil
+		local index = tabpage and tab_indexes[tabpage] or nil
+		if index then
+			-- The restored buffer remains the source of truth for the Explorer root.
+			states[index] = { open = true }
+		end
+	end
+	return states
+end
+
 function M.show(on_show)
 	local tabpage = vim.api.nvim_get_current_tabpage()
 	local path, root = target_for_buffer(vim.api.nvim_get_current_buf())
 	root = root or active_roots[tabpage] or path_util.cwd()
 	active_roots[tabpage] = root
 	active_paths[tabpage] = path
+	session_open[tabpage] = true
 
 	local current = explorer(tabpage)
 	if current then
@@ -140,6 +168,12 @@ function M.show(on_show)
 	Snacks.explorer.open({
 		cwd = root,
 		enter = false,
+		on_close = function()
+			-- Shutdown is not a user request to forget that this tab had an Explorer.
+			if vim.v.exiting == vim.NIL then
+				session_open[tabpage] = false
+			end
+		end,
 		on_show = function(picker)
 			vim.b[picker.list.win.buf].snacks_explorer = true
 			if path then
@@ -152,8 +186,19 @@ function M.show(on_show)
 	})
 end
 
+-- Reopening through show preserves the same root tracking and focus behavior as a manual toggle.
+function M.restore(state, on_restored)
+	if state and state.open then
+		M.show(on_restored)
+	elseif on_restored then
+		on_restored()
+	end
+end
+
 function M.close()
-	local current = explorer(vim.api.nvim_get_current_tabpage())
+	local tabpage = vim.api.nvim_get_current_tabpage()
+	local current = explorer(tabpage)
+	session_open[tabpage] = false
 	if current then
 		current:close()
 	end

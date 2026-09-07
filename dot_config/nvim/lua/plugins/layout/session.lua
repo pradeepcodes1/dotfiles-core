@@ -8,12 +8,28 @@ return {
 		-- process or scrollback. Leave terminals out and open a fresh one on
 		-- demand with <leader>pt instead of presenting a misleading empty shell.
 		vim.opt.sessionoptions:remove("terminal")
+		-- Keep the project picker clean without a manual maintenance binding.
+		vim.api.nvim_create_autocmd("VimEnter", {
+			once = true,
+			callback = function()
+				require("project.actions.pruner").prune_stale_sessions({ notify = false })
+			end,
+			desc = "Prune stale project sessions",
+		})
 	end,
 
 	---enables autocomplete for opts
 	---@module "auto-session"
 	---@type AutoSession.Config
 	opts = {
+		-- Neovim sessions cannot serialize transient panel state, so keep it in
+		-- AutoSession's companion data file instead of the native layout snapshot.
+		save_extra_data = function()
+			return require("sessions.state").capture()
+		end,
+		restore_extra_data = function(_, extra_data)
+			require("sessions.state").stage(extra_data)
+		end,
 		-- Sessions are restored deliberately through <leader>pp or the confirmed
 		-- single-file project prompt, never unconditionally on startup.
 		-- This was originally set to work around project.nvim silently chdir'ing
@@ -25,6 +41,18 @@ return {
 		args_allow_files_auto_save = function()
 			return require("project.state").is_open()
 		end,
+		pre_save_cmds = {
+			function()
+				-- The debug tab is reconstructed from custom data and must not also enter the native session.
+				require("ui.dapui").suspend_for_save()
+			end,
+		},
+		post_save_cmds = {
+			function()
+				-- Manual saves preserve the live UI after the native session snapshot is complete.
+				require("ui.dapui").resume_after_save()
+			end,
+		},
 		pre_cwd_changed_cmds = {
 			function()
 				require("project.state").set_open(false)
@@ -35,6 +63,8 @@ return {
 				local project_state = require("project.state")
 				local project_paths = require("project.paths")
 				project_state.set_open(true, project_paths.session_root())
+				-- Run after the native tab layout exists so saved tab indexes line up.
+				require("sessions.state").restore()
 			end,
 		},
 		no_restore_cmds = {

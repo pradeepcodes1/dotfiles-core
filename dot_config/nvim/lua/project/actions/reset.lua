@@ -1,5 +1,4 @@
 local M = {}
-local path_util = require("core.path")
 local project_paths = require("project.paths")
 
 --- Collapse the layout down to one window. Floats go first, since `:only`
@@ -31,29 +30,11 @@ local function close_windows()
 	vim.cmd("silent! only")
 end
 
-function M.contains(path)
-	if type(path) ~= "string" or path == "" then
-		return false
-	end
-	if path:match("^%w+://") then
-		if not vim.startswith(path, "file://") then
-			return false
-		end
-		local ok, filename = pcall(vim.uri_to_fname, path)
-		if not ok then
-			return false
-		end
-		path = filename
-	end
-
-	return path_util.under(path_util.normalize(path), project_paths.current_root())
-end
 --- Back to what a freshly restored project looks like: one window, no buffers,
 --- the file picker open. The session on disk is left alone, so this is a clean
---- slate to work from and not a discard. Modified buffers stay -- nothing here
---- is worth losing an edit over -- and so does anything outside the root, which
---- is why the layout is collapsed before the wipe rather than after: a window
---- left showing a kept buffer is the point.
+--- slate to work from and not a discard. Modified file buffers stay -- nothing
+--- here is worth losing an edit over. Unmodified files outside the project are
+--- cleared too, since a reset must not leak buffers opened from another project.
 function M.reset()
 	local root = project_paths.current_root()
 	if not root then
@@ -64,7 +45,9 @@ function M.reset()
 
 	local kept = 0
 	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.bo[buf].buflisted and M.contains(vim.api.nvim_buf_get_name(buf)) then
+		-- Restrict the sweep to editable file buffers so plugin terminals and
+		-- other special buffers can run their own teardown instead of being killed.
+		if vim.bo[buf].buflisted and vim.bo[buf].buftype == "" then
 			if vim.bo[buf].modified then
 				kept = kept + 1
 			else

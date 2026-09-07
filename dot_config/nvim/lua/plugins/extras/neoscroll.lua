@@ -7,7 +7,8 @@ return {
 		neoscroll.setup({
 			mappings = {},
 			cursor_scrolls_alone = false,
-			easing = "quadratic",
+			-- Sine eases both ends gently so short wheel and longer keyboard motions blend smoothly.
+			easing = "sine",
 		})
 
 		local function scroll(lines, move_cursor, duration)
@@ -23,8 +24,9 @@ return {
 		end
 
 		local mappings = {
-			["<ScrollWheelUp>"] = scroll(-5, true, 100),
-			["<ScrollWheelDown>"] = scroll(5, true, 100),
+			-- Cover more lines with less animation so Neovide wheel scrolling feels responsive.
+			["<ScrollWheelUp>"] = scroll(-13, true, 70),
+			["<ScrollWheelDown>"] = scroll(13, true, 70),
 			["<C-u>"] = action("ctrl_u", 150),
 			["<C-d>"] = action("ctrl_d", 150),
 			["<C-b>"] = action("ctrl_b", 250),

@@ -3,15 +3,8 @@ if not vim.g.neovide then
 	return
 end
 
--- Neovim 0.12.4 can segfault inside arm64 LuaJIT while Neovide is processing
--- asynchronous UI callbacks (notably the Trouble references float opened by gr).
--- The same path is stable in the TUI, so keep this workaround GUI-local.
-if jit then
-	jit.off()
-end
-
 -- GUI launches on macOS do not reliably inherit the shell PATH.
-local paths = require("core.paths")
+local paths = require("core.path")
 local path_sep = ":"
 local path_entries = {}
 for _, path in ipairs(vim.split(vim.env.PATH or "", path_sep, { plain = true, trimempty = true })) do

@@ -1,8 +1,8 @@
 local M = {}
 
 local project_state = require("project.state")
--- Keep missing projects visible until explicitly pruned. An inaccessible
--- directory is not evidence that its saved session should be removed.
+-- An inaccessible directory is not evidence that its saved session should be
+-- removed, so only paths that definitely no longer resolve count as stale.
 function M.stale_session(item)
 	local root = item.session_name:match("^([^|]+)")
 	if not root then
@@ -12,7 +12,8 @@ function M.stale_session(item)
 	return (stat and stat.type ~= "directory") or code == "ENOENT" or code == "ENOTDIR"
 end
 
-function M.prune_stale_sessions()
+function M.prune_stale_sessions(opts)
+	opts = opts or {}
 	local sessions = require("auto-session")
 	local removed = 0
 	for _, item in ipairs(project_state.session_list()) do
@@ -20,7 +21,10 @@ function M.prune_stale_sessions()
 			removed = removed + 1
 		end
 	end
-	vim.notify(("Pruned %d stale project session%s"):format(removed, removed == 1 and "" or "s"))
+	-- Startup cleanup should not announce the common zero-removal case.
+	if opts.notify ~= false then
+		vim.notify(("Pruned %d stale project session%s"):format(removed, removed == 1 and "" or "s"))
+	end
 	return removed
 end
 
