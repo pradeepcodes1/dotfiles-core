@@ -65,7 +65,7 @@ return {
 					if client then
 						common.on_attach(client, ev.buf)
 						if client.name == "jdtls" then
-							require("lsp.java").on_attach(ev.buf)
+							require("lsp.java.navigation").on_attach(ev.buf)
 						end
 					end
 				end,

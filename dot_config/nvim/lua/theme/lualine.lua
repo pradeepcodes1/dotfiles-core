@@ -8,12 +8,13 @@ function M.build(theme)
 		local accent = theme.accents[name]
 		return {
 			a = { fg = theme.accent_foregrounds[name], bg = accent, gui = "bold" },
-			b = { fg = accent, bg = theme.section_alt },
+			-- Only the mode badge carries a saturated background.
+			b = { fg = p.fg, bg = theme.section_bg },
 			c = { fg = p.fg, bg = theme.section_bg },
 		}
 	end
 
-	return {
+	local result = {
 		normal = active("normal"),
 		insert = active("insert"),
 		visual = active("visual"),
@@ -26,6 +27,13 @@ function M.build(theme)
 			c = { fg = theme.comment, bg = p.bg },
 		},
 	}
+	-- Lualine otherwise mirrors the mode badge onto the right-hand position block.
+	for _, sections in pairs(result) do
+		sections.x = { fg = p.fg, bg = theme.section_bg }
+		sections.y = { fg = theme.muted, bg = theme.section_bg }
+		sections.z = { fg = theme.muted, bg = theme.section_bg }
+	end
+	return result
 end
 
 return M

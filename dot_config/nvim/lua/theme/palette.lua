@@ -98,6 +98,22 @@ function M.contrast(left, right)
 	return (lighter + 0.05) / (darker + 0.05)
 end
 
+-- Preserve the palette hue where possible, but lift dark colors (or darken
+-- light ones) until small editor text remains readable on its surface.
+function M.ensure_contrast(color, background, minimum)
+	if M.contrast(color, background) >= minimum then
+		return color
+	end
+	local target = M.contrast("#ffffff", background) > M.contrast("#000000", background) and "#ffffff" or "#000000"
+	for step = 1, 100 do
+		local candidate = M.blend(target, color, step / 100)
+		if M.contrast(candidate, background) >= minimum then
+			return candidate
+		end
+	end
+	return target
+end
+
 local function resolve_mode(requested, bg)
 	if requested == "dark" or requested == "light" then
 		return requested
@@ -109,7 +125,9 @@ local function resolve_mode(requested, bg)
 end
 
 local function best_foreground(bg, fg, accent)
-	return M.contrast(bg, accent) >= M.contrast(fg, accent) and bg or fg
+	-- Badges need readable text even when both terminal neutrals are mid-tones.
+	local color = M.contrast(bg, accent) >= M.contrast(fg, accent) and bg or fg
+	return M.ensure_contrast(color, accent, 4.5)
 end
 
 -- Turn a possibly incomplete Gogh palette into the one snapshot every theme
@@ -132,11 +150,12 @@ function M.resolve(theme)
 	local mode = resolve_mode(theme.background or theme.mode, colors.bg)
 	local syntax = {}
 	for _, name in ipairs({ "red", "green", "yellow", "blue", "magenta", "cyan" }) do
-		syntax[name] = colors[mode == "dark" and ("bright_" .. name) or name]
+		-- Normal ANSI colors softened toward text avoid fluorescent code; bright slots stay terminal-only.
+		syntax[name] = M.ensure_contrast(M.blend(colors[name], colors.fg, 0.75), colors.bg, 4.5)
 	end
 
 	local accents = {
-		normal = raw.ui_accent or raw.ui_active or syntax.blue,
+		normal = M.ensure_contrast(raw.ui_accent or raw.ui_active or syntax.blue, colors.bg, 4.5),
 		insert = syntax.green,
 		visual = syntax.magenta,
 		replace = syntax.red,
@@ -156,14 +175,22 @@ function M.resolve(theme)
 		raw_palette = theme.palette,
 		syntax = syntax,
 		accents = accents,
-		comment = raw.prompt_path or colors.bright_black,
-		surface = M.blend(colors.fg, colors.bg, 0.055),
-		surface_high = M.blend(colors.fg, colors.bg, 0.11),
-		inactive = raw.ui_inactive or M.blend(colors.fg, colors.bg, 0.09),
-		section_bg = M.blend(colors.fg, colors.bg, mode == "dark" and 0.08 or 0.06),
-		section_alt = M.blend(colors.fg, colors.bg, mode == "dark" and 0.14 or 0.1),
+		-- Terminal gray slots can equal normal text; derive editor hierarchy instead.
+		comment = M.ensure_contrast(M.blend(colors.fg, colors.bg, 0.55), colors.bg, 4.5),
+		muted = M.ensure_contrast(M.blend(colors.fg, colors.bg, 0.65), colors.bg, 4.5),
+		guide = M.blend(colors.fg, colors.bg, 0.22),
+		border = M.blend(colors.fg, colors.bg, 0.35),
+		cursorline = M.blend(colors.fg, colors.bg, 0.055),
+		surface = M.blend(colors.fg, colors.bg, 0.09),
+		surface_high = M.blend(colors.fg, colors.bg, 0.16),
+		selection = M.blend(accents.normal, colors.bg, 0.30),
+		inactive = M.blend(colors.fg, colors.bg, 0.22),
+		section_bg = M.blend(colors.fg, colors.bg, 0.07),
+		section_alt = M.blend(colors.fg, colors.bg, 0.07),
 	}
 
+	-- Selected rows have their own foreground so light and dark palettes both work.
+	resolved.selection_fg = M.ensure_contrast(colors.fg, resolved.selection, 4.5)
 	resolved.accent_foregrounds = {}
 	for name, accent in pairs(accents) do
 		resolved.accent_foregrounds[name] = best_foreground(colors.bg, colors.fg, accent)

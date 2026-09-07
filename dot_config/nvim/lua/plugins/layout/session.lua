@@ -44,13 +44,13 @@ return {
 		pre_save_cmds = {
 			function()
 				-- The debug tab is reconstructed from custom data and must not also enter the native session.
-				require("ui.dapui").suspend_for_save()
+				require("ui.dap").suspend_for_save()
 			end,
 		},
 		post_save_cmds = {
 			function()
 				-- Manual saves preserve the live UI after the native session snapshot is complete.
-				require("ui.dapui").resume_after_save()
+				require("ui.dap").resume_after_save()
 			end,
 		},
 		pre_cwd_changed_cmds = {

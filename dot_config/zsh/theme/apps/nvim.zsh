@@ -6,7 +6,8 @@
 # running either got the last broadcast or read the persisted state when it
 # started -- so an init pass would only fan a headless nvim out per instance
 # to tell each of them what it already knows.
-[[ "${_DOTFILES_THEME_APPLY_REASON:-init}" == "command" ]] || return
+# Skipping a broadcast during shell startup is success, not an adapter failure.
+[[ "${_DOTFILES_THEME_APPLY_REASON:-init}" == "command" ]] || return 0
 
 # Neovim names its server socket "<stdpath('run')>/nvim.<pid>.0", and that run
 # directory is not the same shape on both platforms. With $XDG_RUNTIME_DIR set
@@ -38,3 +39,7 @@ for _nvim_sock in "${(u)_nvim_socks[@]}"; do
   nvim --headless --server "$_nvim_sock" --remote-expr \
     'luaeval("pcall(vim.cmd, \"DotfilesThemeReload\")")' >/dev/null 2>&1
 done
+
+# Broadcasts are best-effort: stale sockets or an editor closing during a switch
+# must not mark the persisted theme as failed. New editors read it at startup.
+return 0

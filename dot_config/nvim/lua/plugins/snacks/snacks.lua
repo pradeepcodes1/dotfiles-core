@@ -89,9 +89,9 @@ return {
 			sources = {
 				buffers = {
 					-- Marked buffers lead in slot order; idx preserves last-used order for the rest.
-					format = require("ui.harpoon_buffers").format,
-					transform = require("ui.harpoon_buffers").transform,
-					on_show = require("ui.harpoon_buffers").show_relative_numbers,
+					format = require("ui.harpoon").format,
+					transform = require("ui.harpoon").transform,
+					on_show = require("ui.harpoon").show_relative_numbers,
 					-- Buffer switching starts on the results so navigation is immediately in Normal mode.
 					focus = "list",
 					-- Apply Harpoon ordering immediately, before the user types a filter.
@@ -129,7 +129,7 @@ return {
 					hidden = true,
 					actions = {
 						close_explorer = function()
-							require("ui.explorer_controller").close()
+							require("ui.explorer").close()
 						end,
 					},
 					win = {

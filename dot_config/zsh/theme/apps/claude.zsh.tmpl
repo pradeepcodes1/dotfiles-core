@@ -1,11 +1,30 @@
-# keep Claude's light/dark mode aligned with the terminal palette.
-# Claude CLI theme integration
+# Update the JSON structurally so unrelated settings and nested keys survive.
+local claude_config="{{ .chezmoi.homeDir }}/.claude.json"
+[[ -f "$claude_config" ]] || return 0
+python3 - "$claude_config" "$_DOTFILES_THEME_MODE" <<'PYTHON'
+import json
+import os
+import stat
+import sys
+import tempfile
+from pathlib import Path
 
-[[ ! -f "{{ .chezmoi.homeDir }}/.claude.json" ]] && return
-grep -Eq '"theme"[[:space:]]*:[[:space:]]*"'"$_DOTFILES_THEME_MODE"'"' "{{ .chezmoi.homeDir }}/.claude.json" && return
-
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  sed -i '' 's/"theme": *"[^"]*"/"theme": "'"$_DOTFILES_THEME_MODE"'"/' "{{ .chezmoi.homeDir }}/.claude.json"
-else
-  sed -i 's/"theme": *"[^"]*"/"theme": "'"$_DOTFILES_THEME_MODE"'"/' "{{ .chezmoi.homeDir }}/.claude.json"
-fi
+path = Path(sys.argv[1])
+mode = sys.argv[2]
+if mode not in ('light', 'dark'):
+    sys.exit('Invalid Claude appearance mode')
+data = json.loads(path.read_text())
+if data.get('theme') == mode:
+    sys.exit(0)
+data['theme'] = mode
+fd, temporary = tempfile.mkstemp(dir=path.parent, prefix='.claude-theme-')
+try:
+    with os.fdopen(fd, 'w') as output:
+        os.fchmod(output.fileno(), stat.S_IMODE(path.stat().st_mode))
+        json.dump(data, output, indent=2)
+        output.write('\n')
+    os.replace(temporary, path)
+finally:
+    if os.path.exists(temporary):
+        os.unlink(temporary)
+PYTHON

@@ -19,7 +19,7 @@ return {
 	end,
 	opts = {
 		-- Keep the prompt recognizable without FFF's mascot glyph.
-		prompt = " ",
+		prompt = "",
 		-- Sessions restore their project after plugins are configured. Never let
 		-- fff start a home-directory scan before the first picker supplies the
 		-- resolved project root.
@@ -65,6 +65,14 @@ return {
 		},
 		-- FFF's groups lose their foreground after our colorscheme reloads.
 		hl = {
+			-- Use the same background for the prompt, results, preview, and their borders.
+			normal = "DotfilesPickerNormal",
+			border = "DotfilesPickerBorder",
+			title = "DotfilesPickerTitle",
+			-- Foreground-only matches remain visible on selected and preview rows.
+			matched = "DotfilesPickerMatch",
+			grep_match = "DotfilesPickerMatch",
+			cursor = "Visual",
 			git_staged = "GitSignsAdd",
 			git_modified = "GitSignsChange",
 			git_deleted = "GitSignsDelete",

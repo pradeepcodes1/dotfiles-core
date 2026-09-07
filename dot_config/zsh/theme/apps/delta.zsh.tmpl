@@ -23,5 +23,8 @@ local delta_content="[delta]
 
 mkdir -p "$(dirname "$delta_config")"
 if [[ ! -f "$delta_config" ]] || [[ "$(< "$delta_config")" != "$delta_content" ]]; then
-  print -r -- "$delta_content" > "$delta_config"
+  print -r -- "$delta_content" > "$delta_config" || return 1
 fi
+
+# An unchanged generated file is a successful application.
+return 0

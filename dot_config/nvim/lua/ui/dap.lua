@@ -1,4 +1,4 @@
--- Keep DAP's dedicated tab lifecycle with the other user-interface controllers.
+-- Keep DAP's dedicated tab lifecycle behind one focused UI module.
 local M = {}
 
 local debug_tab
@@ -24,6 +24,8 @@ function M.open()
 	-- Reuse the current source buffer in a new tab instead of creating a stray empty buffer.
 	vim.cmd("tab sbuffer " .. source_buf)
 	debug_tab = vim.api.nvim_get_current_tabpage()
+	-- Give the dedicated tab a stable label instead of whichever DAP buffer was focused last.
+	vim.t.tabname = "Debug"
 	vim.t.dapui_debug_tab = true
 	require("dapui").open()
 end

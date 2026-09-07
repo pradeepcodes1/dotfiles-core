@@ -18,8 +18,8 @@ disable_ligatures cursor
 # macOS renders thin at this size; thicken strokes.
 text_composition_strategy 1.7 0
 {{- end }}
-# Force readable contrast when a theme puts fg too close to bg.
-text_fg_override_threshold 4.0
+# Preserve color hues when correcting contrast; a bare number instead forces black or white.
+text_fg_override_threshold 4.5 ratio
 # Dim inactive splits so the focused one is obvious.
 inactive_text_alpha 0.75
 

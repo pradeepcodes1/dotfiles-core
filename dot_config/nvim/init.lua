@@ -58,7 +58,8 @@ vim.api.nvim_create_autocmd("VimEnter", {
 			local buf = vim.api.nvim_get_current_buf()
 			vim.schedule(function()
 				vim.api.nvim_buf_delete(buf, { force = true })
-				require("snacks.dashboard_controller").show()
+				-- Directory starts use the same dashboard owner as the rest of the UI.
+				require("ui.dashboard").show()
 			end)
 		end
 	end,

@@ -1,4 +1,4 @@
-# apply one palette atomically across every supported terminal tool.
+# Apply adapters independently and report partial failures without claiming atomicity.
 # Theme command and apply orchestration
 
 # Defines the on-demand Gogh catalog/import functions. Sourcing this file does
@@ -6,9 +6,19 @@
 source "$_theme_dir/gogh.zsh"
 
 _apply_theme() {
+  # Continue after an adapter failure so one unavailable app does not block the rest.
+  local f failed=0
   for f in "$_theme_dir/apps"/*.zsh; do
-    [[ -f "$f" ]] && source "$f"
+    [[ -f "$f" ]] || continue
+    if [[ "${f:t}" == tmux.zsh ]]; then
+      # Retain the existing tmux adapter behavior without changing its return conventions.
+      source "$f"
+    elif ! source "$f"; then
+      warn_log "theme" "Failed adapter: ${f:t}"
+      failed=1
+    fi
   done
+  return $failed
 }
 
 _apply_theme_for() {
@@ -17,12 +27,14 @@ _apply_theme_for() {
 
   export _DOTFILES_THEME_APPLY_REASON="$reason"
   _apply_theme
+  local apply_status=$?
 
   if [[ -n "$previous_reason" ]]; then
     export _DOTFILES_THEME_APPLY_REASON="$previous_reason"
   else
     unset _DOTFILES_THEME_APPLY_REASON
   fi
+  return $apply_status
 }
 
 theme() {
@@ -74,10 +86,19 @@ theme() {
     return 1
   }
 
-  mkdir -p "$(dirname "$_DOTFILES_THEME_FILE")"
-  echo "$theme_name" > "$_DOTFILES_THEME_FILE"
+  # Publish complete state before notifying Neovim, which rereads this file.
+  mkdir -p "$(dirname "$_DOTFILES_THEME_FILE")" || return 1
+  local state_temp
+  state_temp=$(mktemp "${_DOTFILES_THEME_FILE}.XXXXXX") || return 1
+  if ! print -r -- "$theme_name" > "$state_temp" || ! mv -f "$state_temp" "$_DOTFILES_THEME_FILE"; then
+    rm -f "$state_temp"
+    return 1
+  fi
 
-  _apply_theme_for command
+  _apply_theme_for command || {
+    error_log "theme" "Theme saved, but some apps failed to update; rerun theme $theme_name to retry."
+    return 1
+  }
 
   info_log "theme" "Switched to: $_DOTFILES_THEME_NAME ($_DOTFILES_THEME_MODE mode)"
   info_log "theme" "Note: Restart yazi for full effect."

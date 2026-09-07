@@ -28,7 +28,8 @@ function M.on_attach(client, bufnr)
 	nmap("grr", references.open_float, "[G]oto [R]eferences")
 	nmap("K", vim.lsp.buf.hover, "Hover Documentation")
 	nmap("<leader>lr", vim.lsp.buf.rename, "Rename symbol")
-	vim.keymap.set({ "n", "x" }, "<leader>la", vim.lsp.buf.code_action, { buffer = bufnr, desc = "LSP: Code action" })
+	-- Keep code actions on `ll` in both normal and visual selections.
+	vim.keymap.set({ "n", "x" }, "<leader>ll", vim.lsp.buf.code_action, { buffer = bufnr, desc = "LSP: Code action" })
 
 	-- Format on save is handled by conform in plugins/conform.lua.
 end

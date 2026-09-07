@@ -8,37 +8,37 @@ if [[ -n "$gogh_theme" ]]; then
   # This is intentionally a direct theme.toml override rather than a generated
   # flavor directory: flavors also require package metadata and a tmTheme file.
   yazi_content="#:schema https://yazi-rs.github.io/schemas/theme.json
-# Generated from the Gogh palette in $_DOTFILES_THEME_NAME.sh.
+# Generated from Gogh with readable UI surfaces and badge foregrounds.
 
 [app]
 overall = { bg = \"$bg\" }
 
 [mgr]
-cwd = { fg = \"$cyan\" }
-find_keyword = { fg = \"$yellow\", bold = true, italic = true, underline = true }
-find_position = { fg = \"$magenta\", bg = \"$bg\", bold = true, italic = true }
-symlink_target = { fg = \"$cyan\", italic = true }
-marker_copied = { fg = \"$bright_green\", bg = \"$bright_green\" }
-marker_cut = { fg = \"$bright_red\", bg = \"$bright_red\" }
-marker_marked = { fg = \"$bright_cyan\", bg = \"$bright_cyan\" }
-marker_selected = { fg = \"$bright_yellow\", bg = \"$bright_yellow\" }
-count_copied = { fg = \"$bg\", bg = \"$green\" }
-count_cut = { fg = \"$bg\", bg = \"$red\" }
-count_selected = { fg = \"$bg\", bg = \"$yellow\" }
+cwd = { fg = \"$theme_ui_cyan\" }
+find_keyword = { fg = \"$theme_ui_yellow\", bold = true, italic = true, underline = true }
+find_position = { fg = \"$theme_ui_magenta\", bg = \"$bg\", bold = true, italic = true }
+symlink_target = { fg = \"$theme_ui_cyan\", italic = true }
+marker_copied = { fg = \"$theme_ui_green\", bg = \"$theme_ui_green\" }
+marker_cut = { fg = \"$theme_ui_red\", bg = \"$theme_ui_red\" }
+marker_marked = { fg = \"$theme_ui_cyan\", bg = \"$theme_ui_cyan\" }
+marker_selected = { fg = \"$theme_ui_yellow\", bg = \"$theme_ui_yellow\" }
+count_copied = { fg = \"$theme_ui_on_green\", bg = \"$theme_ui_green\" }
+count_cut = { fg = \"$theme_ui_on_red\", bg = \"$theme_ui_red\" }
+count_selected = { fg = \"$theme_ui_on_yellow\", bg = \"$theme_ui_yellow\" }
 border_symbol = \"│\"
-border_style = { fg = \"$bright_black\" }
+border_style = { fg = \"$theme_ui_border\" }
 
 [tabs]
-active = { fg = \"$bg\", bg = \"$blue\", bold = true }
-inactive = { fg = \"$fg\", bg = \"$black\" }
+active = { fg = \"$theme_ui_on_blue\", bg = \"$theme_ui_blue\", bold = true }
+inactive = { fg = \"$theme_ui_fg\", bg = \"$theme_ui_surface\" }
 
 [mode]
-normal_main = { fg = \"$bg\", bg = \"$blue\", bold = true }
-normal_alt = { fg = \"$blue\", bg = \"$black\" }
-select_main = { fg = \"$bg\", bg = \"$magenta\", bold = true }
-select_alt = { fg = \"$magenta\", bg = \"$black\" }
-unset_main = { fg = \"$bg\", bg = \"$red\", bold = true }
-unset_alt = { fg = \"$red\", bg = \"$black\" }
+normal_main = { fg = \"$theme_ui_on_blue\", bg = \"$theme_ui_blue\", bold = true }
+normal_alt = { fg = \"$theme_ui_blue\", bg = \"$theme_ui_surface\" }
+select_main = { fg = \"$theme_ui_on_magenta\", bg = \"$theme_ui_magenta\", bold = true }
+select_alt = { fg = \"$theme_ui_magenta\", bg = \"$theme_ui_surface\" }
+unset_main = { fg = \"$theme_ui_on_red\", bg = \"$theme_ui_red\", bold = true }
+unset_alt = { fg = \"$theme_ui_red\", bg = \"$theme_ui_surface\" }
 
 [indicator]
 parent = { reversed = true }
@@ -46,72 +46,72 @@ current = { reversed = true }
 preview = { underline = true }
 
 [status]
-overall = { fg = \"$fg\", bg = \"$bg\" }
-perm_sep = { fg = \"$bright_black\" }
-perm_type = { fg = \"$green\" }
-perm_read = { fg = \"$yellow\" }
-perm_write = { fg = \"$red\" }
-perm_exec = { fg = \"$cyan\" }
-progress_label = { fg = \"$fg\", bold = true }
-progress_normal = { fg = \"$green\", bg = \"$black\" }
-progress_error = { fg = \"$yellow\", bg = \"$red\" }
+overall = { fg = \"$theme_ui_fg\", bg = \"$bg\" }
+perm_sep = { fg = \"$theme_ui_muted\" }
+perm_type = { fg = \"$theme_ui_green\" }
+perm_read = { fg = \"$theme_ui_yellow\" }
+perm_write = { fg = \"$theme_ui_red\" }
+perm_exec = { fg = \"$theme_ui_cyan\" }
+progress_label = { fg = \"$theme_ui_fg\", bold = true }
+progress_normal = { fg = \"$theme_ui_green\", bg = \"$theme_ui_surface\" }
+progress_error = { fg = \"$theme_ui_on_red\", bg = \"$theme_ui_red\" }
 
 [which]
-mask = { bg = \"$black\" }
-cand = { fg = \"$bright_cyan\" }
-rest = { fg = \"$bright_black\" }
-desc = { fg = \"$bright_magenta\" }
-separator_style = { fg = \"$bright_black\" }
+mask = { bg = \"$theme_ui_surface\" }
+cand = { fg = \"$theme_ui_cyan\" }
+rest = { fg = \"$theme_ui_muted\" }
+desc = { fg = \"$theme_ui_magenta\" }
+separator_style = { fg = \"$theme_ui_muted\" }
 
 [confirm]
-border = { fg = \"$blue\" }
-title = { fg = \"$blue\" }
-btn_yes = { fg = \"$green\", reversed = true }
-btn_no = { fg = \"$red\" }
+border = { fg = \"$theme_ui_blue\" }
+title = { fg = \"$theme_ui_blue\" }
+btn_yes = { fg = \"$theme_ui_green\", reversed = true }
+btn_no = { fg = \"$theme_ui_red\" }
 
 [spot]
-border = { fg = \"$blue\" }
-title = { fg = \"$blue\" }
-tbl_col = { fg = \"$cyan\" }
-tbl_cell = { fg = \"$yellow\", reversed = true }
+border = { fg = \"$theme_ui_blue\" }
+title = { fg = \"$theme_ui_blue\" }
+tbl_col = { fg = \"$theme_ui_cyan\" }
+tbl_cell = { fg = \"$theme_ui_yellow\", reversed = true }
 
 [notify]
-title_info = { fg = \"$green\" }
-title_warn = { fg = \"$yellow\" }
-title_error = { fg = \"$red\" }
+title_info = { fg = \"$theme_ui_green\" }
+title_warn = { fg = \"$theme_ui_yellow\" }
+title_error = { fg = \"$theme_ui_red\" }
 
 [pick]
-border = { fg = \"$blue\" }
-active = { fg = \"$magenta\", bold = true }
-inactive = { fg = \"$fg\" }
+border = { fg = \"$theme_ui_blue\" }
+active = { fg = \"$theme_ui_magenta\", bold = true }
+inactive = { fg = \"$theme_ui_fg\" }
 
 [input]
-border = { fg = \"$blue\" }
-title = { fg = \"$fg\" }
-value = { fg = \"$fg\" }
+border = { fg = \"$theme_ui_blue\" }
+title = { fg = \"$theme_ui_fg\" }
+value = { fg = \"$theme_ui_fg\" }
 selected = { reversed = true }
 
 [cmp]
-border = { fg = \"$blue\" }
-active = { fg = \"$fg\", reversed = true }
-inactive = { fg = \"$bright_black\" }
+border = { fg = \"$theme_ui_blue\" }
+active = { fg = \"$theme_ui_fg\", reversed = true }
+inactive = { fg = \"$theme_ui_muted\" }
 
 [tasks]
-border = { fg = \"$blue\" }
-title = { fg = \"$fg\" }
-hovered = { fg = \"$magenta\", bold = true }
+border = { fg = \"$theme_ui_blue\" }
+title = { fg = \"$theme_ui_fg\" }
+hovered = { fg = \"$theme_ui_magenta\", bold = true }
 
 [filetype]
 rules = [
-  { mime = \"**/image/*\", fg = \"$yellow\" },
-  { mime = \"**/{audio,video}/*\", fg = \"$magenta\" },
-  { mime = \"**/application/{zip,rar,7z*,tar,gzip,xz,zstd,bzip*,lzma,compress,archive,cpio,arj,xar,ms-cab*}\", fg = \"$red\" },
-  { mime = \"**/application/{pdf,doc,rtf,vnd.*}\", fg = \"$cyan\" },
-  { mime = \"vfs/{absent,stale}\", fg = \"$bright_black\" },
-  { url = \"*\", is = \"orphan\", fg = \"$bright_red\" },
-  { url = \"*\", is = \"exec\", fg = \"$green\" },
-  { url = \"*\", fg = \"$fg\" },
-  { url = \"*/\", fg = \"$blue\" },
+  { mime = \"**/image/*\", fg = \"$theme_ui_yellow\" },
+  { mime = \"**/{audio,video}/*\", fg = \"$theme_ui_magenta\" },
+  { mime = \"**/application/{zip,rar,7z*,tar,gzip,xz,zstd,bzip*,lzma,compress,archive,cpio,arj,xar,ms-cab*}\", fg = \"$theme_ui_red\" },
+  { mime = \"**/application/{pdf,doc,rtf,vnd.*}\", fg = \"$theme_ui_cyan\" },
+  { mime = \"vfs/{absent,stale}\", fg = \"$theme_ui_muted\" },
+  { url = \"*\", is = \"orphan\", fg = \"$theme_ui_red\" },
+  { url = \"*\", is = \"exec\", fg = \"$theme_ui_green\" },
+  { url = \"*\", fg = \"$theme_ui_fg\" },
+  { url = \"*/\", fg = \"$theme_ui_blue\" },
 ]"
 else
   return
@@ -119,5 +119,8 @@ fi
 
 mkdir -p "$(dirname "$yazi_config")"
 if [[ ! -f "$yazi_config" ]] || [[ "$(< "$yazi_config")" != "$yazi_content" ]]; then
-  print -r -- "$yazi_content" > "$yazi_config"
+  print -r -- "$yazi_content" > "$yazi_config" || return 1
 fi
+
+# An unchanged generated file is a successful application.
+return 0

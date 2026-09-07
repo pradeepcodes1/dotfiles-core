@@ -5,6 +5,8 @@ return {
 		spec = {
 			{ "<leader>f", group = "Find" },
 			{ "<leader>m", group = "Marks" },
+			-- Keep project task execution separate from the language-specific test group.
+			{ "<leader>o", group = "Overseer" },
 			-- The f group finds things inside a project; p acts on the project itself.
 			{ "<leader>p", group = "Project" },
 			{ "<leader>g", group = "Git", mode = { "n", "x" } },

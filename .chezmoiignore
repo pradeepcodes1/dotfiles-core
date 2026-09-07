@@ -14,7 +14,11 @@ node_modules/
 __pycache__/
 **/__pycache__/
 .config/yazi/flavors/
-.config/yazi/plugins/
+# Keep downloaded packages runtime-owned while allowing local plugins to deploy.
+.config/yazi/plugins/git.yazi/
+.config/yazi/plugins/visual-pivot.yazi/
+.config/yazi/plugins/full-border.yazi/
+.config/yazi/plugins/starship.yazi/
 .config/kitty/current-theme.conf
 .config/kitty/*.bak
 

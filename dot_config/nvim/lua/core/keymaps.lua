@@ -44,10 +44,10 @@ end, { desc = "Toggle fold" })
 -- leave dapui and neotest believing they are still open, so both <leader>vc and
 -- the project reset go through this.
 local function close_panels()
-	require("ui.explorer_controller").close_all()
+	require("ui.explorer").close_all()
 	pcall(function()
 		-- Close the owning debug tab as well as its dap-ui windows.
-		require("ui.dapui").close()
+		require("ui.dap").close()
 	end)
 	pcall(function()
 		require("neotest").summary.close()
@@ -79,7 +79,8 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>fg", function()
 		local root = project_paths.project_search_root()
 		if root then
-			fff_at(root).live_grep({ cwd = root })
+			-- Put fuzzy first so project grep opens there and only cycles to regex.
+			fff_at(root).live_grep({ cwd = root, grep = { modes = { "fuzzy", "regex" } } })
 		end
 	end, { desc = "Grep project" })
 	map(
@@ -107,7 +108,7 @@ if not vim.g.nvim_preview then
 		Snacks.picker.undo()
 	end, { desc = "Find undo history" })
 	map("n", "<leader>fb", function()
-		require("ui.harpoon_buffers").open()
+		require("ui.harpoon").open()
 	end, { desc = "Find open buffers" })
 	map("n", "<leader>/", function()
 		Snacks.picker.lines()
@@ -125,10 +126,10 @@ if not vim.g.nvim_preview then
 		Snacks.picker.recent()
 	end, { desc = "Recent files" })
 	map("n", "<leader>`", function()
-		require("ui.harpoon_buffers").open()
+		require("ui.harpoon").open()
 	end, { desc = "Search open buffers" })
 	map("n", "<leader>e", function()
-		require("ui.explorer_controller").toggle()
+		require("ui.explorer").toggle()
 	end, { desc = "View: Explorer" })
 	map("n", "<leader>vc", close_panels, { desc = "View: Code (close all)" })
 end

@@ -20,18 +20,29 @@ local -a required_colors=(
 for color_name in "${required_colors[@]}"; do
   if [[ -z "${(P)color_name}" ]]; then
     [[ "$apply_reason" == "command" ]] && warn_log "theme" "Gogh theme '$_DOTFILES_THEME_NAME' is missing '$color_name'; Kitty theme unchanged"
-    return
+    return 1
   fi
 done
 
 local kitty_content="# Generated from the Gogh palette in $_DOTFILES_THEME_NAME.sh.
 foreground $fg
 background $bg
-selection_foreground $bg
-selection_background $fg
+selection_foreground $theme_ui_selection_fg
+selection_background $theme_ui_selection
 cursor $fg
 cursor_text_color $bg
-url_color $cyan
+url_color $theme_ui_cyan
+
+# UI chrome uses derived roles while color0 through color15 remain faithful to Gogh.
+active_tab_foreground $theme_ui_on_blue
+active_tab_background $theme_ui_blue
+active_tab_font_style bold
+inactive_tab_foreground $theme_ui_muted
+inactive_tab_background $theme_ui_surface
+tab_bar_background $bg
+active_border_color $theme_ui_blue
+inactive_border_color $theme_ui_border
+bell_border_color $theme_ui_yellow
 
 color0 $black
 color1 $red
@@ -53,7 +64,7 @@ color15 $bright_white"
 if [[ "$apply_reason" != "command" && -f "$current_theme_file" && -f "$state_file" \
   && "$(< "$current_theme_file")" == "$kitty_content" \
   && "$(< "$state_file")" == "$expected_state" ]]; then
-  return
+  return 0
 fi
 
 mkdir -p "$kitty_config_dir" "$state_dir"
@@ -63,7 +74,7 @@ if [[ ! -f "$current_theme_file" ]] || [[ "$(< "$current_theme_file")" != "$kitt
   if ! print -r -- "$kitty_content" > "$temp_theme_file" || ! mv -f "$temp_theme_file" "$current_theme_file"; then
     rm -f "$temp_theme_file"
     [[ "$apply_reason" == "command" ]] && warn_log "theme" "Failed to save Gogh palette for Kitty"
-    return
+    return 1
   fi
 fi
 

@@ -9,5 +9,8 @@ local eza_theme_file="$eza_config_dir/theme.yml"
 local source_theme="$eza_themes_dir/${eza_theme:-default}.yml"
 
 if [[ -f "$source_theme" ]] && ! cmp -s "$source_theme" "$eza_theme_file"; then
-  cp "$source_theme" "$eza_theme_file"
+  cp "$source_theme" "$eza_theme_file" || return 1
 fi
+
+# An unchanged generated file is a successful application.
+return 0

@@ -2,9 +2,8 @@
 local M = {}
 
 local owners = {
-	{ name = "dap_breakpoints", module = "sessions.dap_breakpoints" },
-	{ name = "snacks_explorer", module = "sessions.snacks_explorer" },
-	{ name = "dapui", module = "sessions.dapui" },
+	{ name = "dap", module = "sessions.dap" },
+	{ name = "explorer", module = "sessions.explorer" },
 }
 
 function M.capture()

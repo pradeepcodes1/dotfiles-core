@@ -1,5 +1,5 @@
--- recover Java navigation where jdtls cannot resolve import definitions directly.
--- lua/lsp/java.lua
+-- Recover Java navigation where jdtls cannot resolve import definitions directly.
+-- This stays separate from classfile URI formatting because it owns buffer mappings.
 -- Smart gd/gr for Java: falls back to workspace/symbol search on import lines
 -- where jdtls doesn't resolve textDocument/definition.
 local M = {}

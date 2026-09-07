@@ -44,7 +44,7 @@ return {
 				"<leader>vd",
 				function()
 					-- Keep the normal editing layout intact by toggling DAP UI in its own tab.
-					require("ui.dapui").toggle()
+					require("ui.dap").toggle()
 				end,
 				desc = "View: Debug",
 			},
@@ -85,13 +85,13 @@ return {
 			-- Debug-session events share the manual tab lifecycle so every entry path behaves alike.
 			local dap = require("dap")
 			dap.listeners.after.event_initialized["dapui_config"] = function()
-				require("ui.dapui").open()
+				require("ui.dap").open()
 			end
 			dap.listeners.before.event_terminated["dapui_config"] = function()
-				require("ui.dapui").close()
+				require("ui.dap").close()
 			end
 			dap.listeners.before.event_exited["dapui_config"] = function()
-				require("ui.dapui").close()
+				require("ui.dap").close()
 			end
 		end,
 	},

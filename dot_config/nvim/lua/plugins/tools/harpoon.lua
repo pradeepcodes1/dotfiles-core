@@ -48,7 +48,7 @@ return {
 				"<leader><leader>",
 				function()
 					-- Double leader keeps the combined buffer list quick without consuming Ctrl-I/Tab.
-					require("ui.harpoon_buffers").open()
+					require("ui.harpoon").open()
 				end,
 				desc = "Find buffers",
 			},

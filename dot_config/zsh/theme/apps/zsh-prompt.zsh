@@ -25,7 +25,7 @@
 # state and hook/widget ownership are initialized only once below, so a runtime
 # theme switch cannot reset command numbering or disturb Kitty's hook ordering.
 # starship reads the palette from the terminal instead, so it needs nothing here.
-typeset -g _prompt_muted_color="$prompt_path"
+typeset -g _prompt_muted_color="$theme_ui_muted"
 typeset -g _prompt_dir_color="$prompt_dir"
 typeset -g _prompt_unstaged_color="$prompt_unstaged"
 typeset -g _prompt_arrow_color="$prompt_arrow"
@@ -89,6 +89,19 @@ _prompt_precmd() {
     print -rP -- "%F{$_prompt_muted_color}⏱ ${time_str}%f"$'\n'
   fi
 
+  # Other terminals can change persisted state; refresh only this shell's consumers.
+  local persisted_theme=""
+  [[ -f "$_DOTFILES_THEME_FILE" ]] && persisted_theme="$(< "$_DOTFILES_THEME_FILE")"
+  if [[ -n "$persisted_theme" && "$persisted_theme" != "$_DOTFILES_THEME_NAME" ]]; then
+    if _load_theme_colors "$persisted_theme"; then
+      _prompt_muted_color="$theme_ui_muted"
+      _prompt_dir_color="$theme_ui_blue"
+      _prompt_unstaged_color="$theme_ui_red"
+      _prompt_arrow_color="$theme_ui_magenta"
+      source "$_theme_dir/apps/fzf.zsh"
+      source "$_theme_dir/apps/diagram.zsh"
+    fi
+  fi
   _prompt_render_active
 }
 

@@ -4,7 +4,7 @@ return {
 		"nvim-lualine/lualine.nvim",
 		config = function()
 			local cli = require("core.cli")
-			local jdt = require("lsp.jdt")
+			local jdt = require("lsp.java.classfile")
 			local project_state = require("project.state")
 			local project_paths = require("project.paths")
 			local path_util = require("core.path")
@@ -118,6 +118,25 @@ return {
 				return path
 			end
 
+			-- Each window owns its filename; duplicate basenames retain their path context.
+			local function window_label()
+				local path = vim.api.nvim_buf_get_name(0)
+				local name = vim.fs.basename(path)
+				local label = name ~= "" and name or "[No Name]"
+				if vim.bo.buftype ~= "" or jdt.is_jdt(path) then
+					label = smart_path()
+				else
+					for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+						local other = vim.api.nvim_buf_get_name(buf)
+						if vim.bo[buf].buflisted and other ~= path and vim.fs.basename(other) == name then
+							label = smart_path()
+							break
+						end
+					end
+				end
+				return label .. (vim.bo.modified and " ●" or "") .. (vim.bo.readonly and " " or "")
+			end
+
 			-- The builtin `location` component stops at the cursor; append the
 			-- buffer's line count so the position reads as "line X of Y" rather
 			-- than a number with nothing to measure against.
@@ -144,48 +163,66 @@ return {
 					lualine_theme = require("theme.lualine").build(resolved)
 				end
 
+				-- A single bottom bar owns tab navigation even when a sidebar has focus.
+				vim.o.showtabline = 0
+				vim.o.tabline = ""
 				require("lualine").setup({
 					sections = {
 						lualine_a = { "mode" },
-						lualine_b = { "branch", "diff", "diagnostics" },
-						lualine_c = { "" },
-						lualine_x = { smart_path },
-						lualine_y = { "progress" },
-						lualine_z = { location },
-					},
-					winbar = {
-						lualine_c = {
-							vim.deepcopy(breadcrumb_component),
-						},
-					},
-					inactive_winbar = {
-						lualine_c = {
-							vim.deepcopy(breadcrumb_component),
-						},
-					},
-					tabline = vim.g.nvim_preview and {} or {
-						lualine_a = {
+						lualine_b = vim.g.nvim_preview and {} or {
 							{
 								"tabs",
 								mode = 2,
 								path = 0,
 								max_length = function()
-									return vim.o.columns
+									return math.floor(vim.o.columns * 0.45)
 								end,
-								symbols = { modified = " " },
+								tabs_color = {
+									active = { fg = resolved.accents.normal, bg = resolved.selection },
+									inactive = { fg = resolved.muted, bg = resolved.section_bg },
+								},
+								symbols = { modified = " ●" },
 							},
 						},
+						lualine_c = { "branch", "diff" },
+						lualine_x = { "diagnostics" },
+						lualine_y = { { "filetype", colored = false } },
+						lualine_z = { location },
 					},
-					options = {
-						theme = lualine_theme,
-						always_show_tabline = false,
-						disabled_filetypes = {
-							statusline = statusline_disabled,
-							winbar = winbar_disabled,
+					-- Winbars identify their own buffer rather than repeating workspace status.
+					winbar = {
+						lualine_c = {
+							{ window_label, color = { fg = resolved.palette.fg, bg = resolved.palette.bg } },
+							vim.deepcopy(breadcrumb_component),
 						},
 					},
+					inactive_winbar = {
+						lualine_c = {
+							{ window_label, color = { fg = resolved.muted, bg = resolved.palette.bg } },
+							vim.deepcopy(breadcrumb_component),
+						},
+					},
+					tabline = {},
+					options = {
+						theme = lualine_theme,
+						globalstatus = true,
+						section_separators = "",
+						component_separators = "",
+						disabled_filetypes = { statusline = {}, winbar = winbar_disabled },
+					},
 				})
+				-- Disabling lualine's tabline restores its saved option, so hide it after setup.
+				vim.o.showtabline = 0
 			end
+
+			-- Older sessions may restore the former top tabline and per-window statuslines.
+			vim.api.nvim_create_autocmd("SessionLoadPost", {
+				group = vim.api.nvim_create_augroup("DotfilesStatusLayout", { clear = true }),
+				callback = function()
+					vim.o.showtabline = 0
+					vim.o.laststatus = 3
+				end,
+			})
 
 			apply()
 

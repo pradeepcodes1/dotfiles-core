@@ -5,13 +5,13 @@ local pending
 
 function M.capture()
 	local tabs = vim.api.nvim_list_tabpages()
-	local tab_states = require("ui.explorer_controller").session_state(tabs)
+	local tab_states = require("ui.explorer").session_state(tabs)
 	-- Snacks keeps tree details at runtime; the session records visibility only.
 	return { tabs = tab_states }
 end
 
 function M.stage(state)
-	-- Older sessions have no Explorer payload, and malformed extras must not break restoration.
+	-- Missing or malformed Explorer data leaves no visibility state to restore.
 	pending = type(state) == "table" and state or nil
 end
 
@@ -58,7 +58,7 @@ function M.restore(on_restored)
 
 		-- Snacks opens asynchronously, so wait before selecting the next saved tab.
 		vim.api.nvim_set_current_tabpage(tabpage)
-		require("ui.explorer_controller").restore(state, function()
+		require("ui.explorer").restore(state, function()
 			restore_tab(index + 1)
 		end)
 	end

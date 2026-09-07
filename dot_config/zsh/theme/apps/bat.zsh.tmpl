@@ -19,5 +19,8 @@ local bat_content="--theme=\"$resolved_bat_theme\""
 
 mkdir -p "$(dirname "$bat_config")"
 if [[ ! -f "$bat_config" ]] || [[ "$(< "$bat_config")" != "$bat_content" ]]; then
-  print -r -- "$bat_content" > "$bat_config"
+  print -r -- "$bat_content" > "$bat_config" || return 1
 fi
+
+# An unchanged generated file is a successful application.
+return 0

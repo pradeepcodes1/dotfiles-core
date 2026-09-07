@@ -3,8 +3,18 @@
 local opt = vim.opt
 vim.filetype.add({
 	pattern = {
-		[".*%.py%.tmpl"] = "python",
-		[".*%.toml%.tmpl"] = "toml",
+		-- Detect the rendered filename so templates inherit native syntax and ftplugins.
+		[".*%.tmpl"] = function(path, bufnr)
+			local filename = path:gsub("%.tmpl$", "")
+			local parent = vim.fs.dirname(filename)
+			local name = vim.fs.basename(filename)
+			-- Chezmoi source attributes are not part of names such as .gitconfig.
+			for _, prefix in ipairs({ "private_", "readonly_", "executable_" }) do
+				name = name:gsub("^" .. prefix, "")
+			end
+			name = name:gsub("^dot_", ".")
+			return vim.filetype.match({ filename = vim.fs.joinpath(parent, name), buf = bufnr })
+		end,
 	},
 })
 
@@ -59,7 +69,8 @@ else
 		local root = require("project.paths").current_root() or vim.fn.getcwd()
 		return vim.fn.fnamemodify(root, ":t") .. " · " .. root
 	end
-	opt.titlestring = "%t%( %M%) · %{v:lua.nvim_project_title()}"
+	-- Named workspace tabs (Diffview, Debug) keep their identity on utility buffers.
+	opt.titlestring = "%{get(t:, 'tabname', expand('%:t'))}%( %M%) · %{v:lua.nvim_project_title()}"
 end
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1

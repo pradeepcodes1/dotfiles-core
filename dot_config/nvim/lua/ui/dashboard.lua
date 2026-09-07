@@ -1,4 +1,4 @@
--- Keep dashboard behavior with the other user-interface controllers.
+-- Keep dashboard behavior behind one focused UI module.
 local M = {}
 
 function M.show()

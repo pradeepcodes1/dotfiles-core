@@ -76,7 +76,16 @@ _load_theme_colors() {
   color_file="$(_theme_color_file "$theme_name")" || return 1
 
   _reset_theme_vars
-  source "$color_file"
+  source "$color_file" || return 1
+
+  # Separate UI surfaces from ANSI slots; old imported palettes need no migration.
+  local ui_roles ui_line ui_key ui_value
+  ui_roles=$(python3 "$_theme_dir/ui-colors.py" "$bg" "$fg" "$red" "$green" "$yellow" "$blue" "$magenta" "$cyan") || return 1
+  for ui_line in "${(@f)ui_roles}"; do
+    ui_key="${ui_line%%=*}"
+    ui_value="${ui_line#*=}"
+    typeset -g "$ui_key=$ui_value"
+  done
 
   export _DOTFILES_THEME_NAME="$theme_name"
   export _DOTFILES_THEME_MODE=$(_get_theme_field "$color_file" "Mode")

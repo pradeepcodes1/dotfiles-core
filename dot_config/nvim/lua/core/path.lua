@@ -91,7 +91,7 @@ end
 ---
 --- Each root is offered in both spellings, symlink-resolved and not, because the
 --- callers compare against differently-normalized paths: project.lua realpaths
---- the buffer's file while ui/explorer_controller.lua only cleans it. Only a spelling
+--- the buffer's file while ui/explorer.lua only cleans it. Only a spelling
 --- that actually contains the file can win longest_containing(), so the extra
 --- entries are inert wherever they do not apply.
 function M.client_roots(client)

@@ -1,4 +1,4 @@
--- normalize jdt:// buffers so Java navigation and buffer labels remain readable.
+-- Normalize jdt:// classfile buffers so Java navigation and labels remain readable.
 local M = {}
 
 M.JAVA_ICON = "\xee\x9c\xb8" -- nf-md-language_java (U+E738)
