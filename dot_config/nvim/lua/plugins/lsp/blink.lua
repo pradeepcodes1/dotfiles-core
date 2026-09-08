@@ -13,19 +13,8 @@ return {
 	---@module "blink.cmp"
 	---@type blink.cmp.Config
 	opts = {
-		keymap = {
-			-- `enter` rather than `default`: <CR> accepts, and with preselect
-			-- off below it only does so once something is explicitly selected,
-			-- which is what cmp.mapping.confirm({ select = false }) meant here.
-			preset = "enter",
-			-- The home-row pair this config has always used. <C-k> is blink's
-			-- show_signature in every preset, so it has to be reclaimed.
-			["<C-k>"] = { "select_prev", "fallback" },
-			["<C-j>"] = { "select_next", "fallback" },
-			-- Present in blink's `default` preset but not in `enter`.
-			["<C-b>"] = { "scroll_documentation_up", "fallback" },
-			["<C-f>"] = { "scroll_documentation_down", "fallback" },
-		},
+		-- Completion keeps its own API shape while the choices live in the central binding file.
+		keymap = require("core.keymaps").blink,
 		completion = {
 			list = {
 				-- Nothing is selected until you move to it, and moving to it

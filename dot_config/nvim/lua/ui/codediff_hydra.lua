@@ -61,19 +61,8 @@ function M.activate()
  _s_: stage  _u_: unstage  _r_: discard
  _q_/_<Esc>_: exit
 ]],
-			heads = {
-				{ "j", diff.next_hunk, { desc = "Next hunk" } },
-				{ "k", diff.prev_hunk, { desc = "Previous hunk" } },
-				-- Control keys leave the existing Shift-j/k bindings available outside Hydra's actions.
-				{ "<C-j>", navigate_file("next"), { desc = "Next file / history commit" } },
-				{ "<C-k>", navigate_file("prev"), { desc = "Previous file / history commit" } },
-				{ "s", hunk_action("stage"), { desc = "Stage hunk" } },
-				{ "u", hunk_action("unstage"), { desc = "Unstage hunk" } },
-				{ "r", hunk_action("discard"), { desc = "Discard hunk" } },
-				-- Consume q explicitly so exiting navigation never invokes an underlying window action.
-				{ "q", function() end, { exit = true, nowait = true } },
-				{ "<Esc>", nil, { exit = true } },
-			},
+			-- Runtime actions plug into modal bindings declared in the central file.
+			heads = require("core.keymaps").codediff_hydra_heads(diff, navigate_file, hunk_action),
 		})
 		-- Leaving a diff tab must release navigation keys back to the editor.
 		vim.api.nvim_create_autocmd("TabLeave", {

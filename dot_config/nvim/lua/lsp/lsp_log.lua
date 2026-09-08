@@ -157,7 +157,8 @@ local function open(lines, all)
 	vim.bo[buf].buflisted = false -- a scratch view has no business in the tabline
 	vim.bo[buf].filetype = "log"
 	vim.bo[buf].modifiable = false
-	vim.keymap.set("n", "q", "<Cmd>close<CR>", { buffer = buf, desc = "Close LSP log" })
+	-- Scratch-window behavior is declared alongside the rest of the bindings.
+	require("core.keymaps").close_lsp_log(buf)
 	vim.cmd("normal! G") -- newest entry last, so land on it
 
 	follow(buf, path, offset, not all and ("[pid:%d]"):format(pid) or nil)

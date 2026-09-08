@@ -88,7 +88,8 @@ for name, spec in pairs({
 	PmenuThumb = { bg = theme.border },
 	QuickFixLine = { link = "Visual" },
 	MatchParen = { fg = accent, bg = theme.surface_high, bold = true },
-	Comment = { fg = comment, italic = true },
+	-- Keep comments upright so GUI and terminal renderers use a consistent shape.
+	Comment = { fg = comment, italic = false },
 	Delimiter = { fg = theme.muted },
 	Directory = { fg = theme.muted },
 	-- Symbols keep semantic colors in both Treesitter and higher-priority LSP tokens.
@@ -158,7 +159,7 @@ for name, spec in pairs({
 	DapStopped = { fg = syntax.green, bg = blend(syntax.green, p.bg, 0.18) },
 
 	SnacksDashboardDesc = { fg = p.fg },
-	SnacksDashboardFooter = { fg = comment, italic = true },
+	SnacksDashboardFooter = { fg = comment, italic = false },
 	SnacksDashboardHeader = { fg = accent },
 	SnacksDashboardIcon = { fg = syntax.cyan },
 	SnacksDashboardKey = { fg = syntax.yellow, bold = true },

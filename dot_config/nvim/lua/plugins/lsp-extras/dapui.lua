@@ -1,62 +1,15 @@
 -- keep debugger controls and panels synchronized with DAP session state.
-local function dap_action(action)
-	return function()
-		require("dap")[action]()
-	end
-end
-
 return {
 	{
 		"mfussenegger/nvim-dap",
-		keys = {
-			{
-				"<leader>dB",
-				function()
-					vim.ui.input({ prompt = "Breakpoint condition: " }, function(condition)
-						if condition and vim.trim(condition) ~= "" then
-							require("dap").set_breakpoint(condition)
-						end
-					end)
-				end,
-				desc = "Conditional breakpoint",
-			},
-			{ "<leader>db", dap_action("toggle_breakpoint"), desc = "Toggle breakpoint" },
-			{ "<leader>dc", dap_action("continue"), desc = "Continue / Start" },
-			{ "<leader>do", dap_action("step_over"), desc = "Step over" },
-			{ "<leader>di", dap_action("step_into"), desc = "Step into" },
-			{ "<leader>dO", dap_action("step_out"), desc = "Step out" },
-			{
-				"<leader>dr",
-				function()
-					require("dap").repl.toggle()
-				end,
-				desc = "Toggle REPL",
-			},
-			{ "<leader>dl", dap_action("run_last"), desc = "Run last" },
-			{ "<leader>dx", dap_action("terminate"), desc = "Terminate" },
-		},
+		-- DAP controls are declared centrally while still loading DAP on demand.
+		keys = require("core.keymaps").plugin.dap,
 	},
 	{
 		"rcarriga/nvim-dap-ui",
 		dependencies = { "mfussenegger/nvim-dap", "nvim-neotest/nvim-nio" },
-		keys = {
-			{
-				"<leader>vd",
-				function()
-					-- Keep the normal editing layout intact by toggling DAP UI in its own tab.
-					require("ui.dap").toggle()
-				end,
-				desc = "View: Debug",
-			},
-			{
-				"<leader>de",
-				function()
-					require("dapui").eval()
-				end,
-				mode = { "n", "v" },
-				desc = "Eval expression",
-			},
-		},
+		-- DAP UI bindings share the central registry with the core DAP controls.
+		keys = require("core.keymaps").plugin.dapui,
 		config = function()
 			local dapui = require("dapui")
 			dapui.setup({

@@ -149,11 +149,8 @@ end
 
 --- Set buffer-local gd/gr overrides for Java buffers with jdtls.
 function M.on_attach(bufnr)
-	local function nmap(lhs, rhs, desc)
-		vim.keymap.set("n", lhs, rhs, { buffer = bufnr, desc = "LSP/Java: " .. desc })
-	end
-	nmap("gd", smart_definition, "[G]oto [D]efinition (import-aware)")
-	nmap("grr", smart_references, "[G]oto [R]eferences (import-aware)")
+	-- Apply Java's overrides only after jdtls has attached to this buffer.
+	require("core.keymaps").java_on_attach(bufnr, smart_definition, smart_references)
 end
 
 return M

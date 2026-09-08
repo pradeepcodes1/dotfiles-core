@@ -12,20 +12,21 @@ return {
 	opts = {
 		-- Opening the sidebar crosses buffers twice; do not draw a cursor trail
 		-- through the Symbols pane while that happens.
-		smear_between_buffers = false,
+		smear_between_buffers = true,
+		smear_between_neighbor_lines = true,
+		scroll_buffer_space = true,
 
-		-- Smoother cursor movement
-		stiffness = 0.8, -- Higher = less lag, more responsive (0.6-1.0)
-		trailing_stiffness = 0.9, -- How fast the trail follows
-		stiffness_insert_mode = 0.8,
-		trailing_stiffness_insert_mode = 0.8,
-		damping = 0.95, -- Higher = less overshoot/bounce
+		-- A fast head with a slower tail approximates Neovide's short, fluid stretch.
+		stiffness = 0.8,
+		trailing_stiffness = 0.6,
+		stiffness_insert_mode = 0.7,
+		trailing_stiffness_insert_mode = 0.7,
+		damping = 0.95,
 		damping_insert_mode = 0.95,
-
-		-- Distance from cursor before smear effect starts
 		distance_stop_animating = 0.5,
+		time_interval = 7,
 
-		-- Cap how far the trail can stretch on big jumps (default 25)
+		-- Bound long jumps so window navigation stays closer to Neovide's compact trail.
 		max_length = 8,
 	},
 }

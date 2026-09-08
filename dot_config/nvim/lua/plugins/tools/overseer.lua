@@ -10,12 +10,8 @@ return {
 		"OverseerTaskAction",
 		"OverseerToggle",
 	},
-	keys = {
-		{ "<leader>or", "<Cmd>OverseerRun<CR>", desc = "Overseer: Run task" },
-		{ "<leader>ot", "<Cmd>OverseerToggle<CR>", desc = "Overseer: Toggle tasks" },
-		{ "<leader>os", "<Cmd>OverseerShell<CR>", desc = "Overseer: Run shell command" },
-		{ "<leader>oa", "<Cmd>OverseerTaskAction<CR>", desc = "Overseer: Task action" },
-	},
+	-- Lazy.nvim reads the shared group without duplicating binding ownership here.
+	keys = require("core.keymaps").plugin.overseer,
 	---@module "overseer"
 	---@type overseer.SetupOpts
 	opts = {},

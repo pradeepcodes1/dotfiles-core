@@ -13,59 +13,6 @@ return {
 		})
 		harpoon:extend(require("harpoon.extensions").builtins.highlight_current_file())
 	end,
-	keys = function()
-		local keys = {
-			{
-				"<leader>m",
-				function()
-					require("harpoon"):list():add()
-				end,
-				desc = "Marks: Add current file",
-			},
-			{
-				"<leader>mm",
-				function()
-					local harpoon = require("harpoon")
-					harpoon.ui:toggle_quick_menu(harpoon:list())
-				end,
-				desc = "Marks: Open Harpoon menu",
-			},
-			{
-				"<leader>mp",
-				function()
-					require("harpoon"):list():prev()
-				end,
-				desc = "Marks: Previous file",
-			},
-			{
-				"<leader>mn",
-				function()
-					require("harpoon"):list():next()
-				end,
-				desc = "Marks: Next file",
-			},
-			{
-				"<leader><leader>",
-				function()
-					-- Double leader opens Harpoon's own editable list of marked files.
-					local harpoon = require("harpoon")
-					harpoon.ui:toggle_quick_menu(harpoon:list())
-				end,
-				desc = "Marks: Open Harpoon menu",
-			},
-		}
-
-		for index = 1, 9 do
-			local slot = index
-			table.insert(keys, {
-				"<leader>" .. slot,
-				function()
-					require("harpoon"):list():select(slot)
-				end,
-				desc = "Harpoon: Go to file " .. slot,
-			})
-		end
-
-		return keys
-	end,
+	-- Generate numbered marks centrally while retaining lazy plugin activation.
+	keys = require("core.keymaps").harpoon,
 }

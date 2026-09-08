@@ -44,9 +44,7 @@ return {
 	end,
 	init = function()
 		-- Match the Git-hunk prefix in read-only revision buffers and explorer panes too.
-		vim.keymap.set("n", "<leader>h", function()
-			require("ui.codediff_hydra").activate()
-		end, { desc = "CodeDiff navigation", nowait = true })
+		require("core.keymaps").codediff_navigation()
 		local group = vim.api.nvim_create_augroup("ProjectCodeDiffTabs", { clear = true })
 		-- Recheck hidden diff tabs when revisited, as well as the visible tab after resizing.
 		vim.api.nvim_create_autocmd({ "VimResized", "TabEnter" }, {

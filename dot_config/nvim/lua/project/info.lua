@@ -129,7 +129,7 @@ function M.info()
 		vim.api.nvim_buf_set_name(buf, "Project Info")
 		-- `q` closes read-only panes here the way it closes a preview window;
 		-- buffer-local, so macro recording is untouched everywhere else.
-		vim.keymap.set("n", "q", "<C-w>c", { buffer = buf, desc = "Close project info" })
+		require("core.keymaps").close_project_info(buf)
 
 		vim.cmd("botright vsplit")
 		vim.api.nvim_win_set_buf(0, buf)

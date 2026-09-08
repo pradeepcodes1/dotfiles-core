@@ -33,28 +33,8 @@ return {
 		dashboard = {
 			enabled = not vim.g.nvim_preview,
 			preset = {
-				keys = {
-					-- Let new folders enter project mode before they have a saved session.
-					{
-						icon = " ",
-						key = "o",
-						desc = "Open Project",
-						action = function()
-							require("project.actions.pickers").open_directory()
-						end,
-					},
-					{ icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
-					{
-						icon = " ",
-						key = "r",
-						desc = "Recent Files",
-						action = function()
-							Snacks.picker.recent()
-						end,
-					},
-					{ icon = "", key = "p", desc = "Projects", action = "<leader>pp" },
-					{ icon = " ", key = "q", desc = "Quit", action = ":qa" },
-				},
+				-- Dashboard shortcuts are displayed here but owned by the central binding file.
+				keys = require("core.keymaps").snacks_dashboard,
 			},
 			sections = {
 				{ section = "keys", gap = 1, padding = 1 },
@@ -91,10 +71,7 @@ return {
 			-- directions, and <C-.> needs the kitty keyboard protocol to
 			-- arrive at all, which Neovim turns on under TERM=xterm-kitty --
 			-- <a-i> is the fallback anywhere it does not.
-			win = {
-				input = { keys = { ["<c-.>"] = { "toggle_ignored", mode = { "i", "n" } } } },
-				list = { keys = { ["<c-.>"] = "toggle_ignored" } },
-			},
+			win = require("core.keymaps").snacks_picker_keys,
 			sources = {
 				-- Buffers use Snacks defaults now that Harpoon marks have their own menu.
 				-- hidden has to be set per-source: a source's own config merges
@@ -127,25 +104,17 @@ return {
 					},
 					win = {
 						list = {
-							keys = {
-								-- Ignored files are the only thing left worth toggling
-								-- now that hidden is on by default, so `.` is a second,
-								-- more reachable spelling of Snacks' own I. Both stay
-								-- bound, as does H for turning hidden back off. List
-								-- window only: the explorer's other window is the live
-								-- filter prompt, where a `.` has to stay a literal
-								-- character. This overrides the Snacks default of
-								-- `.` = explorer_focus (set_cwd to the directory under
-								-- the cursor), leaving that unbound and its inverse
-								-- `<BS>` still in place.
-								["."] = "toggle_ignored",
-								["q"] = "close_explorer",
-								["<C-q>"] = "close_explorer",
-								["Q"] = "close_explorer",
-								["<leader>x"] = "close_explorer",
-								["<C-w>c"] = "close_explorer",
-								["<C-w>q"] = "close_explorer",
-							},
+							keys = require("core.keymaps").snacks_explorer_keys,
+							-- Ignored files are the only thing left worth toggling
+							-- now that hidden is on by default, so `.` is a second,
+							-- more reachable spelling of Snacks' own I. Both stay
+							-- bound, as does H for turning hidden back off. List
+							-- window only: the explorer's other window is the live
+							-- filter prompt, where a `.` has to stay a literal
+							-- character. This overrides the Snacks default of
+							-- `.` = explorer_focus (set_cwd to the directory under
+							-- the cursor), leaving that unbound and its inverse
+							-- `<BS>` still in place.
 						},
 					},
 				},
@@ -202,58 +171,6 @@ return {
 			toggles = { dim = false },
 		},
 	},
-	keys = {
-		{
-			"<leader>z",
-			function()
-				Snacks.zen()
-			end,
-			desc = "Toggle Zen Mode",
-		},
-		{
-			"<leader>.",
-			function()
-				Snacks.scratch()
-			end,
-			desc = "Toggle Scratch Buffer",
-		},
-		{
-			"<leader>>",
-			function()
-				Snacks.scratch.select()
-			end,
-			desc = "Select Scratch Buffer",
-		},
-		-- Git. Rooted on the project when there is one; current_root() falls
-		-- back to the buffer's own root outside project mode, so these work
-		-- anywhere rather than being silent no-ops like the Kitty tools.
-		{
-			"<leader>gg",
-			function()
-				Snacks.lazygit({ cwd = require("project.paths").current_root() })
-			end,
-			desc = "Lazygit",
-		},
-		{
-			"<leader>gf",
-			function()
-				Snacks.picker.git_status({ cwd = require("project.paths").current_root() })
-			end,
-			desc = "Git changed files",
-		},
-		{
-			"<leader>gp",
-			function()
-				Snacks.picker.gh_pr({ cwd = require("project.paths").current_root() })
-			end,
-			desc = "GitHub pull requests",
-		},
-		{
-			"<leader>gi",
-			function()
-				Snacks.picker.gh_issue({ cwd = require("project.paths").current_root() })
-			end,
-			desc = "GitHub issues",
-		},
-	},
+	-- Keep lazy-loading metadata beside the rest of the user's bindings.
+	keys = require("core.keymaps").plugin.snacks,
 }

@@ -41,10 +41,11 @@ function M.open_directory()
 				if not vim.api.nvim_buf_is_valid(buffer) then
 					return
 				end
-				vim.keymap.set("t", "<c-o>", function()
+				-- Install the transient terminal binding from the central keymap module.
+				require("core.keymaps").yazi_project_confirm(buffer, function()
 					confirmed = true
 					api:emit_to_yazi({ "quit" })
-				end, { buffer = buffer, desc = "Open current directory as project" })
+				end)
 				vim.notify("Yazi: enter the project directory, then Ctrl-o to open; q to cancel")
 			end),
 			yazi_closed_successfully = function(_, _, state)
@@ -179,10 +180,8 @@ function M.picker_scope(root)
 				return false
 			end
 		end,
-		win = {
-			input = { keys = { ["<c-.>"] = { "toggle_external", mode = { "i", "n" } } } },
-			list = { keys = { ["<c-.>"] = "toggle_external" } },
-		},
+		-- Picker-local controls are shared with the central binding registry.
+		win = require("core.keymaps").project_picker_keys,
 	}
 end
 

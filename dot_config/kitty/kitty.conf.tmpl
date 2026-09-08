@@ -10,18 +10,19 @@
 include themes.conf
 
 # ── Font and text rendering ───────────────────────────────────────────────
-font_family       JetBrainsMono NF
-font_size         19
+# Use a visibly different installed Nerd Font to verify Kitty honors family selection.
+font_family       Maple Mono NF
+font_size         15
 # Ligatures on, but broken apart under the cursor so you see real characters.
-disable_ligatures cursor
+# disable_ligatures cursor
 {{- if eq .chezmoi.os "darwin" }}
-# macOS renders thin at this size; thicken strokes.
-text_composition_strategy 1.7 0
+# Use Kitty's native macOS composition so light text retains its intended contrast.
+text_composition_strategy platform
 {{- end }}
 # Preserve color hues when correcting contrast; a bare number instead forces black or white.
-text_fg_override_threshold 4.5 ratio
-# Dim inactive splits so the focused one is obvious.
-inactive_text_alpha 0.75
+#text_fg_override_threshold 4.5 ratio
+# Keep text fully legible when the Kitty window or one of its splits loses focus.
+inactive_text_alpha 1.0
 
 # ── Performance ───────────────────────────────────────────────────────────
 # Default repaint_delay is 10ms (~100fps). Lower it for ProMotion displays.
@@ -31,14 +32,14 @@ sync_to_monitor yes
 
 # ── Window chrome and layout ──────────────────────────────────────────────
 hide_window_decorations no
-window_padding_width    8
+window_padding_width    4
 window_border_width     1pt
 draw_minimal_borders    yes
 # "splits" gives tmux-style dynamic splitting; "stack" is the zoom target.
 enabled_layouts         splits:split_axis=horizontal,stack
 confirm_os_window_close 2
 {{- if eq .chezmoi.os "darwin" }}
-macos_quit_when_last_window_closed no
+macos_quit_when_last_window_closed yes
 # macos_titlebar_color               background
 {{- end }}
 
@@ -120,17 +121,11 @@ bell_on_tab          "🔔 "
 map super+backslash       launch --location=vsplit --cwd=current
 map super+shift+backslash launch --location=hsplit --cwd=current
 
-# Ctrl+hjkl, the same chord family Neovim uses for its own splits, so one
-# habit crosses the terminal/editor boundary. Kitty grabs these before the
-# program in the window sees them, which is the cost: Neovim's Ctrl+hjkl
-# splits and readline's ctrl+h (backward-delete-char), ctrl+k (kill-line) and
-# ctrl+l (clear-screen) no longer reach the child. Backspace still deletes and
-# Super+c below still clears -- `send_key` writes to the child directly, so it
-# is not intercepted by these maps.
-map ctrl+h neighboring_window left
-map ctrl+j neighboring_window down
-map ctrl+k neighboring_window up
-map ctrl+l neighboring_window right
+# Keep plain Ctrl+hjkl available to Neovim and shells; add Super for Kitty splits.
+map super+ctrl+h neighboring_window left
+map super+ctrl+j neighboring_window down
+map super+ctrl+k neighboring_window up
+map super+ctrl+l neighboring_window right
 
 map ctrl+shift+h move_window left
 map ctrl+shift+j move_window down

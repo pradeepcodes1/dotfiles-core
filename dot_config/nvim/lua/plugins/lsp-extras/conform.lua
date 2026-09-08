@@ -3,16 +3,8 @@ return {
 	{
 		"stevearc/conform.nvim",
 		event = "BufWritePre",
-		keys = {
-			{
-				"<leader>lf",
-				function()
-					require("conform").format({ async = true, lsp_format = "fallback" })
-				end,
-				mode = { "n", "x" },
-				desc = "LSP: Format buffer or selection",
-			},
-		},
+		-- Formatting stays lazy-loaded even though its binding is defined centrally.
+		keys = require("core.keymaps").plugin.conform,
 		cmd = "ConformInfo",
 		opts = {
 			formatters_by_ft = {
