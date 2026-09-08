@@ -28,12 +28,53 @@ end
 
 M.session_picker = session_picker
 
-function M.open_session_window(session_name)
+function M.open_directory()
+	local confirmed = false
+	-- Keep project selection local to this Yazi window; ordinary file-manager exits still cancel.
+	require("yazi").yazi({
+		keymaps = false,
+		change_neovim_cwd_on_close = false,
+		open_file_function = function() end,
+		hooks = {
+			-- Yazi reports readiness from a fast event; keymaps and notifications need the main loop.
+			on_yazi_ready = vim.schedule_wrap(function(buffer, _, api)
+				if not vim.api.nvim_buf_is_valid(buffer) then
+					return
+				end
+				vim.keymap.set("t", "<c-o>", function()
+					confirmed = true
+					api:emit_to_yazi({ "quit" })
+				end, { buffer = buffer, desc = "Open current directory as project" })
+				vim.notify("Yazi: enter the project directory, then Ctrl-o to open; q to cancel")
+			end),
+			yazi_closed_successfully = function(_, _, state)
+				if not confirmed or not state.last_directory then
+					return
+				end
+				local root = path_util.normalize(state.last_directory.filename)
+				if not root or vim.fn.isdirectory(root) ~= 1 then
+					vim.notify("Project directory does not exist", vim.log.levels.WARN)
+					return
+				end
+				-- The destination owns session creation so this window keeps its cwd and buffers.
+				vim.schedule(function()
+					M.open_session_window(root, true)
+				end)
+			end,
+			-- File selections are not project confirmations, including multi-select opens.
+			yazi_opened_multiple_files = function() end,
+		},
+	}, vim.fn.getcwd())
+end
+
+function M.open_session_window(session_name, directory)
 	if type(session_name) ~= "string" or session_name == "" then
 		return false
 	end
 
-	local root = session_name:match("^([^|]+)")
+	-- Directory launches can create a session; named launches only restore one.
+	local marker = directory and "NVIM_PROJECT_DIRECTORY" or "NVIM_PROJECT_SESSION"
+	local root = directory and session_name or session_name:match("^([^|]+)")
 	if not root or vim.fn.isdirectory(root) ~= 1 then
 		root = vim.uv.cwd()
 	end
@@ -53,14 +94,14 @@ function M.open_session_window(session_name)
 			end
 			local executable = vim.uv.fs_realpath(vim.fn.exepath("neovide")) or vim.fn.exepath("neovide")
 			local bundle = executable:match("^(.*%.app)/Contents/MacOS/") or "Neovide"
-			command = { "open", "-na", bundle, "--env", "NVIM_PROJECT_SESSION=" .. session_name }
+			command = { "open", "-na", bundle, "--env", marker .. "=" .. session_name }
 			opts = {}
 		else
 			-- There is no bundle to route through elsewhere: every `neovide` call is
 			-- already a separate process, so launch it directly and hand the session
 			-- over in the environment, exactly as the Kitty branch below does.
 			command = { "neovide", "--no-fork", "--", "--cmd", "cd " .. vim.fn.fnameescape(root) }
-			opts = { env = { NVIM_PROJECT_SESSION = session_name } }
+			opts = { env = { [marker] = session_name } }
 		end
 
 		return cli.detach("open project in a new Neovide window", command, opts)
@@ -72,7 +113,7 @@ function M.open_session_window(session_name)
 
 	local title = ("Project · %s"):format(vim.fn.fnamemodify(root, ":t"))
 	return cli.detach("open project in a new Kitty window", cli.kitty_argv(root, title, "nvim"), {
-		env = { NVIM_PROJECT_SESSION = session_name },
+		env = { [marker] = session_name },
 	})
 end
 

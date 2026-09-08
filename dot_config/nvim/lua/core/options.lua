@@ -69,7 +69,7 @@ else
 		local root = require("project.paths").current_root() or vim.fn.getcwd()
 		return vim.fn.fnamemodify(root, ":t") .. " · " .. root
 	end
-	-- Named workspace tabs (Diffview, Debug) keep their identity on utility buffers.
+	-- Named workspace tabs (CodeDiff, Debug) keep their identity on utility buffers.
 	opt.titlestring = "%{get(t:, 'tabname', expand('%:t'))}%( %M%) · %{v:lua.nvim_project_title()}"
 end
 vim.g.loaded_netrw = 1

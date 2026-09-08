@@ -4,6 +4,8 @@ local M = {}
 local owners = {
 	{ name = "dap", module = "sessions.dap" },
 	{ name = "explorer", module = "sessions.explorer" },
+	-- Rebuild diff tabs after ordinary tabs and their sidebars have been restored.
+	{ name = "codediff", module = "sessions.codediff" },
 }
 
 function M.capture()

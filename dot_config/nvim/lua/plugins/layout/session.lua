@@ -36,6 +36,8 @@ return {
 		-- on BufEnter/LspAttach (issue #129); that plugin is gone and cwd is now
 		-- stable, so flipping this to true is safe if startup restore is wanted.
 		auto_restore = false,
+		-- An intentionally empty workspace is still a saved project, including after reset.
+		auto_delete_empty_sessions = false,
 		-- File arguments normally disable AutoSession saving. The project prompt
 		-- opts an instance back in only after its cwd has moved to the project.
 		args_allow_files_auto_save = function()
@@ -45,12 +47,16 @@ return {
 			function()
 				-- The debug tab is reconstructed from custom data and must not also enter the native session.
 				require("ui.dap").suspend_for_save()
+				-- Diff tabs also carry runtime-only state and must be recreated by commands.
+				require("sessions.codediff").suspend_for_save()
 			end,
 		},
 		post_save_cmds = {
 			function()
 				-- Manual saves preserve the live UI after the native session snapshot is complete.
 				require("ui.dap").resume_after_save()
+				-- Reopen views after a manual save, while exits leave that work to the next restore.
+				require("sessions.codediff").resume_after_save()
 			end,
 		},
 		pre_cwd_changed_cmds = {

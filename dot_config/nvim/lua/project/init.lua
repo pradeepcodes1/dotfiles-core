@@ -10,6 +10,29 @@ function M.setup()
 		desc = "Restore a project explicitly launched by the project picker",
 		once = true,
 		callback = function()
+			-- Create directory-selected projects in their own process without changing the launcher's workspace.
+			local directory = vim.env.NVIM_PROJECT_DIRECTORY
+			vim.env.NVIM_PROJECT_DIRECTORY = nil
+			if directory and directory ~= "" then
+				vim.env.NVIM_PROJECT_SESSION = nil
+				vim.schedule(function()
+					local root = require("core.path").normalize(directory)
+					if not root or vim.fn.isdirectory(root) ~= 1 then
+						vim.notify("Project directory does not exist", vim.log.levels.ERROR)
+						return
+					end
+					vim.cmd({ cmd = "cd", args = { root }, mods = { noautocmd = true } })
+					local sessions = require("auto-session")
+					if project_state.session_exists(root) then
+						sessions.restore_session(nil, { show_message = false })
+					else
+						vim.cmd.enew()
+						project_state.set_open(true, root)
+						sessions.save_session(nil, { show_message = false })
+					end
+				end)
+				return
+			end
 			-- Only picker-launched instances receive this marker, so ordinary files stay file-only.
 			local requested_session = vim.env.NVIM_PROJECT_SESSION
 			if requested_session and requested_session ~= "" then

@@ -2,7 +2,6 @@
 local map = vim.keymap.set
 local problems = require("lsp.problems")
 local project_pickers = require("project.actions.pickers")
-local project_deleter = require("project.actions.deleter")
 local project_info = require("project.info")
 local project_reset = require("project.actions.reset")
 local project_state = require("project.state")
@@ -73,7 +72,8 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>ff", function()
 		local root = project_paths.file_search_root()
 		if root then
-			fff_at(root).find_files({ cwd = root })
+			-- Reset and normal file search share the same preview defaults and toggle.
+			require("ui.find_files").open(root)
 		end
 	end, { desc = "Find Files" })
 	map("n", "<leader>fg", function()
@@ -108,7 +108,8 @@ if not vim.g.nvim_preview then
 		Snacks.picker.undo()
 	end, { desc = "Find undo history" })
 	map("n", "<leader>fb", function()
-		require("ui.harpoon").open()
+		-- Use the standard buffer picker; Harpoon has its own menu.
+		Snacks.picker.buffers()
 	end, { desc = "Find open buffers" })
 	map("n", "<leader>/", function()
 		Snacks.picker.lines()
@@ -126,7 +127,8 @@ if not vim.g.nvim_preview then
 		Snacks.picker.recent()
 	end, { desc = "Recent files" })
 	map("n", "<leader>`", function()
-		require("ui.harpoon").open()
+		-- Use the standard buffer picker; Harpoon has its own menu.
+		Snacks.picker.buffers()
 	end, { desc = "Search open buffers" })
 	map("n", "<leader>e", function()
 		require("ui.explorer").toggle()
@@ -206,7 +208,8 @@ end
 if not vim.g.nvim_preview then
 	-- Keep project restoration behind one explicit picker instead of inferring it from the current file.
 	map("n", "<leader>pp", project_pickers.pick_session, { desc = "Project: Switch" })
-	map("n", "<leader>pd", project_deleter.delete_session, { desc = "Project: Delete session" })
+	-- Open folders through the same Yazi chooser used by the dashboard.
+	map("n", "<leader>po", project_pickers.open_directory, { desc = "Project: Open directory in new window" })
 	map("n", "<leader>pi", project_info.info, { desc = "Project: Info" })
 	map("n", "<leader>pl", function()
 		require("lsp.project_lsp").toggle()
@@ -242,43 +245,30 @@ end
 map("i", "<A-Left>", "<C-o>b", opts) -- back one word
 map("i", "<A-Right>", "<C-o>w", opts) -- forward one word
 
-local function is_diffview_open()
-	for _, win in ipairs(vim.api.nvim_list_wins()) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
-		if ft == "DiffviewFiles" or ft == "DiffviewFileHistory" then
-			return true
+-- CodeDiff toggles its current view; only close when this tab belongs to it.
+-- Reuse the whole-review tab instead of toggling it closed or opening another copy.
+map("n", "<leader>gD", function()
+	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+		if vim.t[tab].codediff_mode == "explorer" then
+			vim.api.nvim_set_current_tabpage(tab)
+			return
 		end
 	end
-	return false
-end
-
-local function diffview_review()
-	vim.cmd("DiffviewOpen")
-end
-
-local function diffview_file()
-	vim.cmd("DiffviewOpen -- %")
-	vim.cmd("DiffviewToggleFiles")
-end
-
-local function diffview_close()
-	if is_diffview_open() then
-		vim.cmd("DiffviewClose")
+	vim.cmd("CodeDiff")
+end, { desc = "CodeDiff review" })
+map("n", "<leader>gd", "<cmd>CodeDiff file HEAD<CR>", { desc = "CodeDiff current file" })
+map("n", "<leader>gc", function()
+	if vim.t.codediff_view then
+		vim.cmd("CodeDiff")
 	end
-end
-
-map("n", "<leader>gD", diffview_review, { desc = "Diffview review" })
-map("n", "<leader>gd", diffview_file, { desc = "Diffview current file" })
-map("n", "<leader>gc", diffview_close, { desc = "Diffview close" })
+end, { desc = "CodeDiff close" })
 map("n", "<leader>gh", function()
-	local file = vim.api.nvim_buf_get_name(0)
-	if file ~= "" then
-		vim.cmd("DiffviewFileHistory " .. vim.fn.fnameescape(file))
+	if vim.api.nvim_buf_get_name(0) ~= "" then
+		vim.cmd("CodeDiff history %")
 	end
 end, { desc = "Git file history" })
--- A colon mapping supplies the actual visual range to Diffview's line history.
-map("x", "<leader>gh", ":DiffviewFileHistory<CR>", { desc = "Git selected-line history" })
+-- Keep the visual range so history follows only the selected lines.
+map("x", "<leader>gh", ":CodeDiff history<CR>", { desc = "Git selected-line history" })
 
 map("n", "<leader>Q", "<cmd>qa<CR>", {
 	noremap = true,

@@ -56,3 +56,9 @@
 .config/yazi/flavors/kanagawa-lotus.yazi
 .config/yazi/flavors/gruvbox-dark.yazi
 .config/yazi/flavors/everforest-medium.yazi
+
+# CodeDiff replaces the old plugin spec so both diff plugins cannot load together.
+.config/nvim/lua/plugins/vcs/diffview.lua
+
+# Remove the retired combined Harpoon and buffer picker from managed installations.
+.config/nvim/lua/ui/harpoon.lua

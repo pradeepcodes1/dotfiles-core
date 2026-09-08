@@ -41,6 +41,16 @@ function M.reset()
 		return false
 	end
 
+	-- Tear down diff ownership before collapsing tabs so reset cannot leave a phantom diff view.
+	local diffs = package.loaded["codediff.ui.lifecycle"]
+	if diffs then
+		for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
+			if diffs.get_session(tab) and not diffs.close(tab) then
+				return false
+			end
+		end
+	end
+
 	close_windows()
 
 	local kept = 0
@@ -60,7 +70,10 @@ function M.reset()
 		vim.notify(("Kept %d modified buffer%s"):format(kept, kept == 1 and "" or "s"), vim.log.levels.WARN)
 	end
 
-	Snacks.picker.files({ cwd = root })
+	-- Layout cleanup must retain project identity even when it removes every file buffer.
+	vim.cmd({ cmd = "cd", args = { root }, mods = { noautocmd = true } })
+	require("project.state").set_open(true, root)
+	require("ui.find_files").open(root)
 	return true
 end
 

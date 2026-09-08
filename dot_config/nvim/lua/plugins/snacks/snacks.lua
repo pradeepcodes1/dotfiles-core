@@ -20,7 +20,7 @@ return {
 			enabled = true,
 			timeout = 1500,
 			width = { min = 10, max = 0.4 },
-			style = "minimal",
+			style = "compact",
 			top_down = true,
 			icons = {
 				error = " ",
@@ -34,6 +34,15 @@ return {
 			enabled = not vim.g.nvim_preview,
 			preset = {
 				keys = {
+					-- Let new folders enter project mode before they have a saved session.
+					{
+						icon = " ",
+						key = "o",
+						desc = "Open Project",
+						action = function()
+							require("project.actions.pickers").open_directory()
+						end,
+					},
 					{ icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
 					{
 						icon = " ",
@@ -87,23 +96,7 @@ return {
 				list = { keys = { ["<c-.>"] = "toggle_ignored" } },
 			},
 			sources = {
-				buffers = {
-					-- Marked buffers lead in slot order; idx preserves last-used order for the rest.
-					format = require("ui.harpoon").format,
-					transform = require("ui.harpoon").transform,
-					on_show = require("ui.harpoon").show_relative_numbers,
-					-- Buffer switching starts on the results so navigation is immediately in Normal mode.
-					focus = "list",
-					-- Apply Harpoon ordering immediately, before the user types a filter.
-					matcher = { sort_empty = true },
-					sort = { fields = { "harpooned", "harpoon_slot", "score:desc", "idx" } },
-					-- Swallow Tab locally so it cannot select or relaunch the globally mapped picker.
-					actions = { ignore_tab = function() end },
-					win = {
-						input = { keys = { ["<Tab>"] = "ignore_tab", ["<S-Tab>"] = false } },
-						list = { keys = { ["<Tab>"] = "ignore_tab", ["<S-Tab>"] = false } },
-					},
-				},
+				-- Buffers use Snacks defaults now that Harpoon marks have their own menu.
 				-- hidden has to be set per-source: a source's own config merges
 				-- *after* the global picker opts (config/init.lua orders them
 				-- defaults, user, source, call-site), so a top-level

@@ -47,10 +47,11 @@ return {
 			{
 				"<leader><leader>",
 				function()
-					-- Double leader keeps the combined buffer list quick without consuming Ctrl-I/Tab.
-					require("ui.harpoon").open()
+					-- Double leader opens Harpoon's own editable list of marked files.
+					local harpoon = require("harpoon")
+					harpoon.ui:toggle_quick_menu(harpoon:list())
 				end,
-				desc = "Find buffers",
+				desc = "Marks: Open Harpoon menu",
 			},
 		}
 
