@@ -11,7 +11,8 @@ return {
 				color = "pink",
 				invoke_on_body = true,
 				-- Keep the hint on Hydra's current floating-window configuration API.
-				hint = { float_opts = { border = "rounded" } },
+				-- Keep resize controls modal without showing help until it is needed.
+				hint = { float_opts = { border = "rounded" }, hide_on_load = true },
 			},
 			hint = [[
  Split resize

@@ -20,6 +20,8 @@ return {
 				"go",
 				"proto",
 				"mermaid",
+				-- Swift gets the same syntax highlighting, indentation, and text objects as other source files.
+				"swift",
 			})
 
 			vim.api.nvim_create_autocmd("FileType", {

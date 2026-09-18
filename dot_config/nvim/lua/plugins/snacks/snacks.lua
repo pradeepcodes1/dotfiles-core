@@ -18,6 +18,11 @@ return {
 		bigfile = { enabled = true },
 		notifier = {
 			enabled = true,
+			-- FFF already refuses the unsafe home scan; do not surface that expected refusal.
+			filter = function(notification)
+				return notification.msg
+					~= "FFF: Refusing to index home directory. Set enable_home_dir_scanning = true to override."
+			end,
 			timeout = 1500,
 			width = { min = 10, max = 0.4 },
 			style = "compact",

@@ -2,7 +2,7 @@
 # summarize remote repositories where the full local Git UI is unavailable.
 # One-screen summary of a git repository's current state.
 #
-# Bound to Cmd+g inside an ssh session, where Lazygit is not an option: kitty
+# Bound to Ctrl+g inside an ssh session, where Lazygit is not an option: kitty
 # copies this to ~/.local/bin/git-overview on the remote (see
 # ~/.config/kitty/ssh.conf) and the binding types the path into the session, so
 # it runs in whatever directory that shell is in.

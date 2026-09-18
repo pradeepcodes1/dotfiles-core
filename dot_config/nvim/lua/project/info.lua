@@ -4,6 +4,7 @@ local project_paths = require("project.paths")
 local project_state = require("project.state")
 local path_util = require("core.path")
 local cli = require("core.cli")
+local info_namespace = vim.api.nvim_create_namespace("project_info")
 
 --- The window holding a previous M.info() render, if one is still open.
 local function info_window()
@@ -14,8 +15,7 @@ local function info_window()
 	end
 end
 
---- Sized to the widest line it holds, since these are paths and tables read
---- across rather than down. Recomputed as the async blocks land.
+--- Sized to the content it holds so long project paths remain readable.
 local function fit_info_width(buf)
 	local window = info_window()
 	if not window then
@@ -23,64 +23,40 @@ local function fit_info_width(buf)
 	end
 
 	local width = 0
-	for _, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+	for _, line in ipairs(lines) do
 		width = math.max(width, vim.fn.strdisplaywidth(line))
 	end
-	vim.api.nvim_win_set_width(window, math.min(math.max(width + 2, 40), 80))
+
+	-- Keep project details above the editing buffer instead of permanently consuming a split.
+	local max_width = math.floor(vim.o.columns * 0.8)
+	local max_height = math.floor(vim.o.lines * 0.8)
+	local panel_width = math.min(math.max(width + 2, 40), math.min(100, max_width))
+	local panel_height = math.min(math.max(#lines + 2, 12), max_height)
+	vim.api.nvim_win_set_config(window, {
+		width = panel_width,
+		height = panel_height,
+		row = math.floor((vim.o.lines - panel_height) / 2),
+		col = math.floor((vim.o.columns - panel_width) / 2),
+	})
 end
 
---- `render` is the render this block belongs to. A second <leader>pi while an
---- onefetch is still walking the history would otherwise append that run's
---- output underneath the new one.
-local function append_info(buf, render, lines)
-	if not vim.api.nvim_buf_is_valid(buf) or vim.b[buf].project_info_render ~= render or #lines == 0 then
-		return
-	end
-
-	vim.bo[buf].modifiable = true
-	vim.api.nvim_buf_set_lines(buf, -1, -1, false, vim.list_extend({ "" }, lines))
-	vim.bo[buf].modifiable = false
-	fit_info_width(buf)
-end
-
---- The repository summary Kitty's cmd+shift+i shows, same tools, same flags,
---- same order. Both are handed `git rev-parse --show-toplevel` rather than the
---- project root: from a subdirectory onefetch reports the whole repo while
---- tokei counts only that subtree, so two different paths would print two
---- answers about two different trees. Their line counts still differ by design,
---- since onefetch counts only its default `programming markup` types.
----
---- Chained rather than run together, so the order is the script's order, and
---- async because onefetch walks the history -- the roots above are the part
---- worth having immediately, and they are already on screen when these land.
-local function append_repo_stats(buf, render, toplevel)
-	local tools = {
-		{ "onefetch", "--no-art", "--no-color-palette", "--nerd-fonts", toplevel },
-		{ "tokei", toplevel },
-	}
-
-	local function run(index)
-		local cmd = tools[index]
-		if not cmd then
-			return
+--- Color the stable labels and statuses without depending on a Treesitter parser
+--- for this generated report.
+local function highlight_info(buf)
+	vim.api.nvim_buf_clear_namespace(buf, info_namespace, 0, -1)
+	for index, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
+		local _, label_end = line:find("^%s*[%w ][%w ]*:%s*")
+		if label_end then
+			vim.api.nvim_buf_add_highlight(buf, info_namespace, "Title", index - 1, 0, label_end)
 		end
-		if not cli.has(cmd[1]) then
-			return run(index + 1)
+		for word, group in pairs({ yes = "DiagnosticOk", no = "DiagnosticWarn", none = "Comment" }) do
+			local start = line:find("%f[%w]" .. word .. "%f[%W]")
+			if start then
+				vim.api.nvim_buf_add_highlight(buf, info_namespace, group, index - 1, start - 1, start - 1 + #word)
+			end
 		end
-
-		vim.system(cmd, { text = true, env = cli.no_color }, function(result)
-			vim.schedule(function()
-				local text = vim.trim((result.code == 0 and result.stdout or result.stderr) or "")
-				if text == "" then
-					text = ("%s exited %d with no output"):format(cmd[1], result.code)
-				end
-				append_info(buf, render, vim.split(cli.strip_ansi(text), "\n", { plain = true }))
-				run(index + 1)
-			end)
-		end)
 	end
-
-	run(1)
 end
 
 --- Every root this instance is holding, side by side. The scoping failures
@@ -88,10 +64,10 @@ end
 --- servers never indexed -- all look identical from the outside (an empty
 --- picker) and all come apart the moment these are printed together.
 ---
---- A right-hand split rather than a notification: these are long paths read
+--- A floating report rather than a notification: these are long paths read
 --- against each other, and a toast that times out mid-comparison is the wrong
 --- shape for that. Pressing the key again re-renders in place instead of
---- stacking a second pane. The repository summary follows once it arrives.
+--- stacking a second panel.
 
 function M.info()
 	-- Gathered before the split exists. Every one of these answers for the
@@ -131,8 +107,18 @@ function M.info()
 		-- buffer-local, so macro recording is untouched everywhere else.
 		require("core.keymaps").close_project_info(buf)
 
-		vim.cmd("botright vsplit")
-		vim.api.nvim_win_set_buf(0, buf)
+		-- A centered float preserves the current layout while making this report easy to dismiss.
+		window = vim.api.nvim_open_win(buf, true, {
+			relative = "editor",
+			style = "minimal",
+			border = "rounded",
+			title = " Project Info ",
+			title_pos = "center",
+			width = 60,
+			height = 20,
+			row = 1,
+			col = 1,
+		})
 		vim.wo.number = false
 		vim.wo.relativenumber = false
 		vim.wo.signcolumn = "no"
@@ -142,14 +128,8 @@ function M.info()
 	vim.bo[buf].modifiable = true
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 	vim.bo[buf].modifiable = false
+	highlight_info(buf)
 	fit_info_width(buf)
-
-	local render = (vim.b[buf].project_info_render or 0) + 1
-	vim.b[buf].project_info_render = render
-	local toplevel = cli.git_toplevel(root)
-	if toplevel then
-		append_repo_stats(buf, render, toplevel)
-	end
 
 	return true
 end

@@ -35,7 +35,8 @@ return {
 						buffer = bufnr,
 						color = "pink",
 						invoke_on_body = true,
-						hint = { float_opts = { border = "rounded" } },
+						-- Keep hunk navigation focused until the optional help is requested.
+						hint = { float_opts = { border = "rounded" }, hide_on_load = true },
 					},
 					hint = [[
  Git hunks

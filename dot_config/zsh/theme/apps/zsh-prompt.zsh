@@ -13,8 +13,8 @@
 # overwrite). Everything to the left of ❯ — path, branch, operation, counts —
 # is `~/.config/starship.toml`.
 #
-# Command blocks are copied through kitty's own OSC 133 marks (cmd+up/down to
-# pick one, cmd+y to copy it), so nothing parses this text any more. One
+# Command blocks are copied through kitty's own OSC 133 marks (Ctrl+Alt+j/k to
+# pick one, Ctrl+y to copy it), so nothing parses this text any more. One
 # consequence, measured rather than assumed: a copied block ends with the ⏱
 # line. Kitty writes its OSC 133 D (command finished) mark from a precmd hook it
 # keeps pinned last — `kitty-integration` re-appends itself to precmd_functions

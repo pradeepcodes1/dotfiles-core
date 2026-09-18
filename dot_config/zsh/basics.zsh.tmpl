@@ -3,7 +3,7 @@ setopt NO_BEEP
 alias vi=nvim
 
 # Clear the current edit buffer, visible terminal, retained scrollback, and
-# transient command numbering, then redraw a fresh prompt. Kitty maps Cmd+C to
+# transient command numbering, then redraw a fresh prompt. Kitty maps Ctrl+C to
 # this widget via Ctrl+L.
 _clear_zsh_screen() {
   BUFFER=''
@@ -53,7 +53,7 @@ tailf() { tail -f "$@" | bat --paging=never -l log }
 dev() { builtin cd "$DOTFILES_DEV_ROOT"; }
 
 # One-screen repository summary: onefetch's git facts above tokei's line
-# counts, paged. Kitty's Cmd+Shift+I runs the same script directly; this only
+# counts, paged. Kitty's Ctrl+Shift+I runs the same script directly; this only
 # puts it on the prompt, since ~/.config/kitty is not on PATH.
 repo-stats() { {{ .chezmoi.homeDir }}/.config/kitty/repo-stats.sh "$@" }
 
@@ -77,5 +77,9 @@ export EZA_CONFIG_DIR="{{ .chezmoi.homeDir }}/.config/eza"
 # Eza aliases
 alias ls='eza --icons -la --hyperlink=auto'
 alias lt='eza --icons --tree --hyperlink=auto'
+# `tree` replacement, skipping .gitignore'd paths
+alias tree='eza --icons --tree --git-ignore --hyperlink=auto'
 alias lg='lazygit'
+# Keep the concise help command aligned with the installed tldr client.
+alias t='tldr'
 export EDITOR="nvim"

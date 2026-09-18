@@ -57,9 +57,25 @@ function M.open_directory()
 					vim.notify("Project directory does not exist", vim.log.levels.WARN)
 					return
 				end
-				-- The destination owns session creation so this window keeps its cwd and buffers.
+				-- Ctrl-o selects a project for this editor, so restore it here after Yazi closes.
 				vim.schedule(function()
-					M.open_session_window(root, true)
+					local sessions = require("auto-session")
+					local branch = cli.git_branch(root) or ""
+					for _, entry in ipairs(project_state.session_list()) do
+						local entry_root, entry_branch = entry.session_name:match("^([^|]*)|?(.*)$")
+						if path_util.normalize(entry_root) == root and entry_branch == branch then
+							sessions.autosave_and_restore(entry.session_name)
+							return
+						end
+					end
+					-- Preserve the current project before making a fresh one in this window.
+					if project_state.is_open() then
+						sessions.save_session(nil, { show_message = false })
+					end
+					vim.cmd({ cmd = "cd", args = { root }, mods = { noautocmd = true } })
+					vim.cmd.enew()
+					project_state.set_open(true, root)
+					sessions.save_session(nil, { show_message = false })
 				end)
 			end,
 			-- File selections are not project confirmations, including multi-select opens.

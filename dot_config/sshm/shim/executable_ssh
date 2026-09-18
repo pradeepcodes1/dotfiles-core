@@ -131,10 +131,18 @@ if [ "$in_kitty" = 1 ] && [ -n "$dest" ]; then
 
   if [ "$in_kitty" = 1 ]; then
     kitten ssh "$@"
+    status=$?
   else
     ssh "$@"
+    status=$?
   fi
-  exit $?
+
+  # A zero exit means an SSH session ran to completion; signal the Kitty
+  # launcher so picker cancellation and connection failures keep its shell.
+  if [ "$status" -eq 0 ] && [ -n "$SSHM_CONNECTION_MARKER" ]; then
+    : >"$SSHM_CONNECTION_MARKER"
+  fi
+  exit "$status"
 fi
 
 # No tab to tint (not in kitty, or no destination parsed): hand off directly and

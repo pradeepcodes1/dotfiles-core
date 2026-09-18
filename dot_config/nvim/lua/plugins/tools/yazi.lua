@@ -1,6 +1,5 @@
 -- open the configured terminal file manager without duplicating core keymaps.
 return {
-	---@type LazySpec
 	{
 		"mikavilpas/yazi.nvim",
 		version = "^13.0.0",

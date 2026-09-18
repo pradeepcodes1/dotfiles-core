@@ -19,6 +19,8 @@ return {
 				sh = { "shfmt" },
 				go = { "gofmt" },
 				rust = { "rustfmt" },
+				-- Prefer SwiftFormat when installed; Conform's LSP fallback still handles machines without it.
+				swift = { "swiftformat" },
 				json = { "prettier" },
 				yaml = { "prettier" },
 				markdown = { "prettier" },

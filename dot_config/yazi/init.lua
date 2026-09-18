@@ -8,6 +8,9 @@ require("full-border"):setup()
 -- Show the same contextual Starship prompt in Yazi's header as in the shell.
 require("starship"):setup()
 
+-- Mirror Flash's labeled navigation so visible files can be reached without scrolling.
+require("easyjump"):setup()
+
 -- Local plugins keep custom metadata rendering separate from third-party setup.
 require("size-permissions"):setup()
 require("line-count"):setup()

@@ -3,7 +3,7 @@
 #
 # tmux session picker. No longer runs at shell startup — kitty is the primary
 # multiplexer now, so tmux is opt-in. Invoke it with `tmux-picker`, or from
-# kitty with cmd+shift+t (see dot_config/kitty/kitty.conf.tmpl).
+# kitty with Ctrl+Shift+T (see dot_config/kitty/kitty.conf.tmpl).
 
 if command -v tmux &>/dev/null; then
 

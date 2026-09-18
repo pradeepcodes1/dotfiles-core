@@ -113,7 +113,18 @@ return {
 				vim.o.tabline = ""
 				require("lualine").setup({
 					sections = {
-						lualine_a = { { "mode", fmt = function(str) return str:sub(1, 1) end } },
+						lualine_a = {
+							{
+								"mode",
+								fmt = function(str)
+									-- Hydra owns the active key layer, so surface it before the editor mode.
+									if _G.Hydra or _G.active_keymap_layer then
+										return "H"
+									end
+									return str:sub(1, 1)
+								end,
+							},
+						},
 						lualine_b = vim.g.nvim_preview and {} or {
 							{
 								"tabs",

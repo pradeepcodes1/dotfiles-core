@@ -64,5 +64,24 @@ sshm() {
     command sshm -c "$HOME/.ssh/config.d/hosts.conf" "$@"
 }
 
+# The Kitty shortcut closes its shell only after a completed SSH session;
+# cancelling the picker or failing to connect leaves the local prompt usable.
+sshm_close() {
+  local marker status
+  marker="$(mktemp -t sshm-session.XXXXXX)" || return 1
+  rm -f -- "$marker"
+
+  SSHM_CONNECTION_MARKER="$marker" sshm
+  status=$?
+
+  if [[ -e "$marker" ]]; then
+    rm -f -- "$marker"
+    exit "$status"
+  fi
+
+  rm -f -- "$marker"
+  return "$status"
+}
+
 # Preserve default SSH completion for the wrapper function
 compdef ssh=ssh

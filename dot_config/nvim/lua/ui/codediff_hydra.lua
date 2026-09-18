@@ -52,12 +52,14 @@ function M.activate()
 			mode = "n",
 			config = {
 				color = "pink",
-				hint = { float_opts = { border = "rounded" } },
+				-- Keep diff navigation focused until the optional help is requested.
+				hint = { float_opts = { border = "rounded" }, hide_on_load = true },
 			},
 			hint = [[
  CodeDiff
  _j_: next hunk  _k_: previous hunk
  _<C-j>_: next file  _<C-k>_: previous file
+ _<C-Down>_: next page  _<C-Up>_: previous page
  _s_: stage  _u_: unstage  _r_: discard
  _q_/_<Esc>_: exit
 ]],

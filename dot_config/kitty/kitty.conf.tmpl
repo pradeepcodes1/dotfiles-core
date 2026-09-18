@@ -1,11 +1,8 @@
 # make Kitty the primary terminal and multiplexer with one coherent shortcut layer.
 # kitty — configured as the only multiplexer. No tmux accommodations.
 #
-# Chords are spelled `super`, which is what kitty calls Cmd on macOS and the
-# Windows/Super key on Linux — `cmd+t` and `super+t` parse to the identical
-# SingleKey(mods=8), so this file is one layout, not two. On a Linux desktop
-# expect the compositor to grab some Super chords before kitty sees them;
-# rebind those in local.d rather than here.
+# Ctrl is the portable Kitty shortcut modifier on both macOS and Linux. These
+# mappings intentionally take precedence over matching terminal and shell keys.
 
 include themes.conf
 
@@ -117,56 +114,55 @@ bell_on_tab          "🔔 "
 # ══ Keybindings ═══════════════════════════════════════════════════════════
 
 # ── Splits ────────────────────────────────────────────────────────────────
-# Spell Super+| as its physical chord so Kitty sees the Shift modifier.
-map super+backslash       launch --location=vsplit --cwd=current
-map super+shift+backslash launch --location=hsplit --cwd=current
+# Spell Ctrl+| as its physical chord so Kitty sees the Shift modifier.
+map ctrl+backslash       launch --location=vsplit --cwd=current
+map ctrl+shift+backslash launch --location=hsplit --cwd=current
 
-# Keep plain Ctrl+hjkl available to Neovim and shells; add Super for Kitty splits.
-map super+ctrl+h neighboring_window left
-map super+ctrl+j neighboring_window down
-map super+ctrl+k neighboring_window up
-map super+ctrl+l neighboring_window right
+# Keep unshifted Ctrl+H/J/K/L available to Neovim; Shift selects Kitty splits.
+map ctrl+shift+j neighboring_window down
+map ctrl+shift+k neighboring_window up
 
 map ctrl+shift+h move_window left
-map ctrl+shift+j move_window down
-map ctrl+shift+k move_window up
 map ctrl+shift+l move_window right
 
-# Resize mode: press, then arrows/hjkl, Esc to exit.
-map super+r start_resizing_window
+# Keep Ctrl+R available to the shell so Atuin can open its history search.
+map ctrl+r send_key ctrl+r
+# Forward Ctrl+D instead of letting Kitty open documentation, preserving Neovim's half-page scroll.
+map ctrl+d send_key ctrl+d
 # Zoom the focused split to fill the tab, and back.
-map super+z toggle_layout stack
+map ctrl+z toggle_layout stack
 # Cycle splits without thinking about direction.
-map super+grave_accent next_window
+map ctrl+grave_accent next_window
 
 # ── Tabs ──────────────────────────────────────────────────────────────────
 # Always start a local shell in $HOME. `new_tab_with_cwd` asks the ssh kitten
 # to clone a remote cwd when the focused window is an ssh session.
-map super+t     launch --type=tab --cwd={{ .chezmoi.homeDir }}
-map super+w     close_window
-map super+alt+w close_tab
-map super+]     next_tab
-map super+[     previous_tab
-map super+shift+] move_tab_forward
-map super+shift+[ move_tab_backward
-map super+1 goto_tab 1
-map super+2 goto_tab 2
-map super+3 goto_tab 3
-map super+4 goto_tab 4
-map super+5 goto_tab 5
-map super+6 goto_tab 6
-map super+7 goto_tab 7
-map super+8 goto_tab 8
-map super+9 goto_tab 9
+map ctrl+t     launch --type=tab --cwd={{ .chezmoi.homeDir }}
+map ctrl+w     close_window
+map ctrl+alt+w close_tab
+map ctrl+]     next_tab
+map ctrl+[     previous_tab
+map ctrl+shift+] move_tab_forward
+map ctrl+shift+[ move_tab_backward
+map ctrl+1 goto_tab 1
+map ctrl+2 goto_tab 2
+map ctrl+3 goto_tab 3
+map ctrl+4 goto_tab 4
+map ctrl+5 goto_tab 5
+map ctrl+6 goto_tab 6
+map ctrl+7 goto_tab 7
+map ctrl+8 goto_tab 8
+map ctrl+9 goto_tab 9
 
-map super+n new_os_window_with_cwd
+map ctrl+n new_os_window_with_cwd
 
 # tmux session picker, on demand. The picker no longer runs at shell startup
 # (see dot_config/zsh/tmux.zsh); this is the only way in besides `tmux-picker`.
-map super+shift+t launch --type=tab --title tmux zsh -i -c tmux-picker
+map ctrl+shift+t launch --type=tab --title tmux zsh -i -c tmux-picker
 
-# `sshm` is a shell function; omit --title so the remote can rename the tab.
-map super+shift+m launch --type=tab zsh -i -c sshm
+# Run in the current shell; the wrapper closes it only after SSH completes, so
+# cancelling the picker or failing to connect returns to the local prompt.
+map ctrl+m send_text all sshm_close\r
 
 # ── Scrollback and prompts ────────────────────────────────────────────────
 # Ask Zsh to clear through its Ctrl+L widget. Unlike Kitty's
@@ -174,73 +170,77 @@ map super+shift+m launch --type=tab zsh -i -c sshm
 # clears retained scrollback, and redraws a fresh prompt. This takes over
 # Kitty's own default for this chord on macOS (copy_to_clipboard) —
 # copy_on_select already puts selections on the clipboard, and explicit copy
-# moves to Super+Shift+c.
-map super+c       send_key ctrl+l
-map super+shift+c copy_to_clipboard
-map super+f    show_scrollback
-# Prompt jumping on the vim directions rather than the arrow keys; Super+jk
-# is free now that split navigation moved to Ctrl+hjkl above.
-map super+k scroll_to_prompt -1
-map super+j scroll_to_prompt 1
-map super+home scroll_home
-map super+end  scroll_end
+# moves to Ctrl+Shift+c.
+map ctrl+l       send_key ctrl+l
+# Forward Ctrl+C unchanged so it continues to interrupt the foreground process.
+map ctrl+c       send_key ctrl+c
+map ctrl+shift+c copy_to_clipboard
+map ctrl+f    show_scrollback
+# Alt keeps prompt jumping distinct from Ctrl+Shift+j/k window movement.
+map ctrl+alt+k scroll_to_prompt -1
+map ctrl+alt+j scroll_to_prompt 1
+map ctrl+home scroll_home
+map ctrl+end  scroll_end
 # Page or copy OSC 133-delimited command output.
-map super+shift+y show_last_command_output
-map super+y launch --type=clipboard --stdin-source=@last_visited_cmd_output
+map ctrl+shift+y show_last_command_output
+map ctrl+y launch --type=clipboard --stdin-source=@last_visited_cmd_output
 # The same selection by mouse: click any prompt line to select that command's
 # output. copy_on_select (set above) puts it on the clipboard.
 mouse_map ctrl+shift+right press ungrabbed mouse_select_command_output
 
 # ── Hints kitten — keyboard-driven selection, no mouse ─────────────────────
 # Open a URL by keyboard.
-map super+p>u kitten hints --type url
+map ctrl+p>u kitten hints --type url
 # Insert a file path from the screen at the prompt.
-map super+p>f kitten hints --type path --program -
+map ctrl+p>f kitten hints --type path --program -
 # Open a path in the editor.
-map super+p>e kitten hints --type path --program nvim
+map ctrl+p>e kitten hints --type path --program nvim
 # Insert a line from the screen.
-map super+p>l kitten hints --type line --program -
+map ctrl+p>l kitten hints --type line --program -
 # Insert a word.
-map super+p>w kitten hints --type word --program -
+map ctrl+p>w kitten hints --type word --program -
 # Grab a git hash.
-map super+p>h kitten hints --type hash --program -
+map ctrl+p>h kitten hints --type hash --program -
 
 # ── Overlay popups ────────────────────────────────────────────────────────
-# Portable defaults. The private macOS overlay replaces e/g/shift+g/i with
+# Portable defaults. Run Yazi through its shell wrapper in the current window
+# so Ctrl+O can change that shell's directory when Yazi exits.
+# The private macOS overlay replaces e/g/shift+g/i with
 # ssh-aware versions (and adds shift+e and o) through local.d: a later `map`
 # for the same chord wins, and local.d is globincluded at the end of this file.
-map super+e       launch --type=overlay --cwd=current yazi
-map super+g       launch --type=overlay --cwd=current zsh -ic lazygit
-map super+shift+g launch --type=overlay --cwd=current serie
+map ctrl+e       send_text all y\r
+map ctrl+g       launch --type=overlay --cwd=current zsh -ic lazygit
+map ctrl+shift+g launch --type=overlay --cwd=current serie
 
 # Process explorer, whole machine rather than this window: btop has no PID-list
 # filter (only `-f`, which matches on the command string), and the machine-wide
-# view is the one worth having anyway.
-map super+i launch --type=overlay btop
+# view is the one worth having anyway. Alt keeps this off bare Ctrl+I, which
+# Neovim's jumplist needs (the forward counterpart to Ctrl+O above).
+map ctrl+alt+i launch --type=overlay btop
 
 # Local repository summary, paged.
-map super+shift+i launch --type=overlay --cwd=current {{ .chezmoi.homeDir }}/.config/kitty/repo-stats.sh
+map ctrl+shift+i launch --type=overlay --cwd=current {{ .chezmoi.homeDir }}/.config/kitty/repo-stats.sh
 
 # Browse/import from Gogh as the source of truth, then apply the selection
 # across the dotfiles theme integrations (Kitty, shell, Neovim, and borders).
-map super+a launch --type=overlay zsh -ic "theme"
+map ctrl+a launch --type=overlay zsh -ic "theme"
 
 # Rename the current tab (the analogue of tmux's rename-session).
-map super+shift+comma set_tab_title
+map ctrl+shift+comma set_tab_title
 
 # ── Misc kittens ──────────────────────────────────────────────────────────
 # Search the scrollback interactively.
-map super+shift+f launch --type=overlay --stdin-source=@screen_scrollback less --chop-long-lines --RAW-CONTROL-CHARS
+map ctrl+shift+f launch --type=overlay --stdin-source=@screen_scrollback less --chop-long-lines --RAW-CONTROL-CHARS
 # Unicode / emoji picker.
-map super+shift+u kitten unicode_input
+map ctrl+shift+u kitten unicode_input
 # ── Font size ─────────────────────────────────────────────────────────────
-map super+equal change_font_size all +1.0
-map super+minus change_font_size all -1.0
-map super+0     change_font_size all 0
+map ctrl+equal change_font_size all +1.0
+map ctrl+minus change_font_size all -1.0
+map ctrl+0     change_font_size all 0
 
 # ── Config ────────────────────────────────────────────────────────────────
-map super+shift+r load_config_file
-map super+shift+delete clear_terminal reset active
+map ctrl+shift+r load_config_file
+map ctrl+shift+delete clear_terminal reset active
 
 # ── Machine-local additions ───────────────────────────────────────────────
 # Whatever a private overlay or a single machine wants on top of this file:

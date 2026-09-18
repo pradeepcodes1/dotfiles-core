@@ -106,6 +106,12 @@ return {
 				},
 			})
 
+			-- SourceKit-LSP ships with Xcode rather than Mason, so enable its
+			-- lspconfig definition directly and let xcrun select the active toolchain.
+			vim.lsp.config("sourcekit", {
+				cmd = { "xcrun", "sourcekit-lsp" },
+			})
+
 			-- Neither of these is in ensure_installed, and automatic_enable only walks
 			-- Mason's *installed packages*, so it never sees either one and skips both.
 			-- clangd prefers the system binary; rust_analyzer comes from the rustup
@@ -114,6 +120,7 @@ return {
 			-- is appended to PATH, so ~/.cargo/bin resolves first.
 			vim.lsp.enable("clangd")
 			vim.lsp.enable("rust_analyzer")
+			vim.lsp.enable("sourcekit")
 
 			require("mason-lspconfig").setup({
 				ensure_installed = {

@@ -1,0 +1,5 @@
+gui:
+  # Default is 2 lines per press, which makes ctrl+u/ctrl+d (bound to
+  # scrollUpMain/scrollDownMain) barely move the diff/patch view. Raise it so
+  # they behave like the half-page jumps most terminal tools use ctrl+d for.
+  scrollHeight: 20

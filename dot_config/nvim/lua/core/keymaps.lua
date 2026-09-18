@@ -210,7 +210,8 @@ if not vim.g.nvim_preview then
 	-- Keep project restoration behind one explicit picker instead of inferring it from the current file.
 	map("n", "<leader>pp", project_pickers.pick_session, { desc = "Project: Switch" })
 	-- Open folders through the same Yazi chooser used by the dashboard.
-	map("n", "<leader>po", project_pickers.open_directory, { desc = "Project: Open directory in new window" })
+	-- The directory picker confirms into the active editor window.
+	map("n", "<leader>po", project_pickers.open_directory, { desc = "Project: Open directory here" })
 	map("n", "<leader>pi", project_info.info, { desc = "Project: Info" })
 	map("n", "<leader>pl", function()
 		require("lsp.project_lsp").toggle()
@@ -794,6 +795,14 @@ end
 function M.gitsigns_hydra_heads(gitsigns)
 	-- Hydra's modal keys belong with the bindings even though Hydra consumes this table itself.
 	return {
+		-- The hint stays out of the way until it is explicitly requested.
+		{
+			"?",
+			function()
+				_G.Hydra.hint:show()
+			end,
+			{ desc = "show help" },
+		},
 		{
 			"j",
 			function()
@@ -832,6 +841,14 @@ function M.resize_hydra_heads()
 	end
 	-- Arrow and home-row spellings perform the same modal resize operations.
 	return {
+		-- The hint stays out of the way until it is explicitly requested.
+		{
+			"?",
+			function()
+				_G.Hydra.hint:show()
+			end,
+			{ desc = "show help" },
+		},
 		{ "h", resize("vertical resize -"), { desc = "narrower" } },
 		{ "<Left>", resize("vertical resize -"), { desc = "narrower" } },
 		{ "l", resize("vertical resize +"), { desc = "wider" } },
@@ -847,12 +864,40 @@ function M.resize_hydra_heads()
 end
 
 function M.codediff_hydra_heads(diff, navigate_file, hunk_action)
+	local function page_files(direction)
+		return function()
+			local panel = require("codediff.ui.lifecycle").get_panel(vim.api.nvim_get_current_tabpage())
+			local explorer = panel and panel.name == "explorer" and panel.view
+			local height = explorer
+					and explorer.winid
+					and vim.api.nvim_win_is_valid(explorer.winid)
+					and vim.api.nvim_win_get_height(explorer.winid)
+				or 2
+			local navigate = navigate_file(direction == "up" and "prev" or "next")
+
+			-- Match picker page movement by advancing half the visible explorer rows.
+			for _ = 1, math.max(1, math.floor(height / 2)) do
+				navigate()
+			end
+		end
+	end
+
 	-- CodeDiff supplies the actions while this table owns their modal keys.
 	return {
+		-- The hint stays out of the way until it is explicitly requested.
+		{
+			"?",
+			function()
+				_G.Hydra.hint:show()
+			end,
+			{ desc = "show help" },
+		},
 		{ "j", diff.next_hunk, { desc = "Next hunk" } },
 		{ "k", diff.prev_hunk, { desc = "Previous hunk" } },
 		{ "<C-j>", navigate_file("next"), { desc = "Next file / history commit" } },
 		{ "<C-k>", navigate_file("prev"), { desc = "Previous file / history commit" } },
+		{ "<C-Down>", page_files("down"), { desc = "Next explorer page" } },
+		{ "<C-Up>", page_files("up"), { desc = "Previous explorer page" } },
 		{ "s", hunk_action("stage"), { desc = "Stage hunk" } },
 		{ "u", hunk_action("unstage"), { desc = "Unstage hunk" } },
 		{ "r", hunk_action("discard"), { desc = "Discard hunk" } },

@@ -9,14 +9,6 @@ fi
 # Initialize atuin
 command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
 
-# navi cheatsheets, replacing tldr. Its widget binds ^G: on an empty line it
-# opens the cheatsheet browser, otherwise it looks up what is already typed and
-# replaces the line with the chosen snippet. ^G was zsh's default `send-break`,
-# which ^C already covers. Eager rather than lazy-loaded like other optional
-# modules: `navi widget zsh` is a ~3ms static print, and a lazy stub cannot
-# install a keybinding without being invoked first anyway.
-command -v navi &>/dev/null && eval "$(navi widget zsh)"
-
 # Carapace configuration
 export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
 if command -v carapace &>/dev/null; then

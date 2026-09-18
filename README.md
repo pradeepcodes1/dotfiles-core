@@ -114,10 +114,9 @@ git clone https://github.com/pradeepcodes1/dotfiles-core.git ~/.local/share/chez
 
 `dot_config/kitty/kitty.conf.tmpl` carries the portable terminal layer: settings,
 the full keybinding set, `themes.conf` and the `kitten ssh` configuration. Chords
-are spelled `super`, which kitty parses to the same modifier as `cmd`, so one
-layout serves macOS and Linux; the macOS-only settings are gated on
-`.chezmoi.os`. On a Linux desktop expect the compositor to claim some Super
-chords before kitty sees them.
+use `ctrl` as their shared modifier, so one layout serves macOS and Linux; the
+macOS-only settings are gated on `.chezmoi.os`. Kitty therefore owns matching
+terminal control chords before the shell or an application can receive them.
 
 The file ends with `globinclude local.d/*.conf`. That is the extension point for
 a private overlay or a single machine — a `map` there overrides the same chord

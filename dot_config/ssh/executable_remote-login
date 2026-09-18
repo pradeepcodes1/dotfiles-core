@@ -45,7 +45,7 @@ esac
 # it when the basename of login_shell is bash/zsh/fish (exec_with_shell_integration
 # in shell-integration/ssh/bootstrap-utils.sh), and ours is kitty-remote-login.
 # Without it there are no OSC 133 prompt marks and no OSC 7 cwd reporting, which
-# is what breaks Cmd+Up/Down, Cmd+Shift+g, and `launch --cwd=current`.
+# is what breaks Ctrl+Alt+j/k, Ctrl+Shift+g, and `launch --cwd=current`.
 #
 # The steps below are kitty's own, reproduced from bootstrap-utils.sh. The
 # kitten has already copied its shell-integration tree to the path below, so
