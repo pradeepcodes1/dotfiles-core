@@ -80,8 +80,7 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>fg", function()
 		local root = project_paths.project_search_root()
 		if root then
-			-- Put fuzzy first so project grep opens there and only cycles to regex.
-			fff_at(root).live_grep({ cwd = root, grep = { modes = { "fuzzy", "regex" } } })
+			fff_at(root).live_grep({ cwd = root })
 		end
 	end, { desc = "Grep project" })
 	map(
