@@ -25,12 +25,19 @@ _source_zsh_plugin() {
   local -a roots
 
   [[ -n $HOMEBREW_PREFIX ]] && roots+=("$HOMEBREW_PREFIX/share")
-  if (( $+commands[brew] )); then
-    roots+=("$(brew --prefix)/share")
-  fi
+  # A sentinel rather than "$(brew --prefix)/share". Building the array eagerly
+  # forked brew on every call -- ~11ms, three calls per shell -- even though
+  # $HOMEBREW_PREFIX above answers the same question and always matches first
+  # on a machine where `brew shellenv` ran. Resolved only if the loop actually
+  # reaches it, and then cached for the other two calls.
+  (( $+commands[brew] )) && roots+=('@brew')
   roots+=(/usr/share/zsh/plugins)
 
   for root in "${roots[@]}"; do
+    if [[ $root == '@brew' ]]; then
+      [[ -n ${_ZSH_PLUGIN_BREW_SHARE+x} ]] || typeset -g _ZSH_PLUGIN_BREW_SHARE="$(brew --prefix)/share"
+      root=$_ZSH_PLUGIN_BREW_SHARE
+    fi
     if [[ -f "$root/$name/$file" ]]; then
       source "$root/$name/$file"
       return

@@ -1,5 +1,8 @@
 # establish quiet interactive defaults and portable command-line conveniences.
 setopt NO_BEEP
+# Commands entered with a leading space (e.g. Kitty's send_text keybindings)
+# are not saved to history.
+setopt HIST_IGNORE_SPACE
 alias vi=nvim
 
 # Clear the current edit buffer, visible terminal, retained scrollback, and
@@ -10,6 +13,10 @@ _clear_zsh_screen() {
   CURSOR=0
   _prompt_cmd_num=0
   builtin print -rn -- $'\e[H\e[2J\e[3J' >"$TTY"
+  # Nothing is left on screen or in the scrollback, so let Ctrl+M take this
+  # window over in place again rather than opening another tab beside it
+  # (see dot_config/zsh/ssh.zsh). Guarded because that file owns the mark.
+  (( $+functions[_kitty_set_fresh_shell] )) && _kitty_set_fresh_shell
   zle .reset-prompt
   zle -R
 }

@@ -26,6 +26,18 @@ def readable(color, background, minimum=4.5):
     return target
 
 
+def tint(accent, background, foreground, amount, minimum):
+    # Wash a background toward an accent, backing the tint off until foreground
+    # text still clears `minimum`. A palette that is already low-contrast by
+    # design (Solarized, the softer Everforests) has little headroom to spend on
+    # a diff background, and legibility outranks the strength of the tint.
+    for step in range(round(amount * 100), -1, -1):
+        candidate = blend(accent, background, step / 100)
+        if contrast(foreground, candidate) >= minimum:
+            return candidate
+    return background
+
+
 def derive(bg, fg, *accents):
     surface = blend(fg, bg, .07)
     colors = {name: readable(color, surface) for name, color in zip(('red', 'green', 'yellow', 'blue', 'magenta', 'cyan'), accents)}
@@ -36,6 +48,24 @@ def derive(bg, fg, *accents):
                  selection_fg=readable(fg, selection), **colors)
     for name, color in colors.items():
         roles['on_' + name] = readable(bg, color)
+    # Tint the background toward the palette's own red and green so a changed
+    # line reads as a highlight in either mode: lighter than a dark background,
+    # darker than a light one. Delta's built-in diff colors are fixed near-black
+    # values that invert into dark holes on a lighter dark theme. Blend the raw
+    # accents, not the `readable` ones, which are lightened to carry text.
+    red, green, _, _, magenta, cyan = accents
+    # The line wash holds whole lines of code, so it keeps the full 4.5:1 floor.
+    # Emphasis marks a few changed words inside an already-washed line, where the
+    # background shift carries meaning on its own, so it can sit lower.
+    for name, accent in (('minus', red), ('plus', green)):
+        roles['diff_' + name] = tint(accent, bg, roles['fg'], .15, 4.5)
+        roles['diff_' + name + '_emph'] = tint(accent, bg, roles['fg'], .48, 3.5)
+    roles['diff_moved_from'] = blend(magenta, bg, .15)
+    roles['diff_moved_to'] = blend(cyan, bg, .15)
+    # Gutters and blame bands are secondary: legible, but never competing with
+    # the code. 3:1 is the floor for text that is not read word by word.
+    roles['diff_gutter'] = readable(blend(fg, bg, .45), bg, 3)
+    roles.update({f'blame_{step}': blend(fg, bg, step * .05) for step in range(3)})
     return roles
 
 

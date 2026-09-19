@@ -11,6 +11,11 @@ _DOTFILES_GOGH_CACHE_DIR="${XDG_CACHE_HOME:-{{ .chezmoi.homeDir }}/.cache}/dotfi
 _DOTFILES_GOGH_CATALOG_FILE="$_DOTFILES_GOGH_CACHE_DIR/themes.json"
 _DOTFILES_GOGH_CATALOG_URL="https://raw.githubusercontent.com/Gogh-Co/Gogh/master/data/themes.json"
 
+# Derived UI roles and the last-applied fingerprint are recomputed only when
+# their inputs change, so both live in the cache rather than beside the state.
+_DOTFILES_THEME_CACHE_DIR="${XDG_CACHE_HOME:-{{ .chezmoi.homeDir }}/.cache}/dotfiles/theme"
+_DOTFILES_THEME_STAMP_FILE="$_DOTFILES_THEME_CACHE_DIR/applied.stamp"
+
 # Default themes for each mode
 _DOTFILES_DARK_THEME="gogh-kanagawa-dragon"
 _DOTFILES_LIGHT_THEME="gogh-kanagawa-lotus"

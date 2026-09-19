@@ -1,6 +1,14 @@
 # keep Git diffs legible under the active light or dark palette.
 # Delta (git pager) theme integration
-# Delta renders with bat's syntax themes, so it reuses `bat_theme` directly.
+# Delta renders code with bat's syntax themes, so it reuses `bat_theme` directly.
+# Everything delta draws around that code -- diff washes, line numbers, moved
+# blocks, blame bands, grep hits -- has built-in defaults tuned for a near-black
+# background. On a lighter dark palette those invert: the plus/minus colors land
+# darker than the background, so a changed line reads as a hole punched in the
+# page instead of a highlight, and the line-number colors fall to ~1:1 contrast.
+# Set them from the palette instead; see ui-colors.py for the diff_* roles.
+#
+# Hex values must stay quoted: `#` opens a comment in git config.
 
 local delta_config="{{ .chezmoi.homeDir }}/.config/delta/themes.gitconfig"
 local delta_light="false"
@@ -17,9 +25,42 @@ if [[ -z "$resolved_delta_theme" ]]; then
   fi
 fi
 
+# `light` still selects the defaults for anything left unset below. This file is
+# included after the [delta] block in ~/.gitconfig, so these values win while
+# navigate/side-by-side/line-numbers stay where they are declared.
 local delta_content="[delta]
 	syntax-theme = $resolved_delta_theme
-	light = $delta_light"
+	light = $delta_light
+
+	minus-style = normal \"$theme_ui_diff_minus\"
+	minus-non-emph-style = normal \"$theme_ui_diff_minus\"
+	minus-emph-style = normal \"$theme_ui_diff_minus_emph\"
+	minus-empty-line-marker-style = normal \"$theme_ui_diff_minus\"
+	plus-style = syntax \"$theme_ui_diff_plus\"
+	plus-non-emph-style = syntax \"$theme_ui_diff_plus\"
+	plus-emph-style = syntax \"$theme_ui_diff_plus_emph\"
+	plus-empty-line-marker-style = normal \"$theme_ui_diff_plus\"
+
+	line-numbers-minus-style = \"$theme_ui_red\"
+	line-numbers-plus-style = \"$theme_ui_green\"
+	line-numbers-zero-style = \"$theme_ui_diff_gutter\"
+	line-numbers-left-style = \"$theme_ui_diff_gutter\"
+	line-numbers-right-style = \"$theme_ui_diff_gutter\"
+
+	file-style = \"$theme_ui_blue\"
+	hunk-header-decoration-style = \"$theme_ui_border\" ul
+	whitespace-error-style = \"$theme_ui_on_red\" \"$theme_ui_red\"
+
+	# Maps the codes git emits for diff.colorMoved. Without this delta drops the
+	# diff background from a moved block entirely rather than recoloring it, so
+	# moved lines lose their highlighting instead of gaining it. The \`bold\`
+	# prefix is load-bearing: plain \`purple\`/\`cyan\` never match.
+	map-styles = bold purple => syntax \"$theme_ui_diff_moved_from\", bold cyan => syntax \"$theme_ui_diff_moved_to\"
+
+	# git blame and git grep also reach delta through core.pager.
+	blame-palette = \"$theme_ui_blame_0\" \"$theme_ui_blame_1\" \"$theme_ui_blame_2\"
+	grep-file-style = \"$theme_ui_magenta\"
+	grep-line-number-style = \"$theme_ui_diff_gutter\""
 
 mkdir -p "$(dirname "$delta_config")"
 if [[ ! -f "$delta_config" ]] || [[ "$(< "$delta_config")" != "$delta_content" ]]; then

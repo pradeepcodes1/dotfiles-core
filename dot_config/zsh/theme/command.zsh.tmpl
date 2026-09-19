@@ -5,11 +5,49 @@
 # no I/O and never contacts the network.
 source "$_theme_dir/gogh.zsh"
 
+# Adapters that only set state inside this shell -- prompt colors,
+# FZF_DEFAULT_OPTS, the diagram render variables. They hold nothing on disk, so
+# they have to run in every shell and are never covered by the stamp below.
+_DOTFILES_THEME_SHELL_ADAPTERS=(fzf.zsh diagram.zsh zsh-prompt.zsh)
+
+# Fingerprint of everything the on-disk adapters read: the palette they render
+# and the adapter sources themselves, so editing one re-runs it. Answers in
+# $REPLY through zsh's own stat builtin rather than a command substitution --
+# this runs on the startup path, where a fork would cost more than it saves.
+_theme_apply_fingerprint() {
+  zmodload -F zsh/stat b:zstat 2>/dev/null || return 1
+  local -a files mtimes
+  files=("$_theme_dir/apps"/*.zsh(N))
+  (( $#files )) || return 1
+  zstat -A mtimes +mtime "${files[@]}" 2>/dev/null || return 1
+  REPLY="$_DOTFILES_THEME_NAME $_DOTFILES_THEME_MODE ${files[@]:t} ${mtimes[@]}"
+}
+
 _apply_theme() {
   # Continue after an adapter failure so one unavailable app does not block the rest.
   local f failed=0
+
+  # The adapters that write config files are idempotent: given the same theme
+  # they rewrite the same bytes every time. Re-running them for each new shell
+  # cost around 60ms and changed nothing, because the files they generate are
+  # read by yazi, bat and delta at *their* own startup, not by this shell. So
+  # at init, skip them once their inputs match the last successful apply; a
+  # `theme` command always runs the full set, which is also how to regenerate a
+  # config file that was removed by hand: `theme "$_DOTFILES_THEME_NAME"`.
+  local skip_disk=0 fingerprint="" REPLY=""
+  if _theme_apply_fingerprint; then
+    fingerprint="$REPLY"
+    if [[ "${_DOTFILES_THEME_APPLY_REASON:-init}" == init &&
+          -s "$_DOTFILES_THEME_STAMP_FILE" && "$(< "$_DOTFILES_THEME_STAMP_FILE")" == "$fingerprint" ]]; then
+      skip_disk=1
+    fi
+  fi
+
   for f in "$_theme_dir/apps"/*.zsh; do
     [[ -f "$f" ]] || continue
+    if (( skip_disk )) && (( ! ${_DOTFILES_THEME_SHELL_ADAPTERS[(Ie)${f:t}]} )); then
+      continue
+    fi
     if [[ "${f:t}" == tmux.zsh ]]; then
       # Retain the existing tmux adapter behavior without changing its return conventions.
       source "$f"
@@ -18,6 +56,17 @@ _apply_theme() {
       failed=1
     fi
   done
+
+  # Only record a clean run, so a failed adapter is retried by the next shell
+  # instead of being stamped as applied.
+  if (( ! skip_disk && ! failed )) && [[ -n "$fingerprint" ]]; then
+    local stamp_temp
+    if mkdir -p "${_DOTFILES_THEME_STAMP_FILE:h}" 2>/dev/null &&
+       stamp_temp=$(mktemp "${_DOTFILES_THEME_STAMP_FILE}.XXXXXX" 2>/dev/null); then
+      print -r -- "$fingerprint" > "$stamp_temp" && mv -f "$stamp_temp" "$_DOTFILES_THEME_STAMP_FILE" || rm -f "$stamp_temp"
+    fi
+  fi
+
   return $failed
 }
 

@@ -6,7 +6,15 @@
 [core]
 	editor = nvim
 	# Override Git's LESS=FRX: X leaks paged diffs into terminal scrollback.
-	pager = LESS=FRQ delta
+	# Q does not silence the bell, it converts it: less(1) rings no audio bell but
+	# uses the terminal's visual bell "in all cases where the terminal bell would
+	# have been rung" -- and xterm-kitty's terminfo flash is a full-screen
+	# reverse-video invert, so every scroll past the end of a diff flashes the
+	# screen. That never reaches kitty's own bell system, so enable_audio_bell
+	# cannot suppress it; --no-vbell is what drops it. A less too old to know the
+	# option warns on stderr and still pages. Single quotes are required: git
+	# strips bare double quotes from a config value.
+	pager = LESS='-FRQ --no-vbell' delta
 	excludesfile = ~/.gitignore_global
 
 [interactive]

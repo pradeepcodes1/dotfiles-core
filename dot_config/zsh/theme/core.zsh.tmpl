@@ -80,7 +80,23 @@ _load_theme_colors() {
 
   # Separate UI surfaces from ANSI slots; old imported palettes need no migration.
   local ui_roles ui_line ui_key ui_value
-  ui_roles=$(python3 "$_theme_dir/ui-colors.py" "$bg" "$fg" "$red" "$green" "$yellow" "$blue" "$magenta" "$cyan") || return 1
+  # ui-colors.py is a pure function of the eight palette colors below, so its
+  # output can only change when the palette file or the script itself does.
+  # Caching it keeps a python3 fork -- around 22ms -- out of the startup of
+  # every interactive shell, which reloads the same theme it loaded last time.
+  local ui_cache="$_DOTFILES_THEME_CACHE_DIR/${theme_name}.ui"
+  if [[ -s "$ui_cache" && "$ui_cache" -nt "$color_file" && "$ui_cache" -nt "$_theme_dir/ui-colors.py" ]]; then
+    ui_roles="$(< "$ui_cache")"
+  else
+    ui_roles=$(python3 "$_theme_dir/ui-colors.py" "$bg" "$fg" "$red" "$green" "$yellow" "$blue" "$magenta" "$cyan") || return 1
+    # Publish through a temp file so a shell starting concurrently either reads
+    # the previous cache or the complete new one, never a half-written palette.
+    # A cache that cannot be written is not fatal: the fork above still answered.
+    local ui_temp
+    if mkdir -p "${ui_cache:h}" 2>/dev/null && ui_temp=$(mktemp "${ui_cache}.XXXXXX" 2>/dev/null); then
+      print -r -- "$ui_roles" > "$ui_temp" && mv -f "$ui_temp" "$ui_cache" || rm -f "$ui_temp"
+    fi
+  fi
   for ui_line in "${(@f)ui_roles}"; do
     ui_key="${ui_line%%=*}"
     ui_value="${ui_line#*=}"

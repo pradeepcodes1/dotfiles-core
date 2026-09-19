@@ -1,6 +1,20 @@
 # assemble the interactive shell from reproducible, mostly lazy-loaded modules.
 [[ -f "$HOME/.env" ]] && source "$HOME/.env"
 
+# One-shot shells: `zsh -ic <command>`, which is how every Kitty binding that
+# needs a function or a PATH from this file is launched -- Ctrl+M's
+# sshm-window, Ctrl+E's remote-context.py, Ctrl+A's theme, Ctrl+Shift+T's
+# tmux-picker and the rest. They run one command and exit without ever drawing
+# a prompt, so the completion system, the ZLE plugins and the theme adapters
+# were all built and thrown away: ~270ms of the ~300ms it took to open one.
+#
+# Zsh sets ZSH_EXECUTION_STRING only when -c supplied a command, so it tells
+# those apart from a real interactive shell without a marker on any binding.
+# Everything skipped below is either prompt-only or comes back as a lazy stub,
+# so a one-shot that does want the module still gets it on first call.
+typeset -gi _DOTFILES_ONESHOT=0
+[[ -n ${ZSH_EXECUTION_STRING-} ]] && _DOTFILES_ONESHOT=1
+
 # Homebrew (prepend so brew tools win over the system versions)
 export HOMEBREW_NO_ENV_HINTS=1
 if [[ -x "$HOMEBREW_PREFIX/bin/brew" ]]; then
@@ -11,9 +25,12 @@ export XDG_CONFIG_HOME="$HOME/.config"
 typeset -U path
 path=("$HOME/.local/bin" $path)
 
-# Initialize completion system
-autoload -Uz compinit
-compinit -C
+# Initialize completion system. Nothing completes anything without a prompt,
+# and ssh.zsh guards the one compdef that would otherwise fire without it.
+if (( ! _DOTFILES_ONESHOT )); then
+  autoload -Uz compinit
+  compinit -C
+fi
 setopt PROMPT_SUBST
 
 # History
@@ -42,28 +59,60 @@ _dotfiles_lazy_source() {
 
 # Source custom zsh files (lazy-load rarely used modules)
 _lazy_modules=(log-viewer.zsh diagram.zsh)
+# Modules whose whole job is the prompt: theme.zsh rewrites five app config
+# files and spawns two python3 processes, plugins.zsh pays 56ms for carapace's
+# completions plus fzf-tab, autosuggestions and syntax highlighting. A one-shot
+# shell uses none of it -- and the theme still applies, because the adapters
+# write files on disk that yazi, bat and delta read on their own startup.
+_oneshot_lazy_modules=(theme.zsh plugins.zsh)
 for file in "$HOME/.config/zsh/"*.zsh; do
   [ -f "$file" ] || continue
   local basename="${file:t}"
   if (( ${_lazy_modules[(Ie)$basename]} )); then
     continue  # skip, loaded via stubs below
   fi
+  if (( _DOTFILES_ONESHOT )) && (( ${_oneshot_lazy_modules[(Ie)$basename]} )); then
+    continue  # skip, prompt-only; stubbed below where a one-shot needs it
+  fi
   source "$file"
 done
-unset _lazy_modules
+unset _lazy_modules _oneshot_lazy_modules
 
 # Lazy-load stubs: source on first invocation.
 _dotfiles_lazy_source "$HOME/.config/zsh/log-viewer.zsh" dotlog dotlog-stats dotlog-search dotlog-clean
 _dotfiles_lazy_source "$HOME/.config/zsh/diagram.zsh" diagram
 
-command -v mise &>/dev/null && eval "$(mise activate zsh)"
+# Ctrl+A is `zsh -ic theme`, and theme.zsh is one of the modules a one-shot
+# skips. Hand it a stub so the picker still works -- and starts faster, since
+# it now loads the module on demand instead of at every shell's startup.
+(( _DOTFILES_ONESHOT )) && _dotfiles_lazy_source "$HOME/.config/zsh/theme.zsh" theme
+
+# mise's hooks fire on prompts and directory changes, so a one-shot has
+# nothing to trigger them; the tools the bindings reach for (yazi, sshm,
+# lazygit, btop) all resolve from Homebrew rather than a mise shim.
+(( _DOTFILES_ONESHOT )) || { command -v mise &>/dev/null && eval "$(mise activate zsh)" }
 
 # Colorful man pages
 export MANPAGER="sh -c 'col -bx | bat -l man -p --paging=always'"
 
-# Start every interactive shell in the home directory -- except the ones Neovim
-# spawns. betterTerm is handed a project root (plugins/betterterm.lua) and sets
-# it on the terminal window, which this would otherwise undo on shell startup.
-if [[ -z $NVIM ]]; then
-  cd "$HOME"
+# Kitty pins the directory everywhere it matters -- `--cwd=/Users/pradeep` on
+# the Ctrl+T tab map, `--cwd=current` on the splits, and `--directory` on
+# Finder and Dock launches (dot_config/kitty/macos-launch-services-cmdline) --
+# so this file deliberately does not `cd "$HOME"` unconditionally. Doing that
+# overrode every launch that asks for the calling directory on purpose: the
+# vsplit and hsplit maps, `new_os_window_with_cwd`, and `--cwd=current`
+# launches such as Ctrl+G's lazygit all landed in $HOME instead of the project.
+# It also cost every shell a zoxide `cd` wrapper call and a mise chpwd hook.
+#
+# What is left is the case nothing pins at all: Launch Services starts an app
+# with cwd `/`, so any launcher that slips past the kitty flag above drops the
+# shell in the root directory. Rescue exactly that, and nothing else -- a real
+# directory, however it was arrived at, is left alone. `builtin cd` so zoxide
+# neither records the jump nor charges a chpwd hook for it.
+#
+# Neovim's betterTerm (plugins/betterterm.lua) hands its terminal a project
+# root, which is why the old unconditional version had to exempt $NVIM; a test
+# for `/` excludes it on its own.
+if [[ $PWD == / ]]; then
+  builtin cd "$HOME"
 fi

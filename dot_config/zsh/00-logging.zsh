@@ -200,7 +200,13 @@ log_command() {
   return $exit_code
 }
 
-# Run cleanup on shell start (in background to avoid blocking)
-_cleanup_old_logs &!
+# Startup side effects only. This file stays sourced in the one-shot `zsh -ic`
+# shells Kitty launches (see ~/.zshrc) because config-edit and the theme
+# adapters call the functions above -- but a shell that lives for a third of a
+# second should not fork a cleanup job and write a line saying it started.
+if (( ! ${_DOTFILES_ONESHOT:-0} )); then
+  # Run cleanup on shell start (in background to avoid blocking)
+  _cleanup_old_logs &!
 
-debug_log "logging" "Logging initialized (console=${DEBUG_DOTFILES:-0}, json=${DOTFILES_JSON_LOG:-0})"
+  debug_log "logging" "Logging initialized (console=${DEBUG_DOTFILES:-0}, json=${DOTFILES_JSON_LOG:-0})"
+fi

@@ -113,6 +113,21 @@ if [ -n "$KITTY_WINDOW_ID" ] && command -v kitten >/dev/null 2>&1; then
   in_kitty=1
 fi
 
+# Report a connection's exit status to whoever launched sshm.
+#
+# sshm exits 0 whether the ssh it ran connected or died with "Connection
+# refused", so its own status says nothing about what happened. sshm-window
+# (dot_config/zsh/ssh.zsh) hands us a file through SSHM_STATUS_FILE and reads
+# the last line back, so it knows whether to hold its Kitty window open
+# instead of closing it over the error. Appending rather than overwriting
+# keeps the record honest when one sshm session connects more than once, and
+# an unset variable — every `ssh` and `sshm` outside that wrapper — is a
+# no-op.
+report_status() {
+  [ -n "${SSHM_STATUS_FILE:-}" ] || return 0
+  printf '%s\n' "$1" >>"$SSHM_STATUS_FILE" 2>/dev/null || true
+}
+
 set_tab_color() {
   [ "$in_kitty" = 1 ] || return 0
   # Match the tab holding this window rather than "the active tab": by the time
@@ -137,11 +152,7 @@ if [ "$in_kitty" = 1 ] && [ -n "$dest" ]; then
     status=$?
   fi
 
-  # A zero exit means an SSH session ran to completion; signal the Kitty
-  # launcher so picker cancellation and connection failures keep its shell.
-  if [ "$status" -eq 0 ] && [ -n "$SSHM_CONNECTION_MARKER" ]; then
-    : >"$SSHM_CONNECTION_MARKER"
-  fi
+  report_status "$status"
   exit "$status"
 fi
 

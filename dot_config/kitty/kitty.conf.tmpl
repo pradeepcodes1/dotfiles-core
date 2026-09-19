@@ -34,7 +34,10 @@ window_border_width     1pt
 draw_minimal_borders    yes
 # "splits" gives tmux-style dynamic splitting; "stack" is the zoom target.
 enabled_layouts         splits:split_axis=horizontal,stack
-confirm_os_window_close 2
+# Close without asking. 2 used to put a confirmation dialog in front of any
+# window holding more than one kitty window; 0 turns that off entirely, so
+# closing a window or quitting just happens.
+confirm_os_window_close 0
 {{- if eq .chezmoi.os "darwin" }}
 macos_quit_when_last_window_closed yes
 # macos_titlebar_color               background
@@ -160,9 +163,21 @@ map ctrl+n new_os_window_with_cwd
 # (see dot_config/zsh/tmux.zsh); this is the only way in besides `tmux-picker`.
 map ctrl+shift+t launch --type=tab --title tmux zsh -i -c tmux-picker
 
-# Run in the current shell; the wrapper closes it only after SSH completes, so
-# cancelling the picker or failing to connect returns to the local prompt.
-map ctrl+m send_text all sshm_close\r
+# Own tab, like tmux-picker above, rather than typed into the calling shell:
+# cancelling the picker and finishing a session both just close that tab, and
+# the shell it was launched from is left untouched either way. The wrapper
+# sshm-window (dot_config/zsh/ssh.zsh) is sshm plus a pause on a failing exit,
+# so a connection that never came up leaves its error on screen instead of
+# taking the tab down with it.
+map ctrl+m launch --type=tab --title ssh zsh -ic sshm-window
+
+# A shell that has not run anything yet has no scrollback worth protecting, so
+# take its window over with an overlay instead of opening a tab beside it. The
+# shell_fresh user variable is set by the first prompt and dropped by the first
+# command (dot_config/zsh/ssh.zsh); anything that never sets it - an editor, an
+# ssh session, the picker's own short-lived shell - falls through to the tab
+# binding above.
+map --when-focus-on var:shell_fresh ctrl+m launch --type=overlay --title ssh zsh -ic sshm-window
 
 # ── Scrollback and prompts ────────────────────────────────────────────────
 # Ask Zsh to clear through its Ctrl+L widget. Unlike Kitty's
@@ -208,7 +223,7 @@ map ctrl+p>h kitten hints --type hash --program -
 # The private macOS overlay replaces e/g/shift+g/i with
 # ssh-aware versions (and adds shift+e and o) through local.d: a later `map`
 # for the same chord wins, and local.d is globincluded at the end of this file.
-map ctrl+e       send_text all y\r
+map ctrl+e       send_text all \x20y\r
 map ctrl+g       launch --type=overlay --cwd=current zsh -ic lazygit
 map ctrl+shift+g launch --type=overlay --cwd=current serie
 

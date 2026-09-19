@@ -27,6 +27,26 @@ return {
 				"snacks_dashboard",
 			})
 
+			local lib_patterns = {
+				"/node_modules/",
+				"/vendor/",
+				"/%.venv/",
+				"/site%-packages/",
+				"/%.cargo/registry/",
+				"/go/pkg/mod/",
+				"/%.m2/repository/",
+				"/%.gradle/caches/",
+			}
+
+			local function is_lib_path(path)
+				for _, pattern in ipairs(lib_patterns) do
+					if path:match(pattern) then
+						return true
+					end
+				end
+				return false
+			end
+
 			local function smart_path()
 				local path = vim.fn.expand("%:p")
 				if path == "" then
@@ -43,42 +63,40 @@ return {
 					return jdt.JAVA_ICON .. " " .. (fqcn or path) .. " (decompiled)"
 				end
 
-				if vim.bo.buftype == "" and project_state.is_open() then
-					local root = project_paths.current_root()
-					local normalized = path_util.normalize(path)
-					if path_util.under(normalized, root) then
-						return vim.fs.relpath(root, normalized)
+				local normalized = path_util.normalize(path)
+				local root = project_state.is_open() and project_paths.current_root() or project_paths.buffer_root(0)
+
+				if vim.bo.buftype == "" and root and path_util.under(normalized, root) then
+					return vim.fs.relpath(root, normalized)
+				end
+
+				local label
+				if vim.fn.winwidth(0) < 80 then
+					label = vim.fn.expand("%:t")
+				else
+					local home = vim.fn.expand("$HOME")
+					if path == home or vim.startswith(path, home .. "/") then
+						label = "~" .. path:sub(#home + 1)
+					else
+						label = path
 					end
 				end
 
-				if vim.fn.winwidth(0) < 80 then
-					return vim.fn.expand("%:t")
+				-- A real file outside the project root and outside any known
+				-- dependency cache wandered in from somewhere else entirely.
+				if vim.bo.buftype == "" and not is_lib_path(normalized) then
+					return "↗ " .. label
 				end
 
-				local home = vim.fn.expand("$HOME")
-				if path == home or vim.startswith(path, home .. "/") then
-					return "~" .. path:sub(#home + 1)
-				end
-
-				return path
+				return label
 			end
 
-			-- Each window owns its filename; duplicate basenames retain their path context.
+			-- Each window owns its filename; the full path lives in the
+			-- statusline instead, so the winbar stays a short buffer label.
 			local function window_label()
 				local path = vim.api.nvim_buf_get_name(0)
 				local name = vim.fs.basename(path)
 				local label = name ~= "" and name or "[No Name]"
-				if vim.bo.buftype ~= "" or jdt.is_jdt(path) then
-					label = smart_path()
-				else
-					for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-						local other = vim.api.nvim_buf_get_name(buf)
-						if vim.bo[buf].buflisted and other ~= path and vim.fs.basename(other) == name then
-							label = smart_path()
-							break
-						end
-					end
-				end
 				return label .. (vim.bo.modified and " ●" or "") .. (vim.bo.readonly and " " or "")
 			end
 
@@ -142,7 +160,7 @@ return {
 						},
 						lualine_c = { "branch", "diff" },
 						lualine_x = { "diagnostics" },
-						lualine_y = { { "filetype", colored = false } },
+						lualine_y = { smart_path, { "filetype", colored = false } },
 						lualine_z = { location },
 					},
 					-- Winbars identify their own buffer rather than repeating workspace status.

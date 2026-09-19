@@ -62,3 +62,12 @@
 
 # Remove the retired combined Harpoon and buffer picker from managed installations.
 .config/nvim/lua/ui/harpoon.lua
+
+# SketchyBar is no longer used; its theme adapter reloaded the bar from every
+# shell startup, which cost time even on machines where it was never installed.
+.config/zsh/theme/apps/sketchybar.zsh
+
+# The Claude Code theme adapter is retired: its write to ~/.claude.json never
+# survived, because Claude Code rewrites that file from an in-memory cache and
+# drops keys it did not put there.
+.config/zsh/theme/apps/claude.zsh
