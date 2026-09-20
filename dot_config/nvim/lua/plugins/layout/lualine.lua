@@ -144,7 +144,7 @@ return {
 								"mode",
 								fmt = function(str)
 									-- Hydra owns the active key layer, so surface it before the editor mode.
-									if _G.Hydra or _G.active_keymap_layer then
+									if _G.Hydra then
 										return "H"
 									end
 									return str:sub(1, 1)

@@ -68,8 +68,13 @@ function M.activate()
 		})
 		-- Leaving a diff tab must release navigation keys back to the editor.
 		vim.api.nvim_create_autocmd("TabLeave", {
+			group = vim.api.nvim_create_augroup("codediff_hydra_exit", { clear = true }),
+			desc = "Release CodeDiff hydra keys when leaving a diff tab",
 			callback = function()
-				hydra:exit()
+				-- Global event: only a diff tab owns these keys, per M.activate above.
+				if vim.t.codediff_view then
+					hydra:exit()
+				end
 			end,
 		})
 	end

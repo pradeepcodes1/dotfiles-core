@@ -10,8 +10,12 @@ function M.show()
 	-- real buffer takes over, so remember the value and put it back.
 	local saved_tabline = vim.o.showtabline
 	Snacks.dashboard()
+	-- Cleared group, not just `once`: show() may run again before any BufEnter,
+	-- and a second pending handler would restore a stale showtabline.
 	vim.api.nvim_create_autocmd("BufEnter", {
+		group = vim.api.nvim_create_augroup("dashboard_tabline_restore", { clear = true }),
 		once = true,
+		desc = "Restore showtabline once a real buffer replaces the dashboard",
 		callback = function()
 			if vim.bo.filetype ~= "snacks_dashboard" then
 				vim.o.showtabline = saved_tabline

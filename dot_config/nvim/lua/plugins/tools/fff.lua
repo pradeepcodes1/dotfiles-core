@@ -81,5 +81,6 @@ return {
 			git_ignored = "Comment",
 		},
 	},
-	lazy = false,
+	-- Off the startup path, but still warmed before the first <leader>ff.
+	event = "VeryLazy",
 }
