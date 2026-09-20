@@ -8,6 +8,8 @@ M.autocmd_patterns = {
 	"*/vendor/*",
 	"*/homebrew/Cellar/*",
 	"*/mise/installs/*",
+	"*/nvim/mason/*",
+	"*/nvim/lazy/*",
 	vim.fn.expand("~") .. "/go/*",
 	vim.fn.expand("~") .. "/.rustup/toolchains/*/lib/*",
 }

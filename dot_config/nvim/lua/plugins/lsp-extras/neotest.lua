@@ -12,6 +12,9 @@ return {
 		-- Test actions remain lazy triggers, with their definitions centralized.
 		keys = require("core.keymaps").plugin.neotest,
 		config = function()
+			-- setup() merges over its defaults, so a partial table is the
+			-- documented call shape even though the parameter type is complete.
+			---@diagnostic disable-next-line: missing-fields
 			require("neotest").setup({
 				adapters = {
 					require("neotest-java")({
@@ -25,6 +28,7 @@ return {
 					skipped = "↓",
 					unknown = "?",
 				},
+				---@diagnostic disable-next-line: missing-fields
 				floating = {
 					border = "rounded",
 					max_height = 0.8,

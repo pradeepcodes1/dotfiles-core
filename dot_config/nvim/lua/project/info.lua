@@ -48,12 +48,12 @@ local function highlight_info(buf)
 	for index, line in ipairs(vim.api.nvim_buf_get_lines(buf, 0, -1, false)) do
 		local _, label_end = line:find("^%s*[%w ][%w ]*:%s*")
 		if label_end then
-			vim.api.nvim_buf_add_highlight(buf, info_namespace, "Title", index - 1, 0, label_end)
+			vim.hl.range(buf, info_namespace, "Title", { index - 1, 0 }, { index - 1, label_end })
 		end
 		for word, group in pairs({ yes = "DiagnosticOk", no = "DiagnosticWarn", none = "Comment" }) do
 			local start = line:find("%f[%w]" .. word .. "%f[%W]")
 			if start then
-				vim.api.nvim_buf_add_highlight(buf, info_namespace, group, index - 1, start - 1, start - 1 + #word)
+				vim.hl.range(buf, info_namespace, group, { index - 1, start - 1 }, { index - 1, start - 1 + #word })
 			end
 		end
 	end

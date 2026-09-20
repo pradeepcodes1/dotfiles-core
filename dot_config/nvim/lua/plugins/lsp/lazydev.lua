@@ -22,9 +22,23 @@ return {
 			-- it is the one other undefined-global this config produces, in
 			-- keymaps, project, references, the explorer and the dashboard.
 			{ path = "snacks.nvim", words = { "Snacks" } },
-			-- Every file under lua/plugins is a lazy.nvim spec, so let the
-			-- `---@type LazySpec` annotations in them resolve too.
-			{ path = "lazy.nvim", words = { "LazySpec" } },
+			-- The libraries below are loaded unconditionally rather than on a
+			-- `words` match. `words` only inspects files that are *open*, so a
+			-- workspace-wide diagnostic run still reports every `---@type
+			-- LazySpec` and plugin config alias in the closed specs as an
+			-- undefined doc name. These are small, and the aliases appear in
+			-- nearly every file under lua/plugins anyway.
+			--
+			-- lazy.nvim: `---@type LazySpec` on the specs themselves.
+			{ path = "lazy.nvim" },
+			-- Each spec annotates its `opts` with the plugin's own config class.
+			{ path = "auto-session" },
+			{ path = "blink.cmp" },
+			{ path = "overseer.nvim" },
+			-- hydra.nvim publishes the active hydra as `_G.Hydra`, annotated in
+			-- its own source; the keymap and lualine reads of it are undefined
+			-- fields on _G until those types are loaded.
+			{ path = "hydra.nvim" },
 		},
 	},
 }

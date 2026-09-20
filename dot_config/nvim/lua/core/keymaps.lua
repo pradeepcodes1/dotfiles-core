@@ -62,6 +62,11 @@ end
 -- fff owns file and text search; Snacks remains the picker for buffers, symbols,
 -- history, diagnostics, projects, and plugin-specific sources.
 if not vim.g.nvim_preview then
+	local function file_search_width(columns)
+		-- Keep file-only results near 90 columns without overflowing smaller screens.
+		return math.min(0.8, 90 / columns)
+	end
+
 	local function fff_at(root)
 		-- fff snapshots cwd when its config module first loads, which can precede
 		-- auto-session's project restore. Seed the intended root before fff's
@@ -73,8 +78,12 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>ff", function()
 		local root = project_paths.file_search_root()
 		if root then
-			-- Reset and normal file search share the same preview defaults and toggle.
-			require("ui.find_files").open(root)
+			-- File results carry no preview, so keep the list compact instead of two-pane.
+			fff_at(root).find_files({
+				cwd = root,
+				preview = { enabled = false },
+				layout = { width = file_search_width },
+			})
 		end
 	end, { desc = "Find Files" })
 	map("n", "<leader>fg", function()
@@ -302,10 +311,14 @@ end, { desc = "Previous TODO" })
 -- noice routes skip, which never reach the Snacks notifier history below.
 map("n", "<leader>n", function()
 	local ok, picker = pcall(require, "snacks.picker")
+	-- Noice registers its source at runtime, after snacks' own type has
+	-- enumerated the built-in ones, so this read is not on the declared list.
+	---@diagnostic disable-next-line: undefined-field
 	if not ok or not picker.sources.noice then
 		vim.notify("Noice message picker is not available", vim.log.levels.WARN)
 		return
 	end
+	---@diagnostic disable-next-line: undefined-field
 	picker.noice()
 end, { desc = "Search all messages (noice)" })
 
@@ -776,7 +789,7 @@ function M.treesitter_textobjects(select, move)
 end
 
 function M.gitsigns_on_attach(bufnr, gitsigns, hunk_hydra)
-	local opts = { buffer = bufnr, silent = true }
+	local buf_opts = { buffer = bufnr, silent = true }
 	-- Dispatch the shared prefix by tab so ordinary and CodeDiff buffers can coexist.
 	map("n", "<leader>h", function()
 		if vim.t.codediff_view then
@@ -784,7 +797,7 @@ function M.gitsigns_on_attach(bufnr, gitsigns, hunk_hydra)
 		else
 			hunk_hydra:activate()
 		end
-	end, vim.tbl_extend("force", opts, { desc = "Git / CodeDiff hunk navigation", nowait = true }))
+	end, vim.tbl_extend("force", buf_opts, { desc = "Git / CodeDiff hunk navigation", nowait = true }))
 	for _, action in ipairs({
 		{ "hs", "stage_hunk", "Stage/unstage Git hunk" },
 		{ "hr", "reset_hunk", "Discard working-tree hunk changes" },
@@ -792,15 +805,15 @@ function M.gitsigns_on_attach(bufnr, gitsigns, hunk_hydra)
 		map("x", "<leader>" .. action[1], function()
 			local first, last = vim.fn.line("v"), vim.fn.line(".")
 			gitsigns[action[2]]({ math.min(first, last), math.max(first, last) })
-		end, vim.tbl_extend("force", opts, { desc = action[3] .. " (selection)" }))
+		end, vim.tbl_extend("force", buf_opts, { desc = action[3] .. " (selection)" }))
 	end
 	map("n", "]h", function()
 		gitsigns.nav_hunk("next")
-	end, vim.tbl_extend("force", opts, { desc = "Next Git hunk" }))
+	end, vim.tbl_extend("force", buf_opts, { desc = "Next Git hunk" }))
 	map("n", "[h", function()
 		gitsigns.nav_hunk("prev")
-	end, vim.tbl_extend("force", opts, { desc = "Previous Git hunk" }))
-	map("n", "<leader>gb", gitsigns.blame, vim.tbl_extend("force", opts, { desc = "Blame current file" }))
+	end, vim.tbl_extend("force", buf_opts, { desc = "Previous Git hunk" }))
+	map("n", "<leader>gb", gitsigns.blame, vim.tbl_extend("force", buf_opts, { desc = "Blame current file" }))
 end
 
 function M.gitsigns_hydra_heads(gitsigns)
@@ -810,7 +823,9 @@ function M.gitsigns_hydra_heads(gitsigns)
 		{
 			"?",
 			function()
-				_G.Hydra.hint:show()
+				if _G.Hydra then
+					_G.Hydra.hint:show()
+				end
 			end,
 			{ desc = "show help" },
 		},
@@ -856,7 +871,9 @@ function M.resize_hydra_heads()
 		{
 			"?",
 			function()
-				_G.Hydra.hint:show()
+				if _G.Hydra then
+					_G.Hydra.hint:show()
+				end
 			end,
 			{ desc = "show help" },
 		},
@@ -910,7 +927,9 @@ function M.codediff_hydra_heads(diff, navigate_file, hunk_action)
 		{
 			"?",
 			function()
-				_G.Hydra.hint:show()
+				if _G.Hydra then
+					_G.Hydra.hint:show()
+				end
 			end,
 			{ desc = "show help" },
 		},

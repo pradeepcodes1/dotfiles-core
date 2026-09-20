@@ -73,7 +73,17 @@ function M.reset()
 	-- Layout cleanup must retain project identity even when it removes every file buffer.
 	vim.cmd({ cmd = "cd", args = { root }, mods = { noautocmd = true } })
 	require("project.state").set_open(true, root)
-	require("ui.find_files").open(root)
+	-- Seed the root before fff's native index initializes, as the keymaps do.
+	require("fff.conf").get().base_path = root
+	require("fff").find_files({
+		cwd = root,
+		preview = { enabled = false },
+		layout = {
+			width = function(columns)
+				return math.min(0.8, 90 / columns)
+			end,
+		},
+	})
 	return true
 end
 
