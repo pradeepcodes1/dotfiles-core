@@ -56,10 +56,6 @@ return {
 				end,
 			},
 		},
-		debug = {
-			enabled = false,
-			show_scores = false,
-		},
 		git = {
 			status_text_color = true,
 		},

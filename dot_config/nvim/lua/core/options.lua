@@ -80,7 +80,6 @@ else
 end
 vim.g.health = vim.tbl_deep_extend("force", vim.g.health or {}, { style = "float" })
 -- format_on_save is handled by plugins/conform.lua
-opt.autoread = true
 -- Focus and buffer entry only. CursorHold/CursorHoldI made this stat every
 -- loaded buffer on the 300ms updatetime above, including mid-keystroke.
 vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter" }, {

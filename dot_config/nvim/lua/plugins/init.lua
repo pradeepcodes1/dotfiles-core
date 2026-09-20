@@ -18,5 +18,5 @@ return {
 	----------------------------------------
 	-- Python specifics
 	----------------------------------------
-	{ "linux-cultist/venv-selector.nvim", cmd = "VenvSelect", opts = { search_venv_managers = false } },
+	{ "linux-cultist/venv-selector.nvim", cmd = "VenvSelect", opts = {} },
 }

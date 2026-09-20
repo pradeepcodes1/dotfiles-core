@@ -17,9 +17,7 @@ return {
 			---@diagnostic disable-next-line: missing-fields
 			require("neotest").setup({
 				adapters = {
-					require("neotest-java")({
-						ignore_wrapper = false,
-					}),
+					require("neotest-java")({}),
 				},
 				icons = {
 					passed = "✓",

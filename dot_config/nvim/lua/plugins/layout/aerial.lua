@@ -32,23 +32,16 @@ return {
 		guides = {
 			mid_item = "├ ",
 			last_item = "└ ",
-			nested_top = "│ ",
-			whitespace = "  ",
 		},
 		highlight_on_hover = true,
 		autojump = true,
-		close_on_select = false,
 		keymaps = {
-			["<CR>"] = "actions.jump",
-			["<C-v>"] = "actions.jump_vsplit",
-			["<C-s>"] = "actions.jump_split",
 			["q"] = close_symbols,
 			["<C-q>"] = close_symbols,
 			["Q"] = close_symbols,
 			["<leader>x"] = close_symbols,
 			["<C-w>c"] = close_symbols,
 			["<C-w>q"] = close_symbols,
-			["o"] = "actions.tree_toggle",
 		},
 	},
 }

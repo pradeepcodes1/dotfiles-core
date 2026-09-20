@@ -184,13 +184,12 @@ return {
 							vim.deepcopy(breadcrumb_component),
 						},
 					},
-					tabline = {},
 					options = {
 						theme = lualine_theme,
 						globalstatus = true,
 						section_separators = "",
 						component_separators = "",
-						disabled_filetypes = { statusline = {}, winbar = winbar_disabled },
+						disabled_filetypes = { winbar = winbar_disabled },
 					},
 				})
 				-- Disabling lualine's tabline restores its saved option, so hide it after setup.

@@ -5,7 +5,6 @@ return {
 
 		Hydra({
 			name = "Resize splits",
-			mode = "n",
 			body = "<leader>w",
 			config = {
 				color = "pink",
