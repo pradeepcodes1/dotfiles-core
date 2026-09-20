@@ -57,7 +57,7 @@ function M.activate()
 			},
 			hint = [[
  CodeDiff
- _j_: next hunk  _k_: previous hunk
+ _j_: next hunk across files  _k_: previous hunk across files
  _<C-j>_: next file  _<C-k>_: previous file
  _<C-Down>_: next page  _<C-Up>_: previous page
  _s_: stage  _u_: unstage  _r_: discard

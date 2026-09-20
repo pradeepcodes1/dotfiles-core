@@ -58,6 +58,9 @@ export BAT_PAGER="less -RFQ"
 # language from a pipe, --paging=never because a pager would block the stream
 tailf() { tail -f "$@" | bat --paging=never -l log }
 dev() { builtin cd "$DOTFILES_DEV_ROOT"; }
+# Edit dotfiles at the source, not the applied copy. A `dotfiles` subcommand
+# cannot do this: the script runs in a subshell, so its cd dies with it.
+config-edit() { builtin cd "{{ .chezmoi.sourceDir }}"; }
 
 # One-screen repository summary: onefetch's git facts above tokei's line
 # counts, paged. Kitty's Ctrl+Shift+I runs the same script directly; this only
@@ -68,11 +71,14 @@ repo-stats() { {{ .chezmoi.homeDir }}/.config/kitty/repo-stats.sh "$@" }
 # Usage: up [N] (default: 1)
 function up() {
   local levels=${1:-1}
-  local path=""
+  # Not `path`: zsh ties that name to $PATH, so a local one blanks the command
+  # search path for the whole function -- including the chpwd hooks `cd` fires
+  # (zoxide, mise), which then fail with "command not found".
+  local target=""
   for ((i = 0; i < levels; i++)); do
-    path="../$path"
+    target="../$target"
   done
-  builtin cd "$path"
+  builtin cd "$target"
 }
 
 # Go binaries

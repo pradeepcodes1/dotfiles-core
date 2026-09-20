@@ -297,6 +297,18 @@ map("n", "[t", function()
 	require("todo-comments").jump_prev()
 end, { desc = "Previous TODO" })
 
+-- Noice registers itself as a Snacks picker source when both are loaded, so
+-- this searches the full pre-route message stream -- including messages the
+-- noice routes skip, which never reach the Snacks notifier history below.
+map("n", "<leader>n", function()
+	local ok, picker = pcall(require, "snacks.picker")
+	if not ok or not picker.sources.noice then
+		vim.notify("Noice message picker is not available", vim.log.levels.WARN)
+		return
+	end
+	picker.noice()
+end, { desc = "Search all messages (noice)" })
+
 -- Copy the full notification history to the clipboard. Not under <leader>.,
 -- which snacks uses for the scratch buffer: a two-key binding below it makes
 -- every scratch toggle wait out timeoutlen first.
@@ -863,6 +875,17 @@ function M.resize_hydra_heads()
 end
 
 function M.codediff_hydra_heads(diff, navigate_file, hunk_action)
+	local function navigate_hunks_across_files(direction)
+		return function()
+			local config = require("codediff.config")
+			local previous = config.options.diff.cycle_hunks_across_files
+			-- Plain hunk navigation forms one continuous review stream across changed files.
+			config.options.diff.cycle_hunks_across_files = true
+			diff[direction .. "_hunk"]()
+			config.options.diff.cycle_hunks_across_files = previous
+		end
+	end
+
 	local function page_files(direction)
 		return function()
 			local panel = require("codediff.ui.lifecycle").get_panel(vim.api.nvim_get_current_tabpage())
@@ -891,8 +914,8 @@ function M.codediff_hydra_heads(diff, navigate_file, hunk_action)
 			end,
 			{ desc = "show help" },
 		},
-		{ "j", diff.next_hunk, { desc = "Next hunk" } },
-		{ "k", diff.prev_hunk, { desc = "Previous hunk" } },
+		{ "j", navigate_hunks_across_files("next"), { desc = "Next hunk across files" } },
+		{ "k", navigate_hunks_across_files("prev"), { desc = "Previous hunk across files" } },
 		{ "<C-j>", navigate_file("next"), { desc = "Next file / history commit" } },
 		{ "<C-k>", navigate_file("prev"), { desc = "Previous file / history commit" } },
 		{ "<C-Down>", page_files("down"), { desc = "Next explorer page" } },

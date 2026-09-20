@@ -25,6 +25,14 @@ return {
 				"lazy",
 				"mason",
 				"snacks_dashboard",
+				-- Snacks builds a sidebar layout out of an invisible box window plus
+				-- floats sized to fit inside it, and budgets rows for the global
+				-- statusline when it does. A winbar on the box eats a row nobody
+				-- accounted for, pushing the list one line down and over lualine --
+				-- visible as a stray "[No Name]" label above the Explorer title.
+				"snacks_layout_box",
+				"snacks_picker_input",
+				"snacks_picker_preview",
 			})
 
 			local lib_patterns = {

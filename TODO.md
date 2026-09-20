@@ -8,6 +8,10 @@
 
 - [ ] Try out diffs.nvim.
 
+<!-- Make repository review layout switching available without leaving the active CodeDiff view. -->
+
+- [ ] Add a Neovim keybinding to toggle the `<leader>gD` Git diff between two-pane and one-pane views.
+
 <!-- Keep the cross-frontend evidence here so the layout bug can be isolated and filed upstream. -->
 
 - [ ] Investigate the flash when opening Snacks Explorer: in both Neovide and terminal Neovim under Kitty, the editor briefly uses an approximately half-width split before settling beside the 40-column sidebar. Reproduce with a minimal Snacks configuration and prioritize Snacks/Neovim layout handling over frontend rendering, then file an issue if it persists. Related reports: [snacks.nvim #1308](https://github.com/folke/snacks.nvim/issues/1308), [Neovide #1947](https://github.com/neovide/neovide/issues/1947), and [Neovide #2385](https://github.com/neovide/neovide/issues/2385).
