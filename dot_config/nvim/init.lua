@@ -43,12 +43,31 @@ require("lazy").setup({
 		{ import = "plugins.extras" },
 		{ import = "plugins.theme" },
 	},
+	-- Chezmoi owns this tree; it changes via `chezmoi apply` and a restart,
+	-- never by lazy noticing an edit. Drop the reloader and its file watcher.
+	change_detection = { enabled = false },
+	performance = {
+		rtp = {
+			-- matchit and matchparen stay enabled: nothing here replaces `%` on
+			-- pairs or bracket-match highlighting.
+			disabled_plugins = {
+				"gzip",
+				"netrwPlugin",
+				"tarPlugin",
+				"tohtml",
+				"tutor",
+				"zipPlugin",
+			},
+		},
+	},
 })
 
 require("project").setup()
 
 -- When Neovim starts with a directory argument, cd into it and show dashboard
+local startup = vim.api.nvim_create_augroup("startup", { clear = true })
 vim.api.nvim_create_autocmd("VimEnter", {
+	group = startup,
 	desc = "Replace directory buffer with dashboard",
 	pattern = "*",
 	once = true,
@@ -72,8 +91,8 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 	group = readonly_libs,
 	pattern = library_paths.autocmd_patterns,
 	callback = function()
-		vim.opt_local.modifiable = false
-		vim.opt_local.readonly = true
+		vim.bo.modifiable = false
+		vim.bo.readonly = true
 	end,
 })
 

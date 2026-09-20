@@ -14,11 +14,5 @@ return {
 		"MunifTanjim/nui.nvim",
 		"folke/snacks.nvim",
 	},
-	opts = {
-		integrations = {
-			-- Keep project selection and SourceKit's Xcode build settings synchronized.
-			xcode_build_server = { enabled = true },
-			snacks_nvim = { enabled = true },
-		},
-	},
+	opts = {},
 }

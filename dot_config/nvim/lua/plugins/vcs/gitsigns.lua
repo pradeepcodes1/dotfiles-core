@@ -15,7 +15,6 @@ return {
 				changedelete = { text = "U~" },
 				untracked = { text = "??" },
 			},
-			signs_staged_enable = true,
 			signs_staged = {
 				add = { text = "S+" },
 				change = { text = "S~" },
@@ -30,7 +29,6 @@ return {
 				-- Keep hunk review active so navigation and actions need only one leader prefix.
 				local hunk_hydra = require("hydra")({
 					name = "Git hunks",
-					mode = "n",
 					config = {
 						buffer = bufnr,
 						color = "pink",

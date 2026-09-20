@@ -144,7 +144,7 @@ return {
 								"mode",
 								fmt = function(str)
 									-- Hydra owns the active key layer, so surface it before the editor mode.
-									if _G.Hydra or _G.active_keymap_layer then
+									if _G.Hydra then
 										return "H"
 									end
 									return str:sub(1, 1)
@@ -184,13 +184,12 @@ return {
 							vim.deepcopy(breadcrumb_component),
 						},
 					},
-					tabline = {},
 					options = {
 						theme = lualine_theme,
 						globalstatus = true,
 						section_separators = "",
 						component_separators = "",
-						disabled_filetypes = { statusline = {}, winbar = winbar_disabled },
+						disabled_filetypes = { winbar = winbar_disabled },
 					},
 				})
 				-- Disabling lualine's tabline restores its saved option, so hide it after setup.

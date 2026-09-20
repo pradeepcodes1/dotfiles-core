@@ -1,3 +1,10 @@
+-- Yazi loads these plugins into its own Lua runtime, where `ya`, `ui`, `cx`,
+-- `Status` and `Linemode` are supplied as globals. lua_ls indexes this repo as
+-- one Neovim workspace, so nothing here can declare them -- a `.luarc.json`
+-- beside this file only applies when lua_ls happens to root itself here rather
+-- than at the repo, which it does not once a Neovim buffer opened first.
+---@diagnostic disable: undefined-global
+
 -- Show useful text-file line counts without repeatedly scanning on every redraw.
 local LINES_CAP = 2 * 1024 * 1024
 local lines_cache, lines_cached = {}, 0
@@ -25,8 +32,13 @@ local function lines_of(file)
 		-- Quote the path for /bin/sh so unusual filenames remain one grep argument.
 		local quoted = path:gsub("'", "'\\''")
 		local proc = io.popen("grep -Ic '' '" .. quoted .. "' 2>/dev/null")
-		local out = proc:read("a")
-		hit = proc:close() and tonumber(out) or false
+		-- A failed fork leaves no handle; cache `false` so it is not retried per redraw.
+		if proc then
+			local out = proc:read("a")
+			hit = proc:close() and tonumber(out) or false
+		else
+			hit = false
+		end
 
 		if lines_cached >= 512 then
 			lines_cache, lines_cached = {}, 0

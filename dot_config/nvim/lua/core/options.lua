@@ -1,6 +1,7 @@
 -- define editor-wide behavior once before plugins specialize it.
 -- core/options.lua
 local opt = vim.opt
+local group = vim.api.nvim_create_augroup("core_options", { clear = true })
 vim.filetype.add({
 	pattern = {
 		-- Detect the rendered filename so templates inherit native syntax and ftplugins.
@@ -44,10 +45,13 @@ opt.foldlevelstart = 99
 
 -- Spell checking for prose
 vim.api.nvim_create_autocmd("FileType", {
+	group = group,
 	pattern = { "markdown", "gitcommit", "text" },
+	desc = "Spell check prose filetypes",
 	callback = function()
-		vim.opt_local.spell = true
-		vim.opt_local.spelllang = "en_us"
+		-- `spell` is window-local, `spelllang` buffer-local; opt_local blurred that.
+		vim.wo.spell = true
+		vim.bo.spelllang = "en_us"
 	end,
 })
 
@@ -65,32 +69,40 @@ opt.title = true
 if vim.g.nvim_preview then
 	opt.titlestring = "Neovide Preview · %t"
 else
-	_G.nvim_project_title = function()
+	-- Must be a global for `v:lua`; namespaced so the root table stays clean.
+	_G.MyConfig = _G.MyConfig or {}
+	_G.MyConfig.project_title = function()
 		local root = require("project.paths").current_root() or vim.fn.getcwd()
 		return vim.fn.fnamemodify(root, ":t") .. " · " .. root
 	end
 	-- Named workspace tabs (CodeDiff, Debug) keep their identity on utility buffers.
-	opt.titlestring = "%{get(t:, 'tabname', expand('%:t'))}%( %M%) · %{v:lua.nvim_project_title()}"
+	opt.titlestring = "%{get(t:, 'tabname', expand('%:t'))}%( %M%) · %{v:lua.MyConfig.project_title()}"
 end
-vim.g.loaded_netrw = 1
-vim.g.loaded_netrwPlugin = 1
 vim.g.health = vim.tbl_deep_extend("force", vim.g.health or {}, { style = "float" })
 -- format_on_save is handled by plugins/conform.lua
-vim.o.autoread = true
-vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter", "CursorHold", "CursorHoldI" }, {
-	pattern = "*",
-	command = "if mode() != 'c' | checktime | endif",
+-- Focus and buffer entry only. CursorHold/CursorHoldI made this stat every
+-- loaded buffer on the 300ms updatetime above, including mid-keystroke.
+vim.api.nvim_create_autocmd({ "FocusGained", "BufEnter" }, {
+	group = group,
+	desc = "Reload buffers changed outside Neovim",
+	callback = function()
+		if vim.fn.mode() ~= "c" and vim.bo.buftype == "" then
+			vim.cmd.checktime()
+		end
+	end,
 })
 
 -- Restore terminal cursor to underscore on exit (prevents vim block cursor persisting)
 if not vim.g.neovide then
 	vim.api.nvim_create_autocmd("VimLeave", {
+		group = group,
+		desc = "Restore the terminal cursor shape on exit",
 		callback = function()
 			if #vim.api.nvim_list_uis() == 0 then
 				return
 			end
 
-			vim.opt.guicursor = "a:hor20"
+			vim.o.guicursor = "a:hor20"
 			io.write("\027[4 q")
 		end,
 	})

@@ -48,9 +48,6 @@ return {
 				select = {
 					lookahead = true,
 				},
-				move = {
-					set_jumps = true,
-				},
 			})
 
 			local select = require("nvim-treesitter-textobjects.select")

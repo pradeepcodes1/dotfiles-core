@@ -25,13 +25,7 @@ return {
 			end,
 			timeout = 1500,
 			width = { min = 10, max = 0.4 },
-			style = "compact",
-			top_down = true,
 			icons = {
-				error = " ",
-				warn = " ",
-				info = " ",
-				debug = " ",
 				trace = "✎ ",
 			},
 		},
@@ -60,12 +54,8 @@ return {
 			},
 		},
 		input = { enabled = true },
-		-- Writes a lazygit theme from the active colorscheme, so the float
-		-- follows a `theme` switch like everything else here does.
-		lazygit = { configure = true },
 		picker = {
 			enabled = true,
-			ui_select = true,
 			-- <C-.> is the chord this config used under Telescope. It toggles
 			-- *ignored* rather than hidden, matching `.` in the explorer:
 			-- hidden is on by default in every file source below, so
@@ -126,7 +116,6 @@ return {
 				select = {
 					focus = "list",
 					layout = {
-						preset = "select",
 						layout = {
 							width = 0.35,
 							min_width = 48,
@@ -150,7 +139,6 @@ return {
 				-- takes the last value for a duplicate key in a constructor.
 				files = {
 					hidden = true,
-					ignored = false,
 					layout = { preset = "vertical", hidden = { "preview" }, layout = { width = 0.45 } },
 				},
 			},

@@ -10,12 +10,6 @@ return {
 	-- occupies those global cells - with a vertical split, the wrong one.
 	cond = not vim.g.neovide,
 	opts = {
-		-- Opening the sidebar crosses buffers twice; do not draw a cursor trail
-		-- through the Symbols pane while that happens.
-		smear_between_buffers = true,
-		smear_between_neighbor_lines = true,
-		scroll_buffer_space = true,
-
 		-- A fast head with a slower tail approximates Neovide's short, fluid stretch.
 		stiffness = 0.8,
 		trailing_stiffness = 0.6,

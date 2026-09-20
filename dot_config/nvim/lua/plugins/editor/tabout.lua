@@ -22,10 +22,5 @@ return {
 		-- on blink v1.10.2 -- the `<Plug>` does fire from that expr/noremap
 		-- return, and no literal tab leaks through behind it.
 		completion = false,
-		-- `act_as_tab` keeps a Tab a Tab when there is nothing to step out of.
-		-- Its sibling `default_tab = "<C-t>"` never fires -- forward_tab() tests
-		-- an undefined `prev_char`, so the plain <Tab> branch always wins -- and
-		-- a plain Tab is what belongs there regardless.
-		act_as_tab = true,
 	},
 }
