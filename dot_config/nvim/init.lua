@@ -3,12 +3,12 @@
 -- by core.neovide (font size) and plugins/lazy specs (lualine, dashboard).
 vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
 
-require("core.options")
-require("core.keymaps")
-require("core.neovide")
-require("lsp.lsp_log")
+require("dotfiles.core.options")
+require("dotfiles.keymaps")
+require("dotfiles.core.neovide")
+require("dotfiles.lsp.lsp_log")
 
-local theme = require("theme")
+local theme = require("dotfiles.theme")
 local theme_config = theme.prepare()
 
 -- Bootstrap lazy.nvim if missing
@@ -31,17 +31,16 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
+	-- One directory per concern. deps holds libraries nothing calls directly;
+	-- the rest are named for what the plugin does to the editor, not for how it
+	-- is wired -- there is no "extras" bucket to lose things in.
 	spec = {
-		{ import = "plugins" },
-		{ import = "plugins.editor" },
-		{ import = "plugins.layout" },
-		{ import = "plugins.snacks" },
-		{ import = "plugins.vcs" },
-		{ import = "plugins.lsp" },
-		{ import = "plugins.lsp-extras" },
-		{ import = "plugins.tools" },
-		{ import = "plugins.extras" },
-		{ import = "plugins.theme" },
+		{ import = "dotfiles.plugins.deps" },
+		{ import = "dotfiles.plugins.ui" },
+		{ import = "dotfiles.plugins.editor" },
+		{ import = "dotfiles.plugins.lsp" },
+		{ import = "dotfiles.plugins.git" },
+		{ import = "dotfiles.plugins.tools" },
 	},
 	-- Chezmoi owns this tree; it changes via `chezmoi apply` and a restart,
 	-- never by lazy noticing an edit. Drop the reloader and its file watcher.
@@ -62,39 +61,8 @@ require("lazy").setup({
 	},
 })
 
-require("project").setup()
-
--- When Neovim starts with a directory argument, cd into it and show dashboard
-local startup = vim.api.nvim_create_augroup("startup", { clear = true })
-vim.api.nvim_create_autocmd("VimEnter", {
-	group = startup,
-	desc = "Replace directory buffer with dashboard",
-	pattern = "*",
-	once = true,
-	callback = function()
-		if vim.fn.argc() == 1 and vim.fn.isdirectory(vim.fn.argv(0)) == 1 then
-			vim.cmd.cd(vim.fn.argv(0))
-			local buf = vim.api.nvim_get_current_buf()
-			vim.schedule(function()
-				vim.api.nvim_buf_delete(buf, { force = true })
-				-- Directory starts use the same dashboard owner as the rest of the UI.
-				require("ui.dashboard").show()
-			end)
-		end
-	end,
-})
-
-local readonly_libs = vim.api.nvim_create_augroup("readonly_libs", { clear = true })
-local library_paths = require("lsp.library_paths")
-
-vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
-	group = readonly_libs,
-	pattern = library_paths.autocmd_patterns,
-	callback = function()
-		vim.bo.modifiable = false
-		vim.bo.readonly = true
-	end,
-})
+require("dotfiles.project").setup()
+require("dotfiles.core.autocmds")
 
 -- Startup and live reload share the same application path. The startup
 -- snapshot was prepared before plugins loaded so every consumer sees it.

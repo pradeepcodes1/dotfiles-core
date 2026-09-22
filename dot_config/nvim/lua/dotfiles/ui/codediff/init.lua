@@ -1,0 +1,141 @@
+local M = {}
+local hydra
+
+local function navigate_file(direction)
+	return function()
+		local lifecycle = require("codediff.ui.lifecycle")
+		local tab = vim.api.nvim_get_current_tabpage()
+		local panel = lifecycle.get_panel(tab)
+		local win = panel and panel.view and panel.view.winid
+		local navigate = require("codediff")[direction .. "_file"]
+		-- CodeDiff temporarily focuses the tree; use that stable window as its return target.
+		if win and vim.api.nvim_win_is_valid(win) then
+			vim.api.nvim_win_call(win, navigate)
+		else
+			navigate()
+		end
+		-- File selection can replace diff windows, so resolve the editor again after it finishes.
+		vim.schedule(function()
+			if vim.api.nvim_get_current_tabpage() ~= tab then
+				return
+			end
+			local session = lifecycle.get_session(tab)
+			local editor = session and session.modified_win
+			if editor and vim.api.nvim_win_is_valid(editor) then
+				vim.api.nvim_set_current_win(editor)
+			end
+		end)
+	end
+end
+
+local function hunk_action(action)
+	return function()
+		-- Resolve CodeDiff's current buffer callback so file switches retain its checks and confirmations.
+		local mapping = vim.fn.maparg("<Plug>(CodeDiffHydra-" .. action .. ")", "n", false, true)
+		if mapping.callback then
+			mapping.callback()
+		else
+			vim.notify("Focus a diff editor pane to " .. action .. " a hunk", vim.log.levels.INFO)
+		end
+	end
+end
+
+-- Hydra consumes this table itself, but its modal keys are still bindings and
+-- belong beside the navigation actions above that they drive.
+local function hydra_heads(diff)
+	local function navigate_hunks_across_files(direction)
+		return function()
+			local config = require("codediff.config")
+			local previous = config.options.diff.cycle_hunks_across_files
+			-- Plain hunk navigation forms one continuous review stream across changed files.
+			config.options.diff.cycle_hunks_across_files = true
+			diff[direction .. "_hunk"]()
+			config.options.diff.cycle_hunks_across_files = previous
+		end
+	end
+
+	local function page_files(direction)
+		return function()
+			local panel = require("codediff.ui.lifecycle").get_panel(vim.api.nvim_get_current_tabpage())
+			local explorer = panel and panel.name == "explorer" and panel.view
+			local height = explorer
+					and explorer.winid
+					and vim.api.nvim_win_is_valid(explorer.winid)
+					and vim.api.nvim_win_get_height(explorer.winid)
+				or 2
+			local navigate = navigate_file(direction == "up" and "prev" or "next")
+
+			-- Match picker page movement by advancing half the visible explorer rows.
+			for _ = 1, math.max(1, math.floor(height / 2)) do
+				navigate()
+			end
+		end
+	end
+
+	-- CodeDiff supplies the actions while this table owns their modal keys.
+	return {
+		-- The hint stays out of the way until it is explicitly requested.
+		{
+			"?",
+			function()
+				if _G.Hydra then
+					_G.Hydra.hint:show()
+				end
+			end,
+			{ desc = "show help" },
+		},
+		{ "j", navigate_hunks_across_files("next"), { desc = "Next hunk across files" } },
+		{ "k", navigate_hunks_across_files("prev"), { desc = "Previous hunk across files" } },
+		{ "<C-j>", navigate_file("next"), { desc = "Next file / history commit" } },
+		{ "<C-k>", navigate_file("prev"), { desc = "Previous file / history commit" } },
+		{ "<C-Down>", page_files("down"), { desc = "Next explorer page" } },
+		{ "<C-Up>", page_files("up"), { desc = "Previous explorer page" } },
+		{ "s", hunk_action("stage"), { desc = "Stage hunk" } },
+		{ "u", hunk_action("unstage"), { desc = "Unstage hunk" } },
+		{ "r", hunk_action("discard"), { desc = "Discard hunk" } },
+		{ "q", function() end, { exit = true, nowait = true } },
+		{ "<Esc>", nil, { exit = true } },
+	}
+end
+
+function M.activate()
+	if not vim.t.codediff_view then
+		return
+	end
+	-- One global Hydra survives file and pane switches inside the diff session.
+	if not hydra then
+		local diff = require("codediff")
+		hydra = require("hydra")({
+			name = "CodeDiff",
+			mode = "n",
+			config = {
+				color = "pink",
+				-- Keep diff navigation focused until the optional help is requested.
+				hint = { float_opts = { border = "rounded" }, hide_on_load = true },
+			},
+			hint = [[
+ CodeDiff
+ _j_: next hunk across files  _k_: previous hunk across files
+ _<C-j>_: next file  _<C-k>_: previous file
+ _<C-Down>_: next page  _<C-Up>_: previous page
+ _s_: stage  _u_: unstage  _r_: discard
+ _q_/_<Esc>_: exit
+]],
+			heads = hydra_heads(diff),
+		})
+		-- Leaving a diff tab must release navigation keys back to the editor.
+		vim.api.nvim_create_autocmd("TabLeave", {
+			group = vim.api.nvim_create_augroup("codediff_hydra_exit", { clear = true }),
+			desc = "Release CodeDiff hydra keys when leaving a diff tab",
+			callback = function()
+				-- Global event: only a diff tab owns these keys, per M.activate above.
+				if vim.t.codediff_view then
+					hydra:exit()
+				end
+			end,
+		})
+	end
+	hydra:activate()
+end
+
+return M

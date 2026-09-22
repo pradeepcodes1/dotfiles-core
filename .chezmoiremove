@@ -71,3 +71,15 @@
 # survived, because Claude Code rewrites that file from an in-memory cache and
 # drops keys it did not put there.
 .config/zsh/theme/apps/claude.zsh
+
+# The Neovim Lua tree moved under lua/dotfiles/ so nothing else on the
+# runtimepath can shadow it. These are the directories that move left behind:
+# without removing them the retired modules stay importable, and lua_ls reports
+# every module as defined twice.
+.config/nvim/lua/core
+.config/nvim/lua/lsp
+.config/nvim/lua/plugins
+.config/nvim/lua/project
+.config/nvim/lua/sessions
+.config/nvim/lua/theme
+.config/nvim/lua/ui
