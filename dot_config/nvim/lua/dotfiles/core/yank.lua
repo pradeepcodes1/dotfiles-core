@@ -1,7 +1,7 @@
 -- Copy useful context without disturbing the clipboard when it is unavailable.
 local M = {}
 local cli = require("dotfiles.core.cli")
-local project_paths = require("dotfiles.project.paths")
+local project_paths = require("project-manager.paths")
 local path_util = require("dotfiles.core.path")
 
 local function file_path()

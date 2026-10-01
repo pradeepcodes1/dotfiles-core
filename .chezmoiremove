@@ -83,3 +83,8 @@
 .config/nvim/lua/sessions
 .config/nvim/lua/theme
 .config/nvim/lua/ui
+
+# Project and project-wide LSP modules moved to project-manager.nvim.
+.config/nvim/lua/dotfiles/project
+.config/nvim/lua/dotfiles/lsp/workspace_symbols.lua
+.config/nvim/lua/dotfiles/lsp/problems.lua

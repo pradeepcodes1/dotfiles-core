@@ -30,11 +30,24 @@ return {
 			documentation = { auto_show = true },
 		},
 		sources = {
-			-- Deliberately not blink's default set, which adds `path`,
-			-- `snippets` and `buffer`. This config has always completed from
-			-- the language server and Copilot only.
-			default = { "lsp", "copilot" },
+			-- Deliberately not blink's default set, which also adds `path` and
+			-- `buffer`. Completion here is the language server, Copilot, and
+			-- the hand-written snippets under <config>/snippets.
+			default = { "lsp", "copilot", "snippets" },
 			providers = {
+				snippets = {
+					opts = {
+						-- No friendly-snippets dependency: this provider reads
+						-- only what is checked in under `search_paths`. Left at
+						-- its default `true`, blink would scan every runtime
+						-- path for a `friendly.snippets` directory on every
+						-- reload and find nothing.
+						friendly_snippets = false,
+						-- The blink default, spelled out because it is the one
+						-- place that says where snippets live.
+						search_paths = { vim.fn.stdpath("config") .. "/snippets" },
+					},
+				},
 				copilot = {
 					name = "copilot",
 					module = "blink-copilot",

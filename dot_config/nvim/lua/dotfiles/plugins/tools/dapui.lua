@@ -15,9 +15,6 @@ return {
 		end,
 		config = function()
 			local dapui = require("dapui")
-			-- setup() merges over its defaults, so a partial table is the
-			-- documented call shape even though the parameter type is complete.
-			---@diagnostic disable-next-line: missing-fields
 			dapui.setup({
 				layouts = {
 					{

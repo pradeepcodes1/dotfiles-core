@@ -20,6 +20,9 @@ return {
 				"go",
 				"proto",
 				"mermaid",
+				-- markview.nvim parses buffers with both Markdown parsers.
+				"markdown",
+				"markdown_inline",
 				-- Swift gets the same syntax highlighting, indentation, and text objects as other source files.
 				"swift",
 			})

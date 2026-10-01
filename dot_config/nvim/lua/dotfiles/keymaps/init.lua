@@ -8,12 +8,13 @@
 vim.g.mapleader = " "
 
 local map = vim.keymap.set
-local problems = require("dotfiles.lsp.problems")
-local project_pickers = require("dotfiles.project.actions.pickers")
-local project_info = require("dotfiles.project.info")
-local project_reset = require("dotfiles.project.actions.reset")
-local project_state = require("dotfiles.project.state")
-local project_paths = require("dotfiles.project.paths")
+-- Project, session and project-wide LSP modules come from project-manager.nvim.
+local problems = require("project-manager.problems")
+local project_pickers = require("project-manager.actions.pickers")
+local project_info = require("project-manager.info")
+local project_reset = require("project-manager.actions.reset")
+local project_state = require("project-manager.state")
+local project_paths = require("project-manager.paths")
 
 -- Yank context. Keep the prefix unmapped so complete shortcuts never wait.
 for key, target in pairs({
@@ -136,7 +137,7 @@ if not vim.g.nvim_preview then
 	end, { desc = "Find symbols in file" })
 	-- Uppercase S keeps workspace symbols beside the document-symbol picker.
 	map("n", "<leader>S", function()
-		require("dotfiles.lsp.workspace_symbols").open()
+		require("project-manager.symbols").open()
 	end, { desc = "Find symbols in workspace" })
 	map("n", "<leader>fr", function()
 		Snacks.picker.recent()
@@ -228,7 +229,7 @@ if not vim.g.nvim_preview then
 	map("n", "<leader>po", project_pickers.open_directory, { desc = "Project: Open directory here" })
 	map("n", "<leader>pi", project_info.info, { desc = "Project: Info" })
 	map("n", "<leader>pl", function()
-		require("dotfiles.project.lsp").toggle()
+		require("project-manager.servers").toggle()
 	end, { desc = "Project: Toggle automatic LSP startup" })
 	map(
 		"n",

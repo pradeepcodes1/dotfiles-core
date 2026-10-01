@@ -32,7 +32,7 @@ end
 
 --- Navigate to a class definition by its FQCN using workspace/symbol search.
 local function goto_class_by_fqcn(fqcn)
-	if not require("dotfiles.project.state").is_open() then
+	if not require("project-manager.state").is_open() then
 		return
 	end
 
@@ -120,7 +120,7 @@ end
 
 --- Smart gr: on import lines, tries LSP references then falls back to workspace symbols.
 local function smart_references()
-	if not require("dotfiles.project.state").is_open() then
+	if not require("project-manager.state").is_open() then
 		return
 	end
 

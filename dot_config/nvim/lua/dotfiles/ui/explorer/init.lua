@@ -3,7 +3,7 @@ local M = {}
 local cli = require("dotfiles.core.cli")
 local library_paths = require("dotfiles.lsp.library_paths")
 local path_util = require("dotfiles.core.path")
-local ROOT_MARKERS = require("dotfiles.project.paths").root_markers
+local ROOT_MARKERS = require("project-manager.paths").root_markers
 
 local chezmoi_cache = {
 	managed_paths = {},

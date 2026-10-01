@@ -3,6 +3,25 @@
 -- by core.neovide (font size) and plugins/lazy specs (lualine, dashboard).
 vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
 
+-- Keymaps require project-manager.nvim before lazy.setup runs, so clone it into
+-- lazy's own plugin directory on first start and put it on the rtp this early.
+-- Lazy then manages updates there through plugins/tools/project-manager.lua.
+local project_manager_path = vim.fn.stdpath("data") .. "/lazy/project-manager.nvim"
+if not vim.uv.fs_stat(project_manager_path) then
+	local clone_output = vim.fn.system({
+		"git",
+		"clone",
+		"--filter=blob:none",
+		"https://github.com/pradeepcodes1/project-manager.nvim",
+		project_manager_path,
+	})
+	if vim.v.shell_error ~= 0 then
+		vim.fn.delete(project_manager_path, "rf")
+		error("Failed to clone project-manager.nvim:\n" .. clone_output)
+	end
+end
+vim.opt.rtp:prepend(project_manager_path)
+
 require("dotfiles.core.options")
 require("dotfiles.keymaps")
 require("dotfiles.core.neovide")
@@ -61,7 +80,7 @@ require("lazy").setup({
 	},
 })
 
-require("dotfiles.project").setup()
+require("project-manager").setup()
 require("dotfiles.core.autocmds")
 
 -- Startup and live reload share the same application path. The startup

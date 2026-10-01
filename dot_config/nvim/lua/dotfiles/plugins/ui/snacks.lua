@@ -40,7 +40,7 @@ return {
 						key = "o",
 						desc = "Open Project",
 						action = function()
-							require("dotfiles.project.actions.pickers").open_directory()
+							require("project-manager.actions.pickers").open_directory()
 						end,
 					},
 					{ icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },

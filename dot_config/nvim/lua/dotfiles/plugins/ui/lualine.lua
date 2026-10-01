@@ -4,8 +4,8 @@ return {
 		"nvim-lualine/lualine.nvim",
 		config = function()
 			local jdt = require("dotfiles.lsp.java.classfile")
-			local project_state = require("dotfiles.project.state")
-			local project_paths = require("dotfiles.project.paths")
+			local project_state = require("project-manager.state")
+			local project_paths = require("project-manager.paths")
 			local path_util = require("dotfiles.core.path")
 			local theme_state = require("dotfiles.theme")
 			local statusline_disabled = {

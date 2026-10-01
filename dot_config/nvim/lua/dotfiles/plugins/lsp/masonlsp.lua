@@ -135,6 +135,7 @@ return {
 					"marksman",
 					"tailwindcss",
 					"lemminx",
+					"buf_ls",
 				},
 				automatic_enable = {
 					exclude = { "jdtls" },

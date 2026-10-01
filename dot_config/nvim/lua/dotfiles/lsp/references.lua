@@ -17,8 +17,8 @@ local M = {}
 -- `include_current = false` hides the reference under the cursor, and
 -- `auto_confirm = true` jumps straight there when only one survives.
 function M.open_float()
-	local project_paths = require("dotfiles.project.paths")
-	local project_pickers = require("dotfiles.project.actions.pickers")
+	local project_paths = require("project-manager.paths")
+	local project_pickers = require("project-manager.actions.pickers")
 	Snacks.picker.lsp_references(project_pickers.picker_scope(project_paths.picker_root()))
 end
 

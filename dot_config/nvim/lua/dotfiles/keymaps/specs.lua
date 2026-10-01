@@ -33,28 +33,28 @@ M.snacks = {
 	{
 		"<leader>gg",
 		function()
-			Snacks.lazygit({ cwd = require("dotfiles.project.paths").current_root() })
+			Snacks.lazygit({ cwd = require("project-manager.paths").current_root() })
 		end,
 		desc = "Lazygit",
 	},
 	{
 		"<leader>gf",
 		function()
-			Snacks.picker.git_status({ cwd = require("dotfiles.project.paths").current_root() })
+			Snacks.picker.git_status({ cwd = require("project-manager.paths").current_root() })
 		end,
 		desc = "Git changed files",
 	},
 	{
 		"<leader>gp",
 		function()
-			Snacks.picker.gh_pr({ cwd = require("dotfiles.project.paths").current_root() })
+			Snacks.picker.gh_pr({ cwd = require("project-manager.paths").current_root() })
 		end,
 		desc = "GitHub pull requests",
 	},
 	{
 		"<leader>gi",
 		function()
-			Snacks.picker.gh_issue({ cwd = require("dotfiles.project.paths").current_root() })
+			Snacks.picker.gh_issue({ cwd = require("project-manager.paths").current_root() })
 		end,
 		desc = "GitHub issues",
 	},

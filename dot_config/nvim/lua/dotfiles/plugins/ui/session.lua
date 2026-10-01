@@ -12,7 +12,7 @@ return {
 		vim.api.nvim_create_autocmd("VimEnter", {
 			once = true,
 			callback = function()
-				require("dotfiles.project.actions.pruner").prune_stale_sessions({ notify = false })
+				require("project-manager.actions.pruner").prune_stale_sessions({ notify = false })
 			end,
 			desc = "Prune stale project sessions",
 		})
@@ -41,7 +41,7 @@ return {
 		-- File arguments normally disable AutoSession saving. The project prompt
 		-- opts an instance back in only after its cwd has moved to the project.
 		args_allow_files_auto_save = function()
-			return require("dotfiles.project.state").is_open()
+			return require("project-manager.state").is_open()
 		end,
 		pre_save_cmds = {
 			function()
@@ -57,13 +57,13 @@ return {
 		},
 		pre_cwd_changed_cmds = {
 			function()
-				require("dotfiles.project.state").set_open(false)
+				require("project-manager.state").set_open(false)
 			end,
 		},
 		post_restore_cmds = {
 			function()
-				local project_state = require("dotfiles.project.state")
-				local project_paths = require("dotfiles.project.paths")
+				local project_state = require("project-manager.state")
+				local project_paths = require("project-manager.paths")
 				project_state.set_open(true, project_paths.session_root())
 				-- Run after the native tab layout exists so saved tab indexes line up.
 				require("dotfiles.ui.session_state").restore()
@@ -71,8 +71,8 @@ return {
 		},
 		no_restore_cmds = {
 			function()
-				local project_state = require("dotfiles.project.state")
-				local project_paths = require("dotfiles.project.paths")
+				local project_state = require("project-manager.state")
+				local project_paths = require("project-manager.paths")
 				-- A dashboard picker can restore a project while AutoSession's
 				-- delayed startup check is still pending. Its subsequent no-restore
 				-- hook must not demote that successfully restored session to
