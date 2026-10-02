@@ -116,6 +116,10 @@ return {
 					-- collapsed directory row -- add `exclude = { ".git" }` beside
 					-- this if that row ever gets in the way.
 					hidden = true,
+					-- Dock the sidebar on the right so code keeps the left edge.
+					-- Merges into the source's own `preset = "sidebar"`, which
+					-- defaults to the left.
+					layout = { layout = { position = "right" } },
 					actions = {
 						close_explorer = function()
 							require("dotfiles.ui.explorer").close()
