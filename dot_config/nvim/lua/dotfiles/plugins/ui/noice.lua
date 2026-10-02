@@ -55,6 +55,18 @@ return {
 				},
 				view = "notify",
 			},
+			-- Neovim 0.12 reports `:w` as a two-part progress message ("w path",
+			-- then "NL, NB written"). It is emitted from the `:` cmdline, so the
+			-- cmdline_output_to_split preset above caught it and opened a split
+			-- on every save. User routes run before preset routes, so skipping
+			-- it here wins; write errors are `emsg` and still get through.
+			{
+				filter = {
+					event = "msg_show",
+					kind = "progress",
+				},
+				opts = { skip = true },
+			},
 			-- Scoped to Neovim's own warning messages. This used to match
 			-- `warning = true` alone, which also swallowed every deliberate
 			-- vim.notify(..., WARN) in this config (core/yank.lua, lsp/java,
