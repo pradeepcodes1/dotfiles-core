@@ -5,6 +5,8 @@
 bootstrap.sh
 docs/
 scripts/
+# Reached through the ~/.config/nvim/snippets symlink, not deployed as copies.
+nvim-snippets/
 *.md
 **/*.md
 

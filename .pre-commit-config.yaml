@@ -14,7 +14,9 @@ repos:
       - id: trailing-whitespace
         exclude: ^\.chezmoitemplates/
       - id: end-of-file-fixer
-        exclude: ^\.chezmoitemplates/
+        # nvim-scissors rewrites snippet JSON with no final newline on every
+        # save; fixing it here would only churn the next edit's diff.
+        exclude: ^(\.chezmoitemplates/|nvim-snippets/.*\.json$)
       - id: check-yaml
         args: [--allow-multiple-documents]
       - id: check-json
@@ -104,4 +106,6 @@ repos:
         entry: prettier --write
         language: system
         types_or: [markdown, json, yaml]
-        exclude: ^\.chezmoitemplates/
+        # Snippet JSON is written by nvim-scissors (vim.json.encode, sorted
+        # keys); prettier would re-wrap it differently after every save.
+        exclude: ^(\.chezmoitemplates/|nvim-snippets/.*\.json$)

@@ -11,6 +11,8 @@ return {
 			{ "<leader>p", group = "Project" },
 			{ "<leader>g", group = "Git", mode = { "n", "x" } },
 			{ "<leader>h", group = "Hunk", mode = { "n", "x" } },
+			-- x too: adding a snippet from a visual selection prefills its body.
+			{ "<leader>i", group = "Snippets", mode = { "n", "x" } },
 			{ "<leader>l", group = "LSP", mode = { "n", "x" } },
 			{ "<leader>d", group = "Debug", mode = { "n", "x" } },
 			{ "<leader>t", group = "Test" },

@@ -256,6 +256,27 @@ M.dapui = {
 	},
 }
 
+-- <leader>s is the document-symbol picker, so snippets take the free i
+-- ("insert") group.
+M.scissors = {
+	{
+		"<leader>ie",
+		function()
+			require("scissors").editSnippet()
+		end,
+		desc = "Snippet: Edit",
+	},
+	{
+		"<leader>ia",
+		function()
+			require("scissors").addNewSnippet()
+		end,
+		-- In visual mode the selection prefills the new snippet's body.
+		mode = { "n", "x" },
+		desc = "Snippet: Add",
+	},
+}
+
 M.conform = {
 	{
 		"<leader>lf",

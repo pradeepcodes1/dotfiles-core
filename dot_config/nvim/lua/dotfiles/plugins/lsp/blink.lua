@@ -43,8 +43,9 @@ return {
 						-- path for a `friendly.snippets` directory on every
 						-- reload and find nothing.
 						friendly_snippets = false,
-						-- The blink default, spelled out because it is the one
-						-- place that says where snippets live.
+						-- The blink default, spelled out because nvim-scissors
+						-- (plugins/editor/scissors.lua) writes to the same
+						-- directory and the two have to agree.
 						search_paths = { vim.fn.stdpath("config") .. "/snippets" },
 					},
 				},

@@ -1,0 +1,4 @@
+{{- /* A link into this checkout rather than copied files: nvim-scissors writes
+snippet edits to ~/.config/nvim/snippets, and they have to land in the repo
+instead of a deployed copy that the next apply would overwrite. */ -}}
+{{ .chezmoi.sourceDir }}/nvim-snippets
