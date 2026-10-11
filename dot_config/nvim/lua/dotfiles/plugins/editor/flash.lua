@@ -6,8 +6,6 @@ return {
 	-- so a lazy load gated on them would leave the enhanced ftFT motions dead
 	-- until the first `s`.
 	event = "VeryLazy",
-	---@module "flash"
-	---@type Flash.Config
 	opts = {},
 	-- A function, so importing this spec never loads the key data.
 	keys = function()

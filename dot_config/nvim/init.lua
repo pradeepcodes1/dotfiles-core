@@ -25,7 +25,11 @@ vim.opt.rtp:prepend(project_manager_path)
 require("dotfiles.core.options")
 require("dotfiles.keymaps")
 require("dotfiles.core.neovide")
-require("dotfiles.lsp.lsp_log")
+
+-- Nvim 0.12 makes lspconfig skip its legacy commands, so retain only the direct log opener.
+vim.api.nvim_create_user_command("LspLog", function()
+	vim.cmd.tabnew(vim.lsp.log.get_filename())
+end, { desc = "Open the Nvim LSP client log" })
 
 local theme = require("dotfiles.theme")
 local theme_config = theme.prepare()

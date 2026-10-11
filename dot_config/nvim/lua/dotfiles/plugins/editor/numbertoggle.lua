@@ -23,5 +23,54 @@ return {
 				end
 			end,
 		})
+
+		-- The plugin's leave handler forces a synchronous :redraw on every
+		-- BufLeave/WinLeave. Snacks builds the explorer split in steps, so that
+		-- redraw painted it half-built: a half-width window showing the current
+		-- buffer. Only the cmdline needs the forced redraw, to show absolute
+		-- numbers while typing a range; everything else repaints on its own.
+		vim.api.nvim_clear_autocmds({
+			group = "numbertoggle",
+			event = { "BufLeave", "WinLeave", "FocusLost", "InsertEnter", "CmdlineEnter" },
+		})
+		local leave = vim.api.nvim_create_augroup("numbertoggle_leave", { clear = true })
+		vim.api.nvim_create_autocmd({ "FocusLost", "InsertEnter" }, {
+			group = leave,
+			callback = function()
+				if vim.o.number then
+					vim.opt.relativenumber = false
+				end
+			end,
+		})
+		vim.api.nvim_create_autocmd("CmdlineEnter", {
+			group = leave,
+			callback = function()
+				if vim.o.number then
+					vim.opt.relativenumber = false
+					-- Same guard as the plugin (neovim#32068): no redraw for input() or :insert.
+					if not vim.tbl_contains({ "@", "-" }, vim.v.event.cmdtype) then
+						vim.cmd("redraw")
+					end
+				end
+			end,
+		})
+		-- Decide once the event loop settles: nvim_win_call(), which Snacks uses
+		-- to build its split, switches windows and back without a WinEnter, so
+		-- the window you stay in must keep its relative numbers.
+		vim.api.nvim_create_autocmd({ "BufLeave", "WinLeave" }, {
+			group = leave,
+			callback = function()
+				local win = vim.api.nvim_get_current_win()
+				vim.schedule(function()
+					if
+						vim.api.nvim_win_is_valid(win)
+						and win ~= vim.api.nvim_get_current_win()
+						and vim.wo[win].number
+					then
+						vim.wo[win].relativenumber = false
+					end
+				end)
+			end,
+		})
 	end,
 }

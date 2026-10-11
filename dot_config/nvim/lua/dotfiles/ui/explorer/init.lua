@@ -1,13 +1,9 @@
--- Keep the Snacks explorer rooted at the managed source's nearest project root.
+-- Keep the Snacks explorer rooted at the current file's nearest project root.
 local M = {}
-local cli = require("dotfiles.core.cli")
 local library_paths = require("dotfiles.lsp.library_paths")
 local path_util = require("dotfiles.core.path")
-local ROOT_MARKERS = require("project-manager.paths").root_markers
+local project_paths = require("project-manager.paths")
 
-local chezmoi_cache = {
-	managed_paths = {},
-}
 local active_roots = {}
 local active_paths = {}
 local session_open = {}
@@ -46,48 +42,16 @@ local function source_buffer_path(bufnr)
 	return path
 end
 
-local function chezmoi_source_path(path)
-	path = path_util.clean(path)
-	if not path then
-		return nil
-	end
-
-	local cached = chezmoi_cache.managed_paths[path]
-	if cached ~= nil then
-		return cached or path
-	end
-
-	local home = path_util.clean(vim.uv.os_homedir())
-	if not home or not path_util.under(path, home) then
-		chezmoi_cache.managed_paths[path] = false
-		return path
-	end
-
-	local source_path = path_util.clean(cli.capture({ "chezmoi", "source-path", path }))
-	if source_path then
-		chezmoi_cache.managed_paths[path] = source_path
-		return source_path
-	end
-
-	chezmoi_cache.managed_paths[path] = false
-	return path
-end
-
--- The deepest root that still contains the file: an LSP workspace folder when
--- one claims it, otherwise the nearest marker directory, otherwise its parent.
+-- Reuse the project manager's LSP/marker policy so every project-aware view agrees.
 local function target_for_buffer(bufnr)
-	local path = chezmoi_source_path(source_buffer_path(bufnr))
+	local path = source_buffer_path(bufnr)
 	if not path then
 		return nil, nil
 	end
 
-	local candidates = path_util.lsp_roots(bufnr)
-	local marker_root = path_util.clean(vim.fs.root(path, ROOT_MARKERS))
-	if marker_root then
-		candidates[marker_root] = true
-	end
-
-	local root = path_util.longest_containing(candidates, path)
+	local root = project_paths.buffer_root(bufnr)
+		-- buffer_root rejects URI names, so preserve file:// marker discovery after conversion.
+		or project_paths.root(path)
 		or path_util.clean(vim.fs.dirname(path))
 		or path_util.cwd()
 

@@ -10,8 +10,6 @@ return {
 	dependencies = {
 		{ "fang2hou/blink-copilot", version = "1.*" },
 	},
-	---@module "blink.cmp"
-	---@type blink.cmp.Config
 	opts = {
 		-- Completion-menu keys are internal to blink, not part of the global layer.
 		keymap = {

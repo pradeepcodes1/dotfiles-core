@@ -19,8 +19,6 @@ return {
 	end,
 
 	---enables autocomplete for opts
-	---@module "auto-session"
-	---@type AutoSession.Config
 	opts = {
 		-- Neovim sessions cannot serialize transient panel state, so keep it in
 		-- AutoSession's companion data file instead of the native layout snapshot.

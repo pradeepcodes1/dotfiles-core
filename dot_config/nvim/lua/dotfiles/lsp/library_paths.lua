@@ -12,6 +12,9 @@ M.autocmd_patterns = {
 	"*/nvim/lazy/*",
 	vim.fn.expand("~") .. "/go/*",
 	vim.fn.expand("~") .. "/.rustup/toolchains/*/lib/*",
+	-- Crate sources reached via go-to-definition are shared Cargo cache, not project code.
+	vim.fn.expand("~") .. "/.cargo/registry/*",
+	vim.fn.expand("~") .. "/.cargo/git/checkouts/*",
 }
 
 local path_patterns = vim.tbl_map(vim.fn.glob2regpat, M.autocmd_patterns)

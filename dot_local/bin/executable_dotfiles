@@ -87,6 +87,74 @@ need_option_value() {
   [ -n "${2:-}" ] || die "$1 requires a value"
 }
 
+common_option_enabled() {
+  case " $1 " in
+    *" $2 "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Keep shared option spelling and assignment in one place while each command
+# still controls which options it accepts and whether unknown arguments pass on.
+parse_common_option() {
+  common_allowed=$1
+  shift
+  COMMON_OPTION_SHIFT=0
+
+  case "$1" in
+    --profile)
+      common_option_enabled "$common_allowed" profile || return 1
+      need_option_value "$1" "${2:-}"
+      PROFILE=$2
+      COMMON_OPTION_SHIFT=2
+      ;;
+    --profile=*)
+      common_option_enabled "$common_allowed" profile || return 1
+      PROFILE=${1#*=}
+      COMMON_OPTION_SHIFT=1
+      ;;
+    --core-source)
+      common_option_enabled "$common_allowed" sources || return 1
+      need_option_value "$1" "${2:-}"
+      CORE_SOURCE=$2
+      COMMON_OPTION_SHIFT=2
+      ;;
+    --core-source=*)
+      common_option_enabled "$common_allowed" sources || return 1
+      CORE_SOURCE=${1#*=}
+      COMMON_OPTION_SHIFT=1
+      ;;
+    --overlay-source)
+      common_option_enabled "$common_allowed" sources || return 1
+      need_option_value "$1" "${2:-}"
+      OVERLAY_SOURCE=$2
+      COMMON_OPTION_SHIFT=2
+      ;;
+    --overlay-source=*)
+      common_option_enabled "$common_allowed" sources || return 1
+      OVERLAY_SOURCE=${1#*=}
+      COMMON_OPTION_SHIFT=1
+      ;;
+    --skip)
+      common_option_enabled "$common_allowed" skip || return 1
+      need_option_value "$1" "${2:-}"
+      enable_skips "$2"
+      COMMON_OPTION_SHIFT=2
+      ;;
+    --skip=*)
+      common_option_enabled "$common_allowed" skip || return 1
+      enable_skips "${1#*=}"
+      COMMON_OPTION_SHIFT=1
+      ;;
+    -v | --verbose)
+      common_option_enabled "$common_allowed" verbose || return 1
+      VERBOSE=1
+      COMMON_OPTION_SHIFT=1
+      ;;
+    *) return 1 ;;
+  esac
+}
+
 enable_skips() {
   skip_value=$1
   old_ifs=$IFS
@@ -173,6 +241,17 @@ profile_has_overlay() {
   [ "$PROFILE" = personal-mac ] || [ "$PROFILE" = riced-linux ]
 }
 
+# Every layered operation visits core first and the optional overlay second, so
+# validation, planning, pulling, verification, and hook setup cannot drift apart.
+for_active_source() {
+  source_callback=$1
+  shift
+  "$source_callback" core "$CORE_SOURCE" "$@" || return 1
+  if profile_has_overlay; then
+    "$source_callback" "$PROFILE overlay" "$OVERLAY_SOURCE" "$@" || return 1
+  fi
+}
+
 validate_source_dir() {
   source_label=$1
   source_path=$2
@@ -187,10 +266,7 @@ validate_source_dir() {
 }
 
 validate_sources() {
-  validate_source_dir core "$CORE_SOURCE" || return 1
-  if profile_has_overlay; then
-    validate_source_dir "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
-  fi
+  for_active_source validate_source_dir
 }
 
 reject_root() {
@@ -410,47 +486,11 @@ plan_source() {
 
 command_plan() {
   while [ "$#" -gt 0 ]; do
+    if parse_common_option "profile sources skip verbose" "$@"; then
+      shift "$COMMON_OPTION_SHIFT"
+      continue
+    fi
     case "$1" in
-      --profile)
-        need_option_value "$1" "${2:-}"
-        PROFILE=$2
-        shift 2
-        ;;
-      --profile=*)
-        PROFILE=${1#*=}
-        shift
-        ;;
-      --core-source)
-        need_option_value "$1" "${2:-}"
-        CORE_SOURCE=$2
-        shift 2
-        ;;
-      --core-source=*)
-        CORE_SOURCE=${1#*=}
-        shift
-        ;;
-      --overlay-source)
-        need_option_value "$1" "${2:-}"
-        OVERLAY_SOURCE=$2
-        shift 2
-        ;;
-      --overlay-source=*)
-        OVERLAY_SOURCE=${1#*=}
-        shift
-        ;;
-      --skip)
-        need_option_value "$1" "${2:-}"
-        enable_skips "$2"
-        shift 2
-        ;;
-      --skip=*)
-        enable_skips "${1#*=}"
-        shift
-        ;;
-      -v | --verbose)
-        VERBOSE=1
-        shift
-        ;;
       --)
         shift
         break
@@ -474,58 +514,19 @@ command_plan() {
   fi
 
   say
-  plan_source core "$CORE_SOURCE" "$@" || return 1
-  if profile_has_overlay; then
-    plan_source "$PROFILE overlay" "$OVERLAY_SOURCE" "$@" || return 1
-  fi
+  for_active_source plan_source "$@"
 }
 
 command_apply() {
   apply_dry_run=0
   while [ "$#" -gt 0 ]; do
+    if parse_common_option "profile sources skip verbose" "$@"; then
+      shift "$COMMON_OPTION_SHIFT"
+      continue
+    fi
     case "$1" in
-      --profile)
-        need_option_value "$1" "${2:-}"
-        PROFILE=$2
-        shift 2
-        ;;
-      --profile=*)
-        PROFILE=${1#*=}
-        shift
-        ;;
-      --core-source)
-        need_option_value "$1" "${2:-}"
-        CORE_SOURCE=$2
-        shift 2
-        ;;
-      --core-source=*)
-        CORE_SOURCE=${1#*=}
-        shift
-        ;;
-      --overlay-source)
-        need_option_value "$1" "${2:-}"
-        OVERLAY_SOURCE=$2
-        shift 2
-        ;;
-      --overlay-source=*)
-        OVERLAY_SOURCE=${1#*=}
-        shift
-        ;;
-      --skip)
-        need_option_value "$1" "${2:-}"
-        enable_skips "$2"
-        shift 2
-        ;;
-      --skip=*)
-        enable_skips "${1#*=}"
-        shift
-        ;;
       -n | --dry-run)
         apply_dry_run=1
-        shift
-        ;;
-      -v | --verbose)
-        VERBOSE=1
         shift
         ;;
       --)
@@ -537,12 +538,14 @@ command_apply() {
   done
 
   if [ "$apply_dry_run" -eq 1 ]; then
-    plan_args="--profile=$PROFILE --core-source=$CORE_SOURCE --overlay-source=$OVERLAY_SOURCE"
-    [ "$VERBOSE" -eq 0 ] || plan_args="$plan_args --verbose"
-    # These controller-generated values contain no whitespace in the standard
-    # layout. Explicit paths with whitespace should use `dotfiles plan`.
-    # shellcheck disable=SC2086
-    command_plan $plan_args -- "$@"
+    # Preserve option boundaries so dry-run accepts the same paths with spaces as apply.
+    if [ "$VERBOSE" -eq 1 ]; then
+      command_plan --profile "$PROFILE" --core-source "$CORE_SOURCE" \
+        --overlay-source "$OVERLAY_SOURCE" --verbose -- "$@"
+    else
+      command_plan --profile "$PROFILE" --core-source "$CORE_SOURCE" \
+        --overlay-source "$OVERLAY_SOURCE" -- "$@"
+    fi
     return
   fi
 
@@ -591,46 +594,15 @@ pull_source() {
 command_pull() {
   reject_root
   while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --profile)
-        need_option_value "$1" "${2:-}"
-        PROFILE=$2
-        shift 2
-        ;;
-      --profile=*)
-        PROFILE=${1#*=}
-        shift
-        ;;
-      --core-source)
-        need_option_value "$1" "${2:-}"
-        CORE_SOURCE=$2
-        shift 2
-        ;;
-      --core-source=*)
-        CORE_SOURCE=${1#*=}
-        shift
-        ;;
-      --overlay-source)
-        need_option_value "$1" "${2:-}"
-        OVERLAY_SOURCE=$2
-        shift 2
-        ;;
-      --overlay-source=*)
-        OVERLAY_SOURCE=${1#*=}
-        shift
-        ;;
-      *) die "unknown pull option: $1" ;;
-    esac
+    parse_common_option "profile sources" "$@" || die "unknown pull option: $1"
+    shift "$COMMON_OPTION_SHIFT"
   done
 
   resolve_profile
   validate_sources || die "cannot pull missing sources"
   command -v git >/dev/null 2>&1 || die "git is required to pull sources"
 
-  pull_source core "$CORE_SOURCE" || return 1
-  if profile_has_overlay; then
-    pull_source "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
-  fi
+  for_active_source pull_source || return 1
   info "All active source repositories are up to date"
 }
 
@@ -645,36 +617,8 @@ command_init() {
   esac
 
   while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --core-source)
-        need_option_value "$1" "${2:-}"
-        CORE_SOURCE=$2
-        shift 2
-        ;;
-      --core-source=*)
-        CORE_SOURCE=${1#*=}
-        shift
-        ;;
-      --overlay-source)
-        need_option_value "$1" "${2:-}"
-        OVERLAY_SOURCE=$2
-        shift 2
-        ;;
-      --overlay-source=*)
-        OVERLAY_SOURCE=${1#*=}
-        shift
-        ;;
-      --skip)
-        need_option_value "$1" "${2:-}"
-        enable_skips "$2"
-        shift 2
-        ;;
-      --skip=*)
-        enable_skips "${1#*=}"
-        shift
-        ;;
-      *) die "unknown init option: $1" ;;
-    esac
+    parse_common_option "sources skip" "$@" || die "unknown init option: $1"
+    shift "$COMMON_OPTION_SHIFT"
   done
 
   import_skip_environment
@@ -908,36 +852,8 @@ doctor_macos_desktop() {
 
 command_doctor() {
   while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --profile)
-        need_option_value "$1" "${2:-}"
-        PROFILE=$2
-        shift 2
-        ;;
-      --profile=*)
-        PROFILE=${1#*=}
-        shift
-        ;;
-      --core-source)
-        need_option_value "$1" "${2:-}"
-        CORE_SOURCE=$2
-        shift 2
-        ;;
-      --core-source=*)
-        CORE_SOURCE=${1#*=}
-        shift
-        ;;
-      --overlay-source)
-        need_option_value "$1" "${2:-}"
-        OVERLAY_SOURCE=$2
-        shift 2
-        ;;
-      --overlay-source=*)
-        OVERLAY_SOURCE=${1#*=}
-        shift
-        ;;
-      *) die "unknown doctor option: $1" ;;
-    esac
+    parse_common_option "profile sources" "$@" || die "unknown doctor option: $1"
+    shift "$COMMON_OPTION_SHIFT"
   done
 
   resolve_profile
@@ -1004,6 +920,12 @@ managed_paths() {
     | LC_ALL=C sort -u
 }
 
+render_source() {
+  render_path=$2
+  # Rendering both layers through the shared iterator keeps verification order aligned with apply.
+  managed_paths "$render_path" >/dev/null
+}
+
 manifest_paths() {
   manifest_file=$1
   if [ -f "$manifest_file" ]; then
@@ -1055,36 +977,8 @@ verify_repository() {
 
 command_verify() {
   while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --profile)
-        need_option_value "$1" "${2:-}"
-        PROFILE=$2
-        shift 2
-        ;;
-      --profile=*)
-        PROFILE=${1#*=}
-        shift
-        ;;
-      --core-source)
-        need_option_value "$1" "${2:-}"
-        CORE_SOURCE=$2
-        shift 2
-        ;;
-      --core-source=*)
-        CORE_SOURCE=${1#*=}
-        shift
-        ;;
-      --overlay-source)
-        need_option_value "$1" "${2:-}"
-        OVERLAY_SOURCE=$2
-        shift 2
-        ;;
-      --overlay-source=*)
-        OVERLAY_SOURCE=${1#*=}
-        shift
-        ;;
-      *) die "unknown verify option: $1" ;;
-    esac
+    parse_common_option "profile sources" "$@" || die "unknown verify option: $1"
+    shift "$COMMON_OPTION_SHIFT"
   done
 
   resolve_profile
@@ -1093,10 +987,7 @@ command_verify() {
 
   # Render every active managed file before repository-local checks. This is
   # read-only and catches template/data errors without running apply scripts.
-  managed_paths "$CORE_SOURCE" >/dev/null || return 1
-  if profile_has_overlay; then
-    managed_paths "$OVERLAY_SOURCE" >/dev/null || return 1
-  fi
+  for_active_source render_source || return 1
   verify_ownership || return 1
   verify_repository core "$CORE_SOURCE" || return 1
   if [ -x "$CORE_SOURCE/scripts/check-public.sh" ]; then
@@ -1169,44 +1060,13 @@ install_hooks_in() {
 command_hooks() {
   reject_root
   while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --profile)
-        need_option_value "$1" "${2:-}"
-        PROFILE=$2
-        shift 2
-        ;;
-      --profile=*)
-        PROFILE=${1#*=}
-        shift
-        ;;
-      --core-source)
-        need_option_value "$1" "${2:-}"
-        CORE_SOURCE=$2
-        shift 2
-        ;;
-      --core-source=*)
-        CORE_SOURCE=${1#*=}
-        shift
-        ;;
-      --overlay-source)
-        need_option_value "$1" "${2:-}"
-        OVERLAY_SOURCE=$2
-        shift 2
-        ;;
-      --overlay-source=*)
-        OVERLAY_SOURCE=${1#*=}
-        shift
-        ;;
-      *) die "unknown hooks option: $1" ;;
-    esac
+    parse_common_option "profile sources" "$@" || die "unknown hooks option: $1"
+    shift "$COMMON_OPTION_SHIFT"
   done
   resolve_profile
   validate_sources || die "cannot install hooks for missing sources"
   command -v pre-commit >/dev/null 2>&1 || die "pre-commit is required"
-  install_hooks_in core "$CORE_SOURCE" || return 1
-  if profile_has_overlay; then
-    install_hooks_in "$PROFILE overlay" "$OVERLAY_SOURCE" || return 1
-  fi
+  for_active_source install_hooks_in
 }
 
 pass_first_line() {

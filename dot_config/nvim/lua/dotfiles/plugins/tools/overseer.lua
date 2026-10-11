@@ -14,7 +14,5 @@ return {
 	keys = function()
 		return require("dotfiles.keymaps.specs").overseer
 	end,
-	---@module "overseer"
-	---@type overseer.SetupOpts
 	opts = {},
 }

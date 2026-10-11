@@ -1,6 +1,4 @@
 -- install parsers centrally for consistent syntax-aware editing.
----@module "lazy"
----@type LazySpec
 return {
 	{
 		"nvim-treesitter/nvim-treesitter",

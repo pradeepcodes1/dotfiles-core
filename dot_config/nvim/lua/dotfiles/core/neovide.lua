@@ -48,6 +48,14 @@ vim.o.guifont = vim.g.nvim_preview and "Maple_Mono_NF:h15.7" or "Maple_Mono_NF:h
 vim.g.neovide_scroll_animation_length = 0.0
 vim.g.neovide_scroll_animation_far_lines = 0
 vim.g.neovide_position_animation_length = 0.0
+-- Floats like the fff prompt already sit on the picker background; Neovide's
+-- drop shadow made them look like separate raised cards.
+vim.g.neovide_floating_shadow = false
+-- Snacks pickers on the default layout dim the screen with a winblend
+-- backdrop float; Neovide blurs behind any blended float, smearing the code.
+-- Keep the dim, drop the blur.
+vim.g.neovide_floating_blur_amount_x = 0
+vim.g.neovide_floating_blur_amount_y = 0
 
 -- GUI-only shortcuts. <D-...> reaches Neovim from nowhere else, so these are
 -- defined here rather than in the global key layer.
