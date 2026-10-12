@@ -3,6 +3,8 @@
 
 local yazi_config="{{ .chezmoi.homeDir }}/.config/yazi/theme.toml"
 local yazi_content
+local yazi_changed=0
+local apply_reason="${_DOTFILES_THEME_APPLY_REASON:-init}"
 
 if [[ -n "$gogh_theme" ]]; then
   # This is intentionally a direct theme.toml override rather than a generated
@@ -120,7 +122,14 @@ fi
 mkdir -p "$(dirname "$yazi_config")"
 if [[ ! -f "$yazi_config" ]] || [[ "$(< "$yazi_config")" != "$yazi_content" ]]; then
   print -r -- "$yazi_content" > "$yazi_config" || return 1
+  yazi_changed=1
 fi
 
-# An unchanged generated file is a successful application.
+# Receiver zero broadcasts the reload action, so every open Yazi instance sees
+# a command-driven palette change without making shell startup contact DDS.
+if (( yazi_changed )) && [[ "$apply_reason" == "command" ]] && (( $+commands[ya] )); then
+  ya emit-to 0 app:theme >/dev/null 2>&1 || true
+fi
+
+# An unchanged generated file is a successful application and needs no reload.
 return 0

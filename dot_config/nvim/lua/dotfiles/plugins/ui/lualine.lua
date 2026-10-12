@@ -5,7 +5,7 @@ return {
 		config = function()
 			local jdt = require("dotfiles.lsp.java.classfile")
 			local project_state = require("project-manager.state")
-			local project_paths = require("project-manager.paths")
+			local project_root = require("project-manager.root")
 			local path_util = require("dotfiles.core.path")
 			local theme_state = require("dotfiles.theme")
 			local statusline_disabled = {
@@ -72,7 +72,7 @@ return {
 				end
 
 				local normalized = path_util.normalize(path)
-				local root = project_state.is_open() and project_paths.current_root() or project_paths.buffer_root(0)
+				local root = project_state.is_open() and project_root.current() or project_root.buffer(0)
 
 				if vim.bo.buftype == "" and root and path_util.under(normalized, root) then
 					return vim.fs.relpath(root, normalized)

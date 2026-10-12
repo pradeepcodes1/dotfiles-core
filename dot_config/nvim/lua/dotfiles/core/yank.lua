@@ -1,7 +1,7 @@
 -- Copy useful context without disturbing the clipboard when it is unavailable.
 local M = {}
 local cli = require("dotfiles.core.cli")
-local project_paths = require("project-manager.paths")
+local project_root = require("project-manager.root")
 local path_util = require("dotfiles.core.path")
 
 local function file_path()
@@ -14,13 +14,13 @@ end
 
 function M.value(kind)
 	if kind == "project" then
-		local root = project_paths.current_root()
+		local root = project_root.current()
 		return root, "No project root available"
 	end
 
 	local file = file_path()
 	if kind == "branch" or kind == "commit" then
-		local root = file and vim.fs.dirname(file) or project_paths.current_root()
+		local root = file and vim.fs.dirname(file) or project_root.current()
 		if not root then
 			return nil, "No Git repository available"
 		end
@@ -41,7 +41,7 @@ function M.value(kind)
 	elseif kind == "filename" then
 		return vim.fs.basename(file)
 	elseif kind == "relative" then
-		local root = project_paths.current_root()
+		local root = project_root.current()
 		if not root or not path_util.under(file, root) then
 			return nil, "Current file is outside the project or no project root is available"
 		end

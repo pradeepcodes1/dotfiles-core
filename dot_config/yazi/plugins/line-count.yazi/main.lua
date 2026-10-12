@@ -7,9 +7,13 @@
 
 -- Show useful text-file line counts without repeatedly scanning on every redraw.
 local LINES_CAP = 2 * 1024 * 1024
-local lines_cache, lines_cached = {}, 0
+local DEBOUNCE_SECONDS = 0.15
 
-local function lines_of(file)
+local function candidate(file)
+	if not file then
+		return nil
+	end
+
 	-- `cha` follows symlinks, so only resolved regular files are safe and meaningful to count.
 	local perm = file.cha:perm()
 	if not perm or perm:sub(1, 1) ~= "-" then
@@ -17,52 +21,85 @@ local function lines_of(file)
 	end
 
 	local len = file.cha.len or 0
-	if len == 0 then
-		return 0
-	elseif len > LINES_CAP then
+	if len > LINES_CAP then
 		return nil
 	end
 
 	local path = tostring(file.url)
-	local key = string.format("%d\0%s\0%s", len, file.cha.mtime or 0, path)
-
-	-- `false` caches binary files too, preventing a new process on every status redraw.
-	local hit = lines_cache[key]
-	if hit == nil then
-		-- Quote the path for /bin/sh so unusual filenames remain one grep argument.
-		local quoted = path:gsub("'", "'\\''")
-		local proc = io.popen("grep -Ic '' '" .. quoted .. "' 2>/dev/null")
-		-- A failed fork leaves no handle; cache `false` so it is not retried per redraw.
-		if proc then
-			local out = proc:read("a")
-			hit = proc:close() and tonumber(out) or false
-		else
-			hit = false
-		end
-
-		if lines_cached >= 512 then
-			lines_cache, lines_cached = {}, 0
-		end
-		lines_cache[key], lines_cached = hit, lines_cached + 1
-	end
-
-	return hit or nil
+	return {
+		path = path,
+		empty = len == 0,
+	}
 end
 
+local current_candidate = ya.sync(function(st, generation)
+	if st.generation ~= generation then
+		return nil
+	end
+
+	return candidate(cx.active.current.hovered)
+end)
+
+local publish_count = ya.sync(function(st, generation, lines)
+	if st.generation ~= generation then
+		return
+	end
+
+	-- Keep only the active row's result; every later hover deliberately recounts it.
+	st.lines = lines
+	ui.render()
+end)
+
 return {
-	setup = function()
+	setup = function(st)
+		st.generation, st.lines = 0, nil
+
+		local function schedule_count()
+			st.generation = st.generation + 1
+			st.lines = nil
+			-- Each hover gets a cheap sleeping task; only the latest generation is
+			-- allowed to launch grep after the cursor has settled for 150ms.
+			ya.emit("plugin", { st._id, tostring(st.generation) })
+		end
+
+		ps.sub("hover", schedule_count)
+		schedule_count()
+
 		Status:children_add(function(self)
-			local hovered = self._current.hovered
-			if not hovered then
+			local item = candidate(self._current.hovered)
+			if not item then
 				return ""
 			end
 
-			local lines = lines_of(hovered)
-			if not lines then
+			if type(st.lines) ~= "number" then
 				return ""
 			end
 
-			return ui.Line({ ui.Span(string.format(" %dL", lines)):fg("darkgray") })
+			return ui.Line({ ui.Span(string.format(" %dL", st.lines)):fg("darkgray") })
 		end, 2500, Status.LEFT)
+	end,
+
+	entry = function(_, job)
+		local generation = tonumber(job.args[1])
+		if not generation then
+			return
+		end
+
+		ya.sleep(DEBOUNCE_SECONDS)
+		local item = current_candidate(generation)
+		if not item then
+			return
+		end
+
+		if item.empty then
+			publish_count(generation, 0)
+			return
+		end
+
+		-- Command keeps the scan off the synchronous status-rendering path and
+		-- passes unusual filenames directly rather than through a shell.
+		local output = Command("grep"):arg({ "-Ic", "", "--", item.path }):output()
+		local lines = output and output.status.success and tonumber(output.stdout) or false
+		publish_count(generation, lines)
 	end,
 }

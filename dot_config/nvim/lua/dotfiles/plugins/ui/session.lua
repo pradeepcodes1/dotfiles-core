@@ -12,7 +12,7 @@ return {
 		vim.api.nvim_create_autocmd("VimEnter", {
 			once = true,
 			callback = function()
-				require("project-manager.actions.pruner").prune_stale_sessions({ notify = false })
+				require("project-manager.session").prune({ notify = false })
 			end,
 			desc = "Prune stale project sessions",
 		})
@@ -61,8 +61,8 @@ return {
 		post_restore_cmds = {
 			function()
 				local project_state = require("project-manager.state")
-				local project_paths = require("project-manager.paths")
-				project_state.set_open(true, project_paths.session_root())
+				-- The restored session name is the project root; session.lua owns parsing it.
+				project_state.set_open(true, require("project-manager.session").root())
 				-- Run after the native tab layout exists so saved tab indexes line up.
 				require("dotfiles.ui.session_state").restore()
 			end,
@@ -70,12 +70,11 @@ return {
 		no_restore_cmds = {
 			function()
 				local project_state = require("project-manager.state")
-				local project_paths = require("project-manager.paths")
 				-- A dashboard picker can restore a project while AutoSession's
 				-- delayed startup check is still pending. Its subsequent no-restore
 				-- hook must not demote that successfully restored session to
 				-- file-only mode.
-				local root = project_paths.session_root()
+				local root = require("project-manager.session").root()
 				project_state.set_open(root ~= nil, root)
 			end,
 		},

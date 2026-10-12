@@ -7,9 +7,12 @@ return {
 		event = "InsertEnter",
 		-- A preview window is one read-only buffer; a language server there can
 		-- only cost a process and a keychain prompt.
-		enabled = not vim.g.nvim_preview,
+		-- Also off unless init.lua selects Copilot as the AI completion backend.
+		enabled = not vim.g.nvim_preview and vim.g.ai_completion == "copilot",
 		config = function()
 			require("copilot").setup({
+				-- Both off again: blink-copilot already shows Copilot in the menu,
+				-- so ghost text and the panel would duplicate every suggestion.
 				suggestion = { enabled = false }, -- ghost text competes with the menu
 				panel = { enabled = false }, -- the menu is the only surface
 				-- Pin the interpreter instead of taking `node` off PATH. Neovide

@@ -71,7 +71,7 @@ else
 	-- Must be a global for `v:lua`; namespaced so the root table stays clean.
 	_G.MyConfig = _G.MyConfig or {}
 	_G.MyConfig.project_title = function()
-		local root = require("project-manager.paths").current_root() or vim.fn.getcwd()
+		local root = require("project-manager.root").current() or vim.fn.getcwd()
 		return vim.fn.fnamemodify(root, ":t") .. " · " .. root
 	end
 	-- Named workspace tabs (CodeDiff, Debug) keep their identity on utility buffers.

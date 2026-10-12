@@ -9,12 +9,14 @@ vim.g.mapleader = " "
 
 local map = vim.keymap.set
 -- Project, session and project-wide LSP modules come from project-manager.nvim.
-local problems = require("project-manager.problems")
-local project_pickers = require("project-manager.actions.pickers")
+local problems = require("project-manager.lsp.diagnostics")
+local project_pickers = require("project-manager.picker")
+-- New windows and root terminals moved from the picker module to launch.
+local project_launch = require("project-manager.launch")
 local project_info = require("project-manager.info")
-local project_reset = require("project-manager.actions.reset")
+local project_reset = require("project-manager.reset")
 local project_state = require("project-manager.state")
-local project_paths = require("project-manager.paths")
+local project_root = require("project-manager.root")
 
 -- Yank context. Keep the prefix unmapped so complete shortcuts never wait.
 for key, target in pairs({
@@ -83,7 +85,7 @@ if not vim.g.nvim_preview then
 	end
 
 	map("n", "<leader>ff", function()
-		local root = project_paths.file_search_root()
+		local root = project_root.file_search()
 		if root then
 			-- File results carry no preview, so keep the list compact instead of two-pane.
 			fff_at(root).find_files({
@@ -94,7 +96,7 @@ if not vim.g.nvim_preview then
 		end
 	end, { desc = "Find Files" })
 	map("n", "<leader>fg", function()
-		local root = project_paths.project_search_root()
+		local root = project_root.project_search()
 		if root then
 			fff_at(root).live_grep({ cwd = root })
 		end
@@ -103,7 +105,7 @@ if not vim.g.nvim_preview then
 		{ "n", "x" },
 		"<leader>fw",
 		project_state.only(function()
-			local root = project_paths.current_root()
+			local root = project_root.current()
 			fff_at(root).live_grep_under_cursor({ cwd = root })
 		end),
 		{ desc = "Find word/selection in project" }
@@ -112,7 +114,7 @@ if not vim.g.nvim_preview then
 		"n",
 		"<leader>fz",
 		project_state.only(function()
-			local root = project_paths.current_root()
+			local root = project_root.current()
 			fff_at(root).live_grep({
 				cwd = root,
 				grep = { modes = { "fuzzy", "plain" } },
@@ -137,7 +139,7 @@ if not vim.g.nvim_preview then
 	end, { desc = "Find symbols in file" })
 	-- Uppercase S keeps workspace symbols beside the document-symbol picker.
 	map("n", "<leader>S", function()
-		require("project-manager.symbols").open()
+		require("project-manager.lsp.symbols").open()
 	end, { desc = "Find symbols in workspace" })
 	map("n", "<leader>fr", function()
 		Snacks.picker.recent()
@@ -223,13 +225,13 @@ end
 -- file in a float: restoring a session into it is nothing anyone wants.
 if not vim.g.nvim_preview then
 	-- Keep project restoration behind one explicit picker instead of inferring it from the current file.
-	map("n", "<leader>pp", project_pickers.pick_session, { desc = "Project: Switch" })
+	map("n", "<leader>pp", project_pickers.projects, { desc = "Project: Switch" })
 	-- Open folders through the same Yazi chooser used by the dashboard.
 	-- The directory picker confirms into the active editor window.
 	map("n", "<leader>po", project_pickers.open_directory, { desc = "Project: Open directory here" })
-	map("n", "<leader>pi", project_info.info, { desc = "Project: Info" })
+	map("n", "<leader>pi", project_info.show, { desc = "Project: Info" })
 	map("n", "<leader>pl", function()
-		require("project-manager.servers").toggle()
+		require("project-manager.lsp.servers").toggle()
 	end, { desc = "Project: Toggle automatic LSP startup" })
 	map(
 		"n",
@@ -240,8 +242,8 @@ if not vim.g.nvim_preview then
 		end),
 		{ desc = "Project: Reset workspace" }
 	)
-	map("n", "<leader>pn", project_pickers.open_new_window, { desc = "Project: New window" })
-	map("n", "<leader>pt", project_pickers.open_terminal, { desc = "Project: Terminal at root" })
+	map("n", "<leader>pn", project_launch.new_window, { desc = "Project: New window" })
+	map("n", "<leader>pt", project_launch.terminal, { desc = "Project: Terminal at root" })
 end
 
 -- Splits
@@ -262,12 +264,15 @@ end
 map("i", "<A-Left>", "<C-o>b", opts) -- back one word
 map("i", "<A-Right>", "<C-o>w", opts) -- forward one word
 
--- CodeDiff toggles its current view; only close when this tab belongs to it.
--- Reuse the whole-review tab instead of toggling it closed or opening another copy.
+-- Reuse the whole-review tab; pressing the same shortcut there switches its layout.
 map("n", "<leader>gD", function()
 	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
 		if vim.t[tab].codediff_mode == "explorer" then
-			vim.api.nvim_set_current_tabpage(tab)
+			if tab == vim.api.nvim_get_current_tabpage() then
+				require("dotfiles.ui.codediff").toggle_layout()
+			else
+				vim.api.nvim_set_current_tabpage(tab)
+			end
 			return
 		end
 	end
@@ -302,7 +307,7 @@ map(
 	"n",
 	"<leader>ft",
 	project_state.only(function()
-		Snacks.picker.todo_comments({ cwd = project_paths.current_root() })
+		Snacks.picker.todo_comments({ cwd = project_root.current() })
 	end),
 	{ desc = "Find TODOs in project" }
 )

@@ -39,13 +39,16 @@ def tint(accent, background, foreground, amount, minimum):
 
 
 def derive(bg, fg, *accents):
-    surface = blend(fg, bg, .07)
+    # Gogh palettes remain the ANSI source of truth, but app body text must not
+    # inherit a foreground that is unreadable against its own background.
+    terminal_fg = readable(fg, bg)
+    surface = blend(terminal_fg, bg, .07)
     colors = {name: readable(color, surface) for name, color in zip(('red', 'green', 'yellow', 'blue', 'magenta', 'cyan'), accents)}
     selection = blend(colors['blue'], bg, .25)
-    roles = dict(bg=bg, fg=readable(fg, surface), surface=surface,
-                 muted=readable(blend(fg, bg, .55), surface),
-                 border=blend(fg, bg, .3), selection=selection,
-                 selection_fg=readable(fg, selection), **colors)
+    roles = dict(bg=bg, fg=readable(terminal_fg, surface), terminal_fg=terminal_fg, surface=surface,
+                 muted=readable(blend(terminal_fg, bg, .55), surface),
+                 border=readable(blend(terminal_fg, bg, .3), surface, 3), selection=selection,
+                 selection_fg=readable(terminal_fg, selection), **colors)
     for name, color in colors.items():
         roles['on_' + name] = readable(bg, color)
     # Tint the background toward the palette's own red and green so a changed
@@ -58,6 +61,7 @@ def derive(bg, fg, *accents):
     # Emphasis marks a few changed words inside an already-washed line, where the
     # background shift carries meaning on its own, so it can sit lower.
     for name, accent in (('minus', red), ('plus', green)):
+        roles['diff_' + name + '_dimmed'] = tint(accent, bg, roles['fg'], .08, 4.5)
         roles['diff_' + name] = tint(accent, bg, roles['fg'], .15, 4.5)
         roles['diff_' + name + '_emph'] = tint(accent, bg, roles['fg'], .48, 3.5)
     roles['diff_moved_from'] = blend(magenta, bg, .15)

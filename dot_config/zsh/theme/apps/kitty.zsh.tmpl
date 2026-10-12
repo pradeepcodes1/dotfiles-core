@@ -25,11 +25,12 @@ for color_name in "${required_colors[@]}"; do
 done
 
 local kitty_content="# Generated from the Gogh palette in $_DOTFILES_THEME_NAME.sh.
-foreground $fg
+# Body text uses the guarded role while ANSI color0-color15 stay faithful to Gogh.
+foreground $theme_ui_terminal_fg
 background $bg
 selection_foreground $theme_ui_selection_fg
 selection_background $theme_ui_selection
-cursor $fg
+cursor $theme_ui_terminal_fg
 cursor_text_color $bg
 url_color $theme_ui_cyan
 

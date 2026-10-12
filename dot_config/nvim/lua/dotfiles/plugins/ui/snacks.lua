@@ -3,6 +3,18 @@ return {
 	priority = 1000,
 	lazy = false,
 	init = function()
+		vim.api.nvim_create_autocmd("BufWinEnter", {
+			callback = function(event)
+				if vim.bo[event.buf].filetype ~= "snacks_picker_input" then
+					return
+				end
+
+				-- Picker windows inherit line numbers before Snacks applies its minimal style.
+				vim.wo.number = false
+				vim.wo.relativenumber = false
+			end,
+		})
+
 		-- Snacks uses its filetype as the persistent scratch extension. Keep
 		-- the files as .md, then normalize the buffer to Neovim's canonical
 		-- markdown filetype when it opens.
@@ -40,7 +52,7 @@ return {
 						key = "o",
 						desc = "Open Project",
 						action = function()
-							require("project-manager.actions.pickers").open_directory()
+							require("project-manager.picker").open_directory()
 						end,
 					},
 					{ icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },

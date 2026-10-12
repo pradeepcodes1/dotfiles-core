@@ -10,14 +10,19 @@ source "$_theme_dir/gogh.zsh"
 # they have to run in every shell and are never covered by the stamp below.
 _DOTFILES_THEME_SHELL_ADAPTERS=(fzf.zsh diagram.zsh zsh-prompt.zsh)
 
-# Fingerprint of everything the on-disk adapters read: the palette they render
-# and the adapter sources themselves, so editing one re-runs it. Answers in
-# $REPLY through zsh's own stat builtin rather than a command substitution --
-# this runs on the startup path, where a fork would cost more than it saves.
+# Fingerprint of everything the on-disk adapters read: the palette, the shared
+# role derivation, and the adapter sources themselves, so editing one re-runs it.
+# Answers in $REPLY through zsh's own stat builtin rather than a command
+# substitution -- this runs on the startup path, where a fork would cost more
+# than it saves.
 _theme_apply_fingerprint() {
   zmodload -F zsh/stat b:zstat 2>/dev/null || return 1
   local -a files mtimes
-  files=("$_theme_dir/apps"/*.zsh(N))
+  files=(
+    "$_theme_dir/apps"/*.zsh(N)
+    "$_theme_dir/ui-colors.py"
+    "$_DOTFILES_GOGH_THEMES_DIR/${_DOTFILES_THEME_NAME}.sh"
+  )
   (( $#files )) || return 1
   zstat -A mtimes +mtime "${files[@]}" 2>/dev/null || return 1
   REPLY="$_DOTFILES_THEME_NAME $_DOTFILES_THEME_MODE ${files[@]:t} ${mtimes[@]}"
@@ -150,5 +155,4 @@ theme() {
   }
 
   info_log "theme" "Switched to: $_DOTFILES_THEME_NAME ($_DOTFILES_THEME_MODE mode)"
-  info_log "theme" "Note: Restart yazi for full effect."
 }

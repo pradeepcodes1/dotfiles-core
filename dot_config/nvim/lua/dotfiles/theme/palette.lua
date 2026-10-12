@@ -146,6 +146,9 @@ function M.resolve(theme)
 	-- generated theme, so honor them before falling back to the complete base.
 	colors.bg = raw.bg or raw.ui_bg or M.defaults.bg
 	colors.fg = raw.fg or raw.ui_fg or M.defaults.fg
+	-- Guard Normal text at the shared palette boundary so every editor surface
+	-- starts with readable foreground/background contrast.
+	colors.fg = M.ensure_contrast(colors.fg, colors.bg, 4.5)
 
 	local mode = resolve_mode(theme.background or theme.mode, colors.bg)
 	local syntax = {}
@@ -179,7 +182,8 @@ function M.resolve(theme)
 		comment = M.ensure_contrast(M.blend(colors.fg, colors.bg, 0.55), colors.bg, 4.5),
 		muted = M.ensure_contrast(M.blend(colors.fg, colors.bg, 0.65), colors.bg, 4.5),
 		guide = M.blend(colors.fg, colors.bg, 0.22),
-		border = M.blend(colors.fg, colors.bg, 0.35),
+		-- Borders are structural rather than prose, so the 3:1 UI-component floor applies.
+		border = M.ensure_contrast(M.blend(colors.fg, colors.bg, 0.35), colors.bg, 3),
 		cursorline = M.blend(colors.fg, colors.bg, 0.055),
 		surface = M.blend(colors.fg, colors.bg, 0.09),
 		surface_high = M.blend(colors.fg, colors.bg, 0.16),

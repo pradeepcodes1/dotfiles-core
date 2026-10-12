@@ -67,11 +67,6 @@
 # shell startup, which cost time even on machines where it was never installed.
 .config/zsh/theme/apps/sketchybar.zsh
 
-# The Claude Code theme adapter is retired: its write to ~/.claude.json never
-# survived, because Claude Code rewrites that file from an in-memory cache and
-# drops keys it did not put there.
-.config/zsh/theme/apps/claude.zsh
-
 # The Neovim Lua tree moved under lua/dotfiles/ so nothing else on the
 # runtimepath can shadow it. These are the directories that move left behind:
 # without removing them the retired modules stay importable, and lua_ls reports

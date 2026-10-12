@@ -40,6 +40,27 @@ local function hunk_action(action)
 	end
 end
 
+function M.toggle_layout()
+	local lifecycle = require("codediff.ui.lifecycle")
+	local tab = vim.api.nvim_get_current_tabpage()
+	local session = lifecycle.get_session(tab)
+	if not session then
+		vim.notify("Open a CodeDiff view before changing its layout", vim.log.levels.INFO)
+		return
+	end
+	if session.result_win then
+		vim.notify("Merge views require the side-by-side layout", vim.log.levels.INFO)
+		return
+	end
+
+	require("codediff.ui.view").toggle_layout(tab)
+	local updated = lifecycle.get_session(tab)
+	if updated then
+		-- Remember this tab's explicit choice so resize and TabEnter hooks preserve it.
+		vim.api.nvim_tabpage_set_var(tab, "codediff_layout", updated.layout)
+	end
+end
+
 -- Hydra consumes this table itself, but its modal keys are still bindings and
 -- belong beside the navigation actions above that they drive.
 local function hydra_heads(diff)
@@ -90,6 +111,7 @@ local function hydra_heads(diff)
 		{ "<C-k>", navigate_file("prev"), { desc = "Previous file / history commit" } },
 		{ "<C-Down>", page_files("down"), { desc = "Next explorer page" } },
 		{ "<C-Up>", page_files("up"), { desc = "Previous explorer page" } },
+		{ "t", M.toggle_layout, { desc = "Toggle one/two pane layout" } },
 		{ "s", hunk_action("stage"), { desc = "Stage hunk" } },
 		{ "u", hunk_action("unstage"), { desc = "Unstage hunk" } },
 		{ "r", hunk_action("discard"), { desc = "Discard hunk" } },
@@ -118,6 +140,7 @@ function M.activate()
  _j_: next hunk across files  _k_: previous hunk across files
  _<C-j>_: next file  _<C-k>_: previous file
  _<C-Down>_: next page  _<C-Up>_: previous page
+ _t_: toggle one/two panes
  _s_: stage  _u_: unstage  _r_: discard
  _q_/_<Esc>_: exit
 ]],

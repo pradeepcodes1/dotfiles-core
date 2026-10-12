@@ -1,0 +1,45 @@
+# Keep Claude Code's selected custom theme synchronized with the active Gogh palette.
+# Claude Code custom theme integration
+
+[[ -z "$gogh_theme" ]] && return
+
+local claude_theme_dir="{{ .chezmoi.homeDir }}/.claude/themes"
+local claude_theme_file="$claude_theme_dir/dotfiles.json"
+local claude_base="${_DOTFILES_THEME_MODE:-dark}"
+[[ "$claude_base" == "light" ]] || claude_base="dark"
+
+local claude_content="{
+  \"name\": \"Dotfiles\",
+  \"base\": \"$claude_base\",
+  \"overrides\": {
+    \"text\": \"$theme_ui_terminal_fg\",
+    \"background\": \"$bg\",
+    \"subtle\": \"$theme_ui_muted\",
+    \"suggestion\": \"$theme_ui_blue\",
+    \"success\": \"$theme_ui_green\",
+    \"error\": \"$theme_ui_red\",
+    \"warning\": \"$theme_ui_yellow\",
+    \"selectionBg\": \"$theme_ui_selection\",
+    \"diffAdded\": \"$theme_ui_diff_plus\",
+    \"diffRemoved\": \"$theme_ui_diff_minus\",
+    \"diffAddedDimmed\": \"$theme_ui_diff_plus_dimmed\",
+    \"diffRemovedDimmed\": \"$theme_ui_diff_minus_dimmed\",
+    \"diffAddedWord\": \"$theme_ui_diff_plus_emph\",
+    \"diffRemovedWord\": \"$theme_ui_diff_minus_emph\"
+  }
+}"
+
+if [[ -f "$claude_theme_file" ]] && [[ "$(< "$claude_theme_file")" == "$claude_content" ]]; then
+  return 0
+fi
+
+mkdir -p "$claude_theme_dir" || return 1
+local claude_temp="${claude_theme_file}.tmp.$$"
+if ! print -r -- "$claude_content" > "$claude_temp" || ! mv -f "$claude_temp" "$claude_theme_file"; then
+  rm -f "$claude_temp"
+  return 1
+fi
+
+# Claude owns the persisted `custom:dotfiles` selection; this adapter only
+# rewrites the color file, so it cannot race Claude's settings writer.
+return 0

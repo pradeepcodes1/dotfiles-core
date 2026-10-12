@@ -3,6 +3,11 @@
 -- by core.neovide (font size) and plugins/lazy specs (lualine, dashboard).
 vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
 
+-- AI completion backend for the blink menu: "copilot" (needs a Copilot
+-- subscription) or "minuet" (local qwen2.5-coder:1.5b through ollama). Only
+-- one is ever loaded so the menu never shows two near-identical suggestions.
+vim.g.ai_completion = "minuet"
+
 -- Keymaps require project-manager.nvim before lazy.setup runs, so clone it into
 -- lazy's own plugin directory on first start and put it on the rtp this early.
 -- Lazy then manages updates there through plugins/tools/project-manager.lua.

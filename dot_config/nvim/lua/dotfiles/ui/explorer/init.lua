@@ -2,7 +2,7 @@
 local M = {}
 local library_paths = require("dotfiles.lsp.library_paths")
 local path_util = require("dotfiles.core.path")
-local project_paths = require("project-manager.paths")
+local project_root = require("project-manager.root")
 
 local active_roots = {}
 local active_paths = {}
@@ -49,9 +49,9 @@ local function target_for_buffer(bufnr)
 		return nil, nil
 	end
 
-	local root = project_paths.buffer_root(bufnr)
+	local root = project_root.buffer(bufnr)
 		-- buffer_root rejects URI names, so preserve file:// marker discovery after conversion.
-		or project_paths.root(path)
+		or project_root.find(path)
 		or path_util.clean(vim.fs.dirname(path))
 		or path_util.cwd()
 

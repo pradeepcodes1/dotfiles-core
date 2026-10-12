@@ -15,6 +15,5 @@ node_modules/
 *.log
 .nvimlog
 
-# lazy.nvim writes this into the config dir it is run from; the deployed
-# ~/.config/nvim owns it, not this source tree.
-dot_config/nvim/lazy-lock.json
+# Keep lazy.nvim's resolved commits in the source tree so a restore recreates
+# the same tested plugin graph instead of silently selecting newer revisions.

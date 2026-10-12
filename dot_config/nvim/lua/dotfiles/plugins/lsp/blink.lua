@@ -1,4 +1,14 @@
--- merge LSP and Copilot candidates into one completion UI with deliberate keys.
+-- merge LSP and AI candidates into one completion UI with deliberate keys.
+
+-- Exactly one AI source, chosen by vim.g.ai_completion in init.lua. None in
+-- the preview window, where both AI plugins are disabled and their blink
+-- modules would fail to load.
+local ai_source = not vim.g.nvim_preview and (vim.g.ai_completion == "copilot" and "copilot" or "minuet")
+local default_sources = { "lsp", "snippets" }
+if ai_source then
+	table.insert(default_sources, 2, ai_source)
+end
+
 return {
 	"saghen/blink.cmp",
 	-- A tagged release so blink fetches its prebuilt fuzzy-matcher binary
@@ -8,7 +18,8 @@ return {
 	-- at startup, before any server is configured, so it is a dependency there
 	-- and loads then. Declaring InsertEnter as well would only be misleading.
 	dependencies = {
-		{ "fang2hou/blink-copilot", version = "1.*" },
+		-- Only fetched when Copilot is the selected backend.
+		{ "fang2hou/blink-copilot", version = "1.*", enabled = ai_source == "copilot" },
 	},
 	opts = {
 		-- Completion-menu keys are internal to blink, not part of the global layer.
@@ -29,9 +40,9 @@ return {
 		},
 		sources = {
 			-- Deliberately not blink's default set, which also adds `path` and
-			-- `buffer`. Completion here is the language server, Copilot, and
-			-- the hand-written snippets under <config>/snippets.
-			default = { "lsp", "copilot", "snippets" },
+			-- `buffer`. Completion here is the language server, one AI backend,
+			-- and the hand-written snippets under <config>/snippets.
+			default = default_sources,
 			providers = {
 				snippets = {
 					opts = {
@@ -55,6 +66,18 @@ return {
 					-- poorly against a short prefix and would otherwise rank
 					-- below every LSP symbol. This is the knob to lower if
 					-- Copilot starts crowding the menu.
+					score_offset = 100,
+				},
+				-- The local alternative to Copilot (plugins/tools/minuet.lua).
+				minuet = {
+					name = "minuet",
+					module = "minuet.blink",
+					async = true,
+					-- Matches minuet's own request timeout, so blink does not drop
+					-- a completion the model is still generating.
+					timeout_ms = 3000,
+					-- Same ranking reason as Copilot: long multi-line items lose
+					-- to short LSP symbols on fuzzy score alone.
 					score_offset = 100,
 				},
 			},

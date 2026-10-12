@@ -8,11 +8,13 @@ local function adjust_layout()
 	if not package.loaded.codediff then
 		return
 	end
-	local layout = preferred_layout()
+	local tab = vim.api.nvim_get_current_tabpage()
+	-- A manual toggle belongs to its review tab; otherwise resizing would
+	-- immediately replace the user's choice with the width-based default.
+	local layout = vim.t[tab].codediff_layout or preferred_layout()
 	require("codediff").setup({ diff = { layout = layout } })
 	-- CodeDiff's own toggle preserves the session; merge views cannot use inline mode.
 	local lifecycle = require("codediff.ui.lifecycle")
-	local tab = vim.api.nvim_get_current_tabpage()
 	local session = lifecycle.get_session(tab)
 	if session and not session.result_win and session.layout ~= layout then
 		require("codediff.ui.view").toggle_layout(tab)
@@ -96,8 +98,9 @@ return {
 			callback = function(event)
 				if vim.api.nvim_tabpage_is_valid(event.data.tabpage) then
 					vim.api.nvim_tabpage_set_var(event.data.tabpage, "codediff_view", false)
-					-- Clear ownership together with the title when a view closes.
+					-- Clear ownership and its layout preference together when a view closes.
 					pcall(vim.api.nvim_tabpage_del_var, event.data.tabpage, "codediff_mode")
+					pcall(vim.api.nvim_tabpage_del_var, event.data.tabpage, "codediff_layout")
 					pcall(vim.api.nvim_tabpage_del_var, event.data.tabpage, "tabname")
 				end
 			end,
