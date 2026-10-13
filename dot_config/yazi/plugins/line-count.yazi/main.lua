@@ -5,9 +5,11 @@
 -- than at the repo, which it does not once a Neovim buffer opened first.
 ---@diagnostic disable: undefined-global
 
--- Show useful text-file line counts without repeatedly scanning on every redraw.
+-- Count lines in a fetcher rather than a plugin `entry` task: Yazi treats
+-- entry tasks as user jobs, so quitting while one was still running (right after
+-- scrolling) asked to cancel it. Fetch tasks are background work that quit
+-- ignores once `suppress_preload` is set in yazi.toml.
 local LINES_CAP = 2 * 1024 * 1024
-local DEBOUNCE_SECONDS = 0.15
 
 local function candidate(file)
 	if not file then
@@ -25,81 +27,55 @@ local function candidate(file)
 		return nil
 	end
 
-	local path = tostring(file.url)
 	return {
-		path = path,
-		empty = len == 0,
+		path = tostring(file.url),
+		len = len,
+		mtime = file.cha.mtime,
 	}
 end
 
-local current_candidate = ya.sync(function(st, generation)
-	if st.generation ~= generation then
-		return nil
+-- Cached counts carry the size and mtime they were taken at, so an edited file
+-- shows nothing until its refetch lands instead of a stale count.
+local store = ya.sync(function(st, counts)
+	for path, entry in pairs(counts) do
+		st.counts[path] = entry
 	end
-
-	return candidate(cx.active.current.hovered)
-end)
-
-local publish_count = ya.sync(function(st, generation, lines)
-	if st.generation ~= generation then
-		return
-	end
-
-	-- Keep only the active row's result; every later hover deliberately recounts it.
-	st.lines = lines
 	ui.render()
 end)
 
 return {
 	setup = function(st)
-		st.generation, st.lines = 0, nil
-
-		local function schedule_count()
-			st.generation = st.generation + 1
-			st.lines = nil
-			-- Each hover gets a cheap sleeping task; only the latest generation is
-			-- allowed to launch grep after the cursor has settled for 150ms.
-			ya.emit("plugin", { st._id, tostring(st.generation) })
-		end
-
-		ps.sub("hover", schedule_count)
-		schedule_count()
+		st.counts = {}
 
 		Status:children_add(function(self)
 			local item = candidate(self._current.hovered)
-			if not item then
+			local entry = item and st.counts[item.path]
+			if not entry or entry.len ~= item.len or entry.mtime ~= item.mtime then
 				return ""
 			end
 
-			if type(st.lines) ~= "number" then
-				return ""
-			end
-
-			return ui.Line({ ui.Span(string.format(" %dL", st.lines)):fg("darkgray") })
+			return ui.Line({ ui.Span(string.format(" %dL", entry.lines)):fg("darkgray") })
 		end, 2500, Status.LEFT)
 	end,
 
-	entry = function(_, job)
-		local generation = tonumber(job.args[1])
-		if not generation then
-			return
+	fetch = function(_, job)
+		local counts = {}
+		for _, file in ipairs(job.files) do
+			local item = candidate(file)
+			if item then
+				local lines = 0
+				if item.len > 0 then
+					-- Command passes unusual filenames directly rather than through a shell.
+					local output = Command("grep"):arg({ "-Ic", "", "--", item.path }):output()
+					lines = output and output.status.success and tonumber(output.stdout) or nil
+				end
+				if lines then
+					counts[item.path] = { lines = lines, len = item.len, mtime = item.mtime }
+				end
+			end
 		end
 
-		ya.sleep(DEBOUNCE_SECONDS)
-		local item = current_candidate(generation)
-		if not item then
-			return
-		end
-
-		if item.empty then
-			publish_count(generation, 0)
-			return
-		end
-
-		-- Command keeps the scan off the synchronous status-rendering path and
-		-- passes unusual filenames directly rather than through a shell.
-		local output = Command("grep"):arg({ "-Ic", "", "--", item.path }):output()
-		local lines = output and output.status.success and tonumber(output.stdout) or false
-		publish_count(generation, lines)
+		store(counts)
+		return require("noop"):fetch(job)
 	end,
 }

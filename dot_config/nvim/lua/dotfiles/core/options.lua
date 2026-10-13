@@ -31,7 +31,13 @@ opt.splitbelow = true
 opt.splitkeep = "screen"
 opt.ignorecase = true
 opt.cursorline = true
-opt.wrap = false
+-- Wrap long lines everywhere so nothing scrolls off the right edge.
+opt.wrap = true
+-- Break at word boundaries and keep wrapped lines aligned with their indent.
+opt.linebreak = true
+opt.breakindent = true
+-- Mark continuation rows so a wrapped line doesn't read as several lines.
+opt.showbreak = "↪ "
 opt.confirm = true
 
 -- Persistent undo

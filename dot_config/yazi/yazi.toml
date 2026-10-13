@@ -25,7 +25,18 @@ url = "*"
 run = "git"
 group = "git"
 
+# Line counts for the status bar are gathered per page of files, off the hover path.
+[[plugin.prepend_fetchers]]
+url = "*"
+run = "line-count"
+group = "line-count"
+
 [[plugin.prepend_fetchers]]
 url = "*/"
 run = "git"
 group = "git"
+
+# Background fetch/preload work (git status, line counts) shouldn't make `q`
+# ask to cancel jobs; copies, moves and other user tasks still prompt.
+[tasks]
+suppress_preload = true

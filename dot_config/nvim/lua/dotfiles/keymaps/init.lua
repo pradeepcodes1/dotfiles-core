@@ -40,6 +40,10 @@ map("i", "jk", "<Esc>", { desc = "Exit insert mode with jk" })
 -- mode without that. Insert mode keeps `jk`, where neither key is a motion.
 map("t", "<C-Space>", [[<C-\><C-n>]], { desc = "Exit terminal mode" })
 map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
+-- Wrap is on globally, so bare j/k move by screen line; a count (5j, and
+-- relative-number jumps) still moves by real lines.
+map({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true, desc = "Down (screen line)" })
+map({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true, desc = "Up (screen line)" })
 
 -- Keep native centering on zz; silently ignore fold toggles outside folds.
 map("n", "za", function()
@@ -177,6 +181,11 @@ map("n", "<leader>vr", project_state.only(problems.refresh_workspace), { desc = 
 map("n", "<leader>ud", function()
 	vim.diagnostic.enable(not vim.diagnostic.is_enabled())
 end, { desc = "Toggle diagnostics" })
+-- Wrap is on globally; this flips it for the current window only, e.g. for
+-- wide tables or logs. linebreak/breakindent stay set and apply when it's on.
+map("n", "<leader>uw", function()
+	vim.wo.wrap = not vim.wo.wrap
+end, { desc = "Toggle word wrap" })
 map("n", "[p", function()
 	local ok, aerial = pcall(require, "aerial")
 	if ok then

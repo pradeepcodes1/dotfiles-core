@@ -11,8 +11,55 @@ local function move_half_page(direction)
 	end
 end
 
+-- Snacks pickers dim the editor with a blended black float behind them; give
+-- fff's pickers the same backdrop so <leader>ff/<leader>fg match the rest.
+local function open_backdrop(input_buf)
+	if not vim.o.termguicolors then
+		return
+	end
+	vim.api.nvim_set_hl(0, "DotfilesPickerBackdrop", { bg = "#000000" })
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.bo[buf].bufhidden = "wipe"
+	local win = vim.api.nvim_open_win(buf, false, {
+		relative = "editor",
+		row = 0,
+		col = 0,
+		width = vim.o.columns,
+		height = vim.o.lines,
+		style = "minimal",
+		border = "none",
+		focusable = false,
+		-- fff's lowest picker window (the preview) sits at zindex 51.
+		zindex = 50,
+	})
+	vim.wo[win].winhighlight = "Normal:DotfilesPickerBackdrop"
+	-- Snacks' default backdrop opacity.
+	vim.wo[win].winblend = 60
+	-- fff force-deletes its prompt buffer on every close path, so that is the
+	-- one reliable signal to drop the backdrop with it.
+	vim.api.nvim_create_autocmd({ "BufWipeout", "BufUnload" }, {
+		buffer = input_buf,
+		once = true,
+		callback = function()
+			if vim.api.nvim_win_is_valid(win) then
+				vim.api.nvim_win_close(win, true)
+			end
+		end,
+	})
+end
+
 return {
 	"dmtrKovalenko/fff",
+	init = function()
+		-- fff creates a fresh fff_input prompt buffer each time a picker opens.
+		vim.api.nvim_create_autocmd("FileType", {
+			pattern = "fff_input",
+			group = vim.api.nvim_create_augroup("dotfiles_fff_backdrop", { clear = true }),
+			callback = function(args)
+				open_backdrop(args.buf)
+			end,
+		})
+	end,
 	enabled = not vim.g.nvim_preview,
 	build = function()
 		require("fff.download").download_or_build_binary()
