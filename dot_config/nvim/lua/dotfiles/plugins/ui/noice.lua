@@ -19,6 +19,21 @@ return {
 			-- default float is borderless against the base16 background.
 			lsp_doc_border = true,
 		},
+		views = {
+			-- The preset's view uses the "details" format, which prefixes every
+			-- line with a counter, timestamp, and event name. Show the command
+			-- on one line and its output on the next instead, keeping the
+			-- timestamp so repeated commands in the split can be told apart.
+			cmdline_output = {
+				format = {
+					"{date} ",
+					{ "[cmd] ", hl_group = "Comment" },
+					"{cmdline}",
+					{ "\n[output] ", hl_group = "Comment" },
+					"{message}",
+				},
+			},
+		},
 		-- blink.cmp drives cmdline completion itself, so Neovim never emits the
 		-- popupmenu events this would render. Off to keep the nui views unloaded.
 		popupmenu = { enabled = false },
@@ -33,6 +48,15 @@ return {
 				filter = {
 					event = "notify",
 					find = "No results from textDocument/documentSymbol",
+				},
+				opts = { skip = true },
+			},
+			-- auto-session hardcodes this notify for picker, :AutoSession restore,
+			-- and cwd/branch restores; it has no option to silence those paths.
+			{
+				filter = {
+					event = "notify",
+					find = "^Restored session:",
 				},
 				opts = { skip = true },
 			},

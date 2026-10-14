@@ -1,6 +1,8 @@
 -- Enhance the full blame popup already opened by the Git-hunk Hydra's b action.
 return {
-	"barrettruth/diffs.nvim",
+	-- Upstream moved to Forgejo; the GitHub repo is removed on 2026-10-31.
+	url = "https://forge.barrettruth.com/barrettruth/diffs.nvim",
+	name = "diffs.nvim",
 	-- Must be loaded before gitsigns opens a blame popup; same event as gitsigns.
 	event = "BufReadPre",
 	init = function()

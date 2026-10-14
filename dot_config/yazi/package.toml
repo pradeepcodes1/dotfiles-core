@@ -1,14 +1,15 @@
 # Pin the plugins still loaded by init.lua; Gogh generates Yazi colors directly.
+# These revisions target Yazi >= 26.9.1 (the git plugin uses its stat/lstat API).
 [[plugin.deps]]
 use = "yazi-rs/plugins:git"
-rev = "efa4d79"
-hash = "5bb0bfab901d3601c370eafdd66edd31"
+rev = "603fa36"
+hash = "347cc6b190eb0c2fd60513cc7ae37412"
 
 # Draws a rounded border around the file list and the whole tab, so the panes
 # read as framed panels rather than columns separated by whitespace.
 [[plugin.deps]]
 use = "yazi-rs/plugins:full-border"
-rev = "4dc7f1b"
+rev = "603fa36"
 hash = "f281261ff04ad7ec867c3f802a50835f"
 
 # Replaces Yazi's path header with the Starship prompt used by the shell.
@@ -20,8 +21,8 @@ hash = "9776f378459072b6c2875eae5addc49d"
 # Pin labeled file navigation so every profile installs the tested revision.
 [[plugin.deps]]
 use = "mikavilpas/easyjump.yazi:easyjump"
-rev = "92aa67b"
-hash = "49625b69287597c3b8093c9f1a2f7241"
+rev = "c8727eb"
+hash = "e19be8be472a25e08c18c2bea938f400"
 
 # `ya pkg` writes this section itself on a newer Yazi and rewrites the file
 # without it -- which reads as drift on the next apply, and prompts. No flavors

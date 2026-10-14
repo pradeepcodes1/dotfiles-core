@@ -2,7 +2,8 @@
 return {
 	{
 		"mikavilpas/yazi.nvim",
-		version = "^13.0.0",
+		-- v14 only drops Yazi 26.1.4 support; Homebrew ships 26.9.1.
+		version = "^14.0.0",
 		cmd = "Yazi",
 		dependencies = {
 			{ "nvim-lua/plenary.nvim", lazy = true },

@@ -102,6 +102,11 @@ return {
 			-- Each window owns its filename; the full path lives in the
 			-- statusline instead, so the winbar stays a short buffer label.
 			local function window_label()
+				-- Noice's output/long-message split is an unnamed scratch buffer,
+				-- which would otherwise read as "[No Name]".
+				if vim.bo.filetype == "noice" then
+					return "Messages"
+				end
 				local path = vim.api.nvim_buf_get_name(0)
 				local name = vim.fs.basename(path)
 				local label = name ~= "" and name or "[No Name]"
