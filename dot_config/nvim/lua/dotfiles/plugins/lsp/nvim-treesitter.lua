@@ -23,6 +23,9 @@ return {
 				"markdown_inline",
 				-- Swift gets the same syntax highlighting, indentation, and text objects as other source files.
 				"swift",
+				-- Rust projects had no parser, so ]m/[m and af/if crashed there.
+				"rust",
+				"toml",
 			})
 
 			vim.api.nvim_create_autocmd("FileType", {
@@ -56,6 +59,11 @@ return {
 			local map = vim.keymap.set
 			local function textobject(action, query)
 				return function()
+					-- Without a parser the plugin scores an empty range and throws;
+					-- a missing language should just make the motion a no-op.
+					if not vim.treesitter.get_parser(0, nil, { error = false }) then
+						return
+					end
 					action(query, "textobjects")
 				end
 			end

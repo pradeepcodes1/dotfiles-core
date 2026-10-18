@@ -10,7 +10,8 @@ return {
 		},
 		opts = {
 			floating_window_scaling_factor = 0.6,
-			yazi_floating_window_border = "double",
+			-- No border override: yazi.nvim defaults to 'winborder', keeping it
+			-- consistent with the other floats.
 			highlight_hovered_buffers_in_same_directory = false,
 			open_multiple_tabs = true,
 		},

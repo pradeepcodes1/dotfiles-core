@@ -26,11 +26,14 @@ local -a _nvim_socks
 local _nvim_dir _nvim_sock
 local _nvim_user="${USER:-$(id -un)}"
 
-[[ -n "$XDG_RUNTIME_DIR" ]] && _nvim_socks+=( "$XDG_RUNTIME_DIR"/nvim.*.0(N=) )
+# The socket is really named after $NVIM_APPNAME, so nvim-nightly's instances
+# (NVIM_APPNAME=nvim-nightly) listen on nvim-nightly.<pid>.0. Match any
+# nvim-prefixed appname so a theme switch reaches them too.
+[[ -n "$XDG_RUNTIME_DIR" ]] && _nvim_socks+=( "$XDG_RUNTIME_DIR"/nvim*.<->.0(N=) )
 
 for _nvim_dir in "${TMPDIR:-/tmp}" /tmp; do
   [[ -n "$_nvim_dir" ]] || continue
-  _nvim_socks+=( "${_nvim_dir%/}/nvim.$_nvim_user"/*/nvim.*.0(N=) )
+  _nvim_socks+=( "${_nvim_dir%/}/nvim.$_nvim_user"/*/nvim*.<->.0(N=) )
 done
 
 # A crashed instance leaves its socket behind; connecting to one fails fast

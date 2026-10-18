@@ -76,6 +76,12 @@ for name, spec in pairs({
 	LineNrAbove = { link = "LineNr" },
 	LineNrBelow = { link = "LineNr" },
 	CursorLineNr = { fg = accent, bg = theme.cursorline, bold = true },
+	-- Sticky-scroll headers read as a tinted band above the code, with a
+	-- border-coloured underline marking where the pinned block ends.
+	TreesitterContext = { bg = theme.surface },
+	TreesitterContextLineNumber = { fg = theme.muted, bg = theme.surface },
+	TreesitterContextBottom = { underline = true, sp = theme.border },
+	TreesitterContextLineNumberBottom = { fg = theme.muted, underline = true, sp = theme.border },
 	SignColumn = { bg = p.bg },
 	FoldColumn = { fg = theme.muted, bg = p.bg },
 	NonText = { fg = theme.guide },

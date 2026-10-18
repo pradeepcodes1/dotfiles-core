@@ -39,6 +39,9 @@ opt.breakindent = true
 -- Mark continuation rows so a wrapped line doesn't read as several lines.
 opt.showbreak = "↪ "
 opt.confirm = true
+-- One border style for every float: core LSP/diagnostic windows use it
+-- directly, and snacks, blink, mason and yazi fall back to it when unset.
+opt.winborder = "rounded"
 
 -- Persistent undo
 opt.undofile = true

@@ -172,8 +172,9 @@ end, { desc = "Previous diagnostic" })
 map("n", "<leader>lh", function()
 	vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
 end, { desc = "Toggle inlay hints" })
-map("n", "<leader>vp", project_state.only(problems.show_workspace), { desc = "View: Problems (project)" })
-map("n", "<leader>vP", problems.show_buffer, { desc = "View: Problems (buffer)" })
+-- Buffer problems are the more frequent lookup, so they get the lowercase key.
+map("n", "<leader>vp", problems.show_buffer, { desc = "View: Problems (buffer)" })
+map("n", "<leader>vP", project_state.only(problems.show_workspace), { desc = "View: Problems (project)" })
 map("n", "<leader>vq", function()
 	Snacks.picker.qflist()
 end, { desc = "View: Quickfix" })
@@ -186,6 +187,12 @@ end, { desc = "Toggle diagnostics" })
 map("n", "<leader>uw", function()
 	vim.wo.wrap = not vim.wo.wrap
 end, { desc = "Toggle word wrap" })
+-- Sticky scroll can crowd short windows; flip it off without leaving the buffer.
+map("n", "<leader>uc", "<cmd>TSContext toggle<cr>", { desc = "Toggle sticky context" })
+-- [c is taken by diff/hunk motions, so the context jump lives on [x.
+map("n", "[x", function()
+	require("treesitter-context").go_to_context(vim.v.count1)
+end, { desc = "Jump to sticky context" })
 map("n", "[p", function()
 	local ok, aerial = pcall(require, "aerial")
 	if ok then

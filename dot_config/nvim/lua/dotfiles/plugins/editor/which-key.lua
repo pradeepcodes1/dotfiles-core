@@ -2,6 +2,8 @@ return {
 	"folke/which-key.nvim",
 	event = "VeryLazy",
 	opts = {
+		-- which-key ignores 'winborder' (its default is "none"), so pass it through.
+		win = { border = vim.o.winborder },
 		spec = {
 			{ "<leader>f", group = "Find" },
 			{ "<leader>m", group = "Marks" },

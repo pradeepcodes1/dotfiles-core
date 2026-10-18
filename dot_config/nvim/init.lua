@@ -28,6 +28,8 @@ end
 vim.opt.rtp:prepend(project_manager_path)
 
 require("dotfiles.core.options")
+-- Show whitespace only inside visual selections, like VSCode.
+require("dotfiles.core.selection_whitespace")
 require("dotfiles.keymaps")
 require("dotfiles.core.neovide")
 
@@ -73,6 +75,8 @@ require("lazy").setup({
 	-- Chezmoi owns this tree; it changes via `chezmoi apply` and a restart,
 	-- never by lazy noticing an edit. Drop the reloader and its file watcher.
 	change_detection = { enabled = false },
+	-- lazy's UI ignores 'winborder' (default "none"), so match the other floats.
+	ui = { border = vim.o.winborder },
 	performance = {
 		rtp = {
 			-- matchit and matchparen stay enabled: nothing here replaces `%` on

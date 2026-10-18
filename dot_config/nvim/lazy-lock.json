@@ -52,6 +52,10 @@
   "nvim-numbertoggle": { "branch": "main", "commit": "704e098c7f056f0dae9407d8651edd3d183f3fff" },
   "nvim-scissors": { "branch": "main", "commit": "52de279bc53e849a413c675238abd3ed4a55cc64" },
   "nvim-treesitter": { "branch": "main", "commit": "1a4f47b03dfe92d28de7d5654c67327ef008c9e6" },
+  "nvim-treesitter-context": {
+    "branch": "master",
+    "commit": "8decd73460d26ef0a0befb745d022dd1fc2c38b8"
+  },
   "nvim-treesitter-textobjects": {
     "branch": "main",
     "commit": "5c7b0263797dfd1bd6202f2b219f3b53a80b2187"

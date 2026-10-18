@@ -1,0 +1,10 @@
+#!/bin/sh
+# Run the unmanaged nightly build under its own NVIM_APPNAME so its sessions,
+# shada, and plugin data stay apart from stable. A session saved by nightly can
+# hold options stable does not know (E518 on restore), so the two must not share.
+NIGHTLY_BIN=${NVIM_NIGHTLY_BIN:-$HOME/.local/opt/nvim-macos-arm64/bin/nvim}
+if [ ! -x "$NIGHTLY_BIN" ]; then
+  echo "nvim-nightly: $NIGHTLY_BIN not found; see docs/NVIM-NIGHTLY.md" >&2
+  exit 127
+fi
+NVIM_APPNAME=nvim-nightly exec "$NIGHTLY_BIN" "$@"
