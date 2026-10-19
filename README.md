@@ -96,6 +96,11 @@ After the first apply, `~/.local/bin/dotfiles` supports:
 - `pull` to fast-forward the portable core and active overlay repositories;
 - `plan` for the ordered, non-mutating core/overlay destination diff;
 - `apply --skip packages,tools,services` for a controlled layered apply;
+- `upgrade` to upgrade brew or pacman/AUR packages and move core's pins
+  forward (mise runtimes, the Neovim lockfile, Yazi packages) in this checkout,
+  then apply them; `--dry-run` lists what is outdated, `--skip` takes the apply
+  groups plus `nvim`, and runtimes listed in the controller's `MISE_HOLDS` stay
+  inside their version prefix;
 - `verify` and `hooks` for repository maintenance;
 - `exec --secrets ai|aws -- command ...` to expose credentials only to one
   child process.

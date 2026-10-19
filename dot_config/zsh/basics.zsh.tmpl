@@ -49,6 +49,17 @@ autoload -Uz add-zle-hook-widget
 add-zle-hook-widget line-init _zle_disable_intr
 add-zle-hook-widget line-finish _zle_restore_intr
 
+# Open the current command line in $EDITOR for long or multi-line edits; saving
+# and quitting puts the result back at the prompt. Kitty takes Ctrl+E for Yazi,
+# so the usual ^X^E never arrives there -- ^X e (Ctrl+X, then a plain e) is the
+# chord that works inside kitty, and ^X^E stays for every other terminal.
+autoload -Uz edit-command-line
+zle -N edit-command-line
+bindkey -M emacs '^Xe' edit-command-line
+bindkey -M emacs '^X^E' edit-command-line
+bindkey -M viins '^Xe' edit-command-line
+bindkey -M viins '^X^E' edit-command-line
+
 # bat only pages/colors on interactive terminals, so pipes still get plain bytes
 alias cat='bat'
 # -Q silences less's end-of-file bell so it does not mark Kitty/tmux as alerting;

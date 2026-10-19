@@ -1,8 +1,8 @@
 #!/bin/sh
 # One entry point for the portable core and its mutually exclusive overlays.
 # `plan`, `doctor`, and `verify` are deliberately read-only. State changes live
-# behind the explicit `init`, `pull`, `apply`, `hooks`, and `exec --secrets`
-# commands.
+# behind the explicit `init`, `pull`, `apply`, `upgrade`, `hooks`, and
+# `exec --secrets` commands.
 set -u
 
 PROGRAM=${0##*/}
@@ -27,6 +27,8 @@ SKIP_BREW=0
 SKIP_MISE=0
 SKIP_YAZI=0
 SKIP_SERVICES=0
+# Only `upgrade` touches Neovim plugins; apply never does.
+SKIP_NVIM=0
 PRIVILEGE=
 
 CORE_REMOTE=https://github.com/pradeepcodes1/dotfiles-core.git
@@ -35,6 +37,10 @@ LINUX_REMOTE=https://github.com/pradeepcodes1/dotfiles-riced-linux.git
 YAY_AUR_REMOTE=https://aur.archlinux.org/yay-bin.git
 # Audited 2026-08-29. Updating this is an explicit maintenance operation.
 YAY_AUR_COMMIT=13e0a4754d106a9252b7479bf1b370fbe454fc48
+# Runtimes `upgrade` keeps inside a version prefix instead of bumping to the
+# newest release; the reasons sit beside each pin in dot_config/mise/config.toml
+# (jdtls/nvim-java lag non-LTS Java; Python waits for 3.15 wheels).
+MISE_HOLDS='java@25 python@3.14'
 
 say() {
   printf '%s\n' "$*"
@@ -61,6 +67,7 @@ Usage:
   dotfiles doctor [options]
   dotfiles plan [options] [-- chezmoi-target ...]
   dotfiles apply [options] [-- chezmoi-option-or-target ...]
+  dotfiles upgrade [options]
   dotfiles verify [options]
   dotfiles hooks [options]
   dotfiles exec --secrets ai|aws -- command [arg ...]
@@ -70,9 +77,10 @@ Options:
   --core-source PATH      override the portable core checkout
   --overlay-source PATH   override the active overlay checkout
   --skip LIST             comma-separated packages, aur, brew, tools, mise,
-                          yazi, or services
+                          yazi, nvim, or services
   -v, --verbose           show verbose chezmoi planning/apply output
-  -n, --dry-run           with apply, route to the read-only plan command
+  -n, --dry-run           with apply, route to the read-only plan command;
+                          with upgrade, list what is outdated and change nothing
 
 Environment equivalents:
   DOTFILES_PROFILE, DOTFILES_CORE_SOURCE, DOTFILES_OVERLAY_SOURCE
@@ -175,9 +183,12 @@ enable_skips() {
       tools)
         SKIP_MISE=1
         SKIP_YAZI=1
+        # Plugins are tools for upgrade's purposes; apply has no nvim step.
+        SKIP_NVIM=1
         ;;
       mise) SKIP_MISE=1 ;;
       yazi) SKIP_YAZI=1 ;;
+      nvim) SKIP_NVIM=1 ;;
       services) SKIP_SERVICES=1 ;;
       '') ;;
       *) die "unknown skip group: $skip_name" ;;
@@ -631,6 +642,284 @@ command_init() {
     riced-linux) git_clone_source "$PROFILE overlay" "$LINUX_REMOTE" "$OVERLAY_SOURCE" ;;
   esac
   command_apply --profile "$PROFILE" --core-source "$CORE_SOURCE" --overlay-source "$OVERLAY_SOURCE"
+}
+
+# `apply` installs exactly what the sources pin; `upgrade` is the one command
+# that moves those pins. It upgrades the system package manager, rewrites the
+# core pins (mise runtimes, the Neovim plugin lockfile, Yazi packages) in the
+# core checkout itself, then applies just those files and leaves the source
+# diff for review and commit. A failing step does not stop the others, so one
+# broken tool cannot strand the rest; the command still exits non-zero.
+UPGRADE_MISE_CONFIG=dot_config/mise/config.toml
+UPGRADE_LAZY_LOCK=dot_config/nvim/lazy-lock.json
+UPGRADE_YAZI_MANIFEST=dot_config/yazi/package.toml
+
+upgrade_failed() {
+  warn "$1 upgrade failed"
+  UPGRADE_FAILURES="${UPGRADE_FAILURES:+$UPGRADE_FAILURES }$1"
+}
+
+cleanup_upgrade() {
+  case "${UPGRADE_TMP:-}" in
+    "${TMPDIR:-/tmp}"/dotfiles-upgrade.*) rm -rf -- "$UPGRADE_TMP" ;;
+  esac
+}
+
+upgrade_packages() {
+  case "$SYSTEM_NAME" in
+    Darwin)
+      [ "$SKIP_PACKAGES" -eq 0 ] && [ "$SKIP_BREW" -eq 0 ] || return 0
+      activate_homebrew || {
+        warn "Homebrew is unavailable; skipped package upgrades"
+        return 0
+      }
+      if [ "$UPGRADE_DRY_RUN" -eq 1 ]; then
+        info "Outdated Homebrew packages (as of the last brew update)"
+        brew outdated
+        return 0
+      fi
+      info "Upgrading Homebrew packages"
+      { brew update && brew upgrade; } || upgrade_failed brew
+      ;;
+    Linux)
+      command -v pacman >/dev/null 2>&1 || return 0
+      # Interactive on purpose, unlike apply's --noconfirm installs: a full
+      # system upgrade is worth reading before it runs.
+      if [ "$SKIP_PACKAGES" -eq 0 ]; then
+        if [ "$UPGRADE_DRY_RUN" -eq 1 ]; then
+          say "Would run a full pacman system upgrade (pacman -Syu)"
+        else
+          info "Upgrading pacman packages"
+          run_privileged pacman -Syu || upgrade_failed pacman
+        fi
+      fi
+      if [ "$SKIP_AUR" -eq 0 ]; then
+        aur_helper=$(command -v yay 2>/dev/null || command -v paru 2>/dev/null || true)
+        if [ -z "$aur_helper" ]; then
+          warn "no AUR helper (yay or paru) is installed; skipped AUR upgrades"
+        elif [ "$UPGRADE_DRY_RUN" -eq 1 ]; then
+          say "Would upgrade AUR packages with ${aur_helper##*/} -Sua"
+        else
+          info "Upgrading AUR packages with ${aur_helper##*/}"
+          "$aur_helper" -Sua || upgrade_failed aur
+        fi
+      fi
+      ;;
+  esac
+}
+
+upgrade_mise() {
+  [ "$SKIP_MISE" -eq 0 ] || return 0
+  command -v mise >/dev/null 2>&1 || {
+    warn "mise is unavailable; skipped runtime upgrades"
+    return 0
+  }
+  mise_config=$CORE_SOURCE/$UPGRADE_MISE_CONFIG
+  mise_dry_run=
+  [ "$UPGRADE_DRY_RUN" -eq 0 ] || mise_dry_run=--dry-run
+  info "Bumping mise runtimes in $mise_config"
+
+  # Pointing the global config at the checkout makes mise read and rewrite the
+  # source itself, and --global ignores any project mise.toml around the
+  # caller. Bumped pins keep their x.y.z precision, comments and table options.
+  set --
+  for mise_hold in $MISE_HOLDS; do
+    set -- "$@" --exclude "${mise_hold%%@*}"
+  done
+  MISE_GLOBAL_CONFIG_FILE=$mise_config mise upgrade --global --bump ${mise_dry_run:+"$mise_dry_run"} "$@" || {
+    upgrade_failed mise
+    return 0
+  }
+
+  # Held runtimes move to the newest release inside their prefix. Naming that
+  # exact version makes mise write it verbatim, and dropping build metadata
+  # (Java lists 25.0.4+101.0.LTS) keeps the pin in its plain x.y.z form.
+  set --
+  for mise_hold in $MISE_HOLDS; do
+    mise_latest=$(mise latest "$mise_hold" 2>/dev/null) || mise_latest=
+    if [ -z "$mise_latest" ]; then
+      warn "mise found no release for $mise_hold; left it pinned"
+      continue
+    fi
+    set -- "$@" "${mise_hold%%@*}@${mise_latest%%+*}"
+  done
+  if [ "$#" -gt 0 ]; then
+    MISE_GLOBAL_CONFIG_FILE=$mise_config mise upgrade --global --bump ${mise_dry_run:+"$mise_dry_run"} "$@" || {
+      upgrade_failed mise
+      return 0
+    }
+  fi
+  UPGRADE_MISE_CHANGED=1
+}
+
+upgrade_nvim() {
+  [ "$SKIP_NVIM" -eq 0 ] || return 0
+  command -v nvim >/dev/null 2>&1 || {
+    warn "nvim is unavailable; skipped plugin upgrades"
+    return 0
+  }
+  lazy_lock=$CORE_SOURCE/$UPGRADE_LAZY_LOCK
+  # Lazy runs the *deployed* config. If that lags the source, the lockfile it
+  # writes would drop plugins the source added, and an older init.lua ignores
+  # DOTFILES_LAZY_LOCKFILE and writes the deployed copy instead.
+  if ! CHEZMOI_BOOTSTRAP_MODE=1 chezmoi verify --source="$CORE_SOURCE" \
+    "$HOME/.config/nvim/init.lua" "$HOME/.config/nvim/lua" >/dev/null 2>&1; then
+    warn "deployed Neovim config differs from core; run dotfiles apply first. Skipped plugin upgrades"
+    return 0
+  fi
+  if [ "$UPGRADE_DRY_RUN" -eq 1 ]; then
+    say "Would update Neovim plugins and parsers, recording commits in $lazy_lock"
+    return 0
+  fi
+  info "Updating Neovim plugins into $lazy_lock"
+  # Lazy's :TSUpdate build hook is async and dies with this instance, and the
+  # updated nvim-treesitter only loads in a fresh one, so parsers get a second
+  # instance that waits for them.
+  if DOTFILES_LAZY_LOCKFILE=$lazy_lock nvim --headless "+Lazy! sync" +qa \
+    && DOTFILES_LAZY_LOCKFILE=$lazy_lock nvim --headless \
+      "+lua require('nvim-treesitter').update():wait(600000)" +qa; then
+    UPGRADE_NVIM_CHANGED=1
+  else
+    upgrade_failed nvim
+  fi
+}
+
+# Copy each package's rev/hash from ya's rewritten manifest ($1) into the
+# commented source manifest ($2), matching entries by their `use` line.
+merge_yazi_pins() {
+  awk '
+    /^[[:space:]]*\[/ { use = "" }
+    /^[[:space:]]*use[[:space:]]*=/ {
+      use = $0
+      sub(/^[^"]*"/, "", use)
+      sub(/".*/, "", use)
+    }
+    FNR == NR {
+      if ($0 ~ /^[[:space:]]*rev[[:space:]]*=/) rev[use] = $0
+      if ($0 ~ /^[[:space:]]*hash[[:space:]]*=/) hash[use] = $0
+      next
+    }
+    /^[[:space:]]*rev[[:space:]]*=/ && (use in rev) { print rev[use]; next }
+    /^[[:space:]]*hash[[:space:]]*=/ && (use in hash) { print hash[use]; next }
+    { print }
+  ' "$1" "$2"
+}
+
+upgrade_yazi() {
+  [ "$SKIP_YAZI" -eq 0 ] || return 0
+  command -v ya >/dev/null 2>&1 || {
+    warn "ya is unavailable; skipped Yazi package upgrades"
+    return 0
+  }
+  yazi_manifest=$CORE_SOURCE/$UPGRADE_YAZI_MANIFEST
+  if [ "$UPGRADE_DRY_RUN" -eq 1 ]; then
+    say "Would move the Yazi package pins in $yazi_manifest to their newest revisions"
+    return 0
+  fi
+  info "Bumping Yazi package pins in $yazi_manifest"
+  # ya only rewrites a manifest inside a config directory, and strips every
+  # comment while doing it. Let it resolve new revisions in a scratch copy and
+  # carry back just the rev/hash lines.
+  if ! { mkdir -p "$UPGRADE_TMP/yazi" && cp "$yazi_manifest" "$UPGRADE_TMP/yazi/package.toml"; }; then
+    upgrade_failed yazi
+    return 0
+  fi
+  if ! ya_output=$(YAZI_CONFIG_HOME=$UPGRADE_TMP/yazi ya pkg upgrade 2>&1); then
+    printf '%s\n' "$ya_output" >&2
+    upgrade_failed yazi
+    return 0
+  fi
+  merge_yazi_pins "$UPGRADE_TMP/yazi/package.toml" "$yazi_manifest" >"$UPGRADE_TMP/package.toml" || {
+    upgrade_failed yazi
+    return 0
+  }
+  if ! cmp -s "$UPGRADE_TMP/package.toml" "$yazi_manifest"; then
+    cat "$UPGRADE_TMP/package.toml" >"$yazi_manifest" || {
+      upgrade_failed yazi
+      return 0
+    }
+    UPGRADE_YAZI_CHANGED=1
+  fi
+}
+
+# Apply only the pins this run rewrote; any other pending source change still
+# waits for an explicit `dotfiles apply`.
+upgrade_apply() {
+  set --
+  [ "$UPGRADE_MISE_CHANGED" -eq 0 ] || set -- "$@" "$HOME/.config/mise/config.toml"
+  [ "$UPGRADE_NVIM_CHANGED" -eq 0 ] || set -- "$@" "$HOME/.config/nvim/lazy-lock.json"
+  [ "$UPGRADE_YAZI_CHANGED" -eq 0 ] || set -- "$@" "$HOME/.config/yazi/package.toml"
+  [ "$#" -gt 0 ] || return 0
+  apply_source core "$CORE_SOURCE" "$@" || {
+    upgrade_failed apply
+    return 0
+  }
+  # The scratch upgrade fetched packages nobody reads; the deployed config
+  # still holds the old revisions until ya refetches against the new manifest.
+  if [ "$UPGRADE_YAZI_CHANGED" -eq 1 ]; then
+    info "Installing the new Yazi package revisions"
+    YAZI_CONFIG_HOME=$HOME/.config/yazi ya pkg install || upgrade_failed yazi
+  fi
+}
+
+upgrade_summary() {
+  say
+  if git -C "$CORE_SOURCE" diff --quiet -- "$UPGRADE_MISE_CONFIG" "$UPGRADE_LAZY_LOCK" "$UPGRADE_YAZI_MANIFEST"; then
+    info "Every core pin was already current"
+  else
+    info "Pins moved in $CORE_SOURCE; review and commit:"
+    git -C "$CORE_SOURCE" --no-pager diff --stat -- \
+      "$UPGRADE_MISE_CONFIG" "$UPGRADE_LAZY_LOCK" "$UPGRADE_YAZI_MANIFEST"
+  fi
+}
+
+command_upgrade() {
+  UPGRADE_DRY_RUN=0
+  while [ "$#" -gt 0 ]; do
+    if parse_common_option "profile sources skip verbose" "$@"; then
+      shift "$COMMON_OPTION_SHIFT"
+      continue
+    fi
+    case "$1" in
+      -n | --dry-run)
+        UPGRADE_DRY_RUN=1
+        shift
+        ;;
+      *) die "unknown upgrade option: $1" ;;
+    esac
+  done
+
+  reject_root
+  import_skip_environment
+  resolve_profile
+  validate_source_dir core "$CORE_SOURCE" || die "core source checkout is missing"
+  command -v chezmoi >/dev/null 2>&1 || die "chezmoi is required to upgrade"
+
+  UPGRADE_FAILURES=
+  UPGRADE_MISE_CHANGED=0
+  UPGRADE_NVIM_CHANGED=0
+  UPGRADE_YAZI_CHANGED=0
+  UPGRADE_TMP=$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-upgrade.XXXXXX") || die "could not create upgrade directory"
+  trap cleanup_upgrade EXIT HUP INT TERM
+
+  # Packages first, so mise, nvim and ya are already the newest builds when
+  # they rewrite their own pins.
+  upgrade_packages
+  upgrade_mise
+  upgrade_nvim
+  upgrade_yazi
+  if [ "$UPGRADE_DRY_RUN" -eq 0 ]; then
+    upgrade_apply
+    upgrade_summary
+  fi
+
+  cleanup_upgrade
+  trap - EXIT HUP INT TERM
+  if [ -n "$UPGRADE_FAILURES" ]; then
+    warn "upgrade finished with failures: $UPGRADE_FAILURES"
+    return 1
+  fi
+  info "Dotfiles upgrade completed for $PROFILE"
 }
 
 doctor_ok() {
@@ -1127,6 +1416,7 @@ main() {
     doctor) command_doctor "$@" ;;
     plan) command_plan "$@" ;;
     apply) command_apply "$@" ;;
+    upgrade) command_upgrade "$@" ;;
     verify) command_verify "$@" ;;
     hooks) command_hooks "$@" ;;
     exec) command_exec "$@" ;;

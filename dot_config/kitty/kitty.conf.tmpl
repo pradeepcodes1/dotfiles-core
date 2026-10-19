@@ -243,6 +243,28 @@ map ctrl+p>w kitten hints --type word --program -
 # Grab a git hash.
 map ctrl+p>h kitten hints --type hash --program -
 
+# ── Sessions ──────────────────────────────────────────────────────────────
+# Kitty is the only multiplexer here, and on its own it keeps nothing across a
+# quit or crash. Sessions are its tmux-style save and restore: tabs, splits,
+# working directories and the program in each window (nvim, lazygit, an ssh
+# kitten). Files live in XDG data rather than this repo because they are
+# per-machine state; chezmoi only creates the directory.
+#
+# Save everything as a new named session. kitty asks for the name, then opens
+# the file for review -- worth a glance, since --use-foreground-process will
+# re-run whatever each window was running when the session is restored.
+map ctrl+p>s save_as_session --use-foreground-process --base-dir ~/.local/share/kitty/sessions
+# Rewrite the active session's own file with its current tabs and splits.
+map ctrl+p>shift+s save_as_session --use-foreground-process --save-only --match=session:. .
+# Pick a saved session: switch to it if it is open, start it if not.
+map ctrl+p>p goto_session ~/.local/share/kitty/sessions
+# Jump back to the previously active session, like tmux's `switch-client -l`.
+map ctrl+p>minus goto_session -1
+# Show only the active session's tabs plus tabs outside any session, so several
+# sessions share this one OS window. With no session loaded every tab matches
+# the second clause and the tab bar is unchanged.
+tab_bar_filter session:~ or session:^$
+
 # ── Overlay popups ────────────────────────────────────────────────────────
 # Portable defaults. Run Yazi through its shell wrapper in the current window
 # so Ctrl+O can change that shell's directory when Yazi exits.

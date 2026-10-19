@@ -30,6 +30,11 @@ opt.splitright = true
 opt.splitbelow = true
 opt.splitkeep = "screen"
 opt.ignorecase = true
+-- An uppercase letter in the pattern makes the search case-sensitive again,
+-- so /Foo no longer also matches foo without typing \C.
+opt.smartcase = true
+-- Preview :s substitutions live, with off-screen matches listed in a split.
+opt.inccommand = "split"
 opt.cursorline = true
 -- Wrap is off by default; the autocmd below turns it on only in windows
 -- showing real file buffers, so sidebars and panels never wrap.
@@ -67,19 +72,27 @@ vim.api.nvim_create_autocmd("FileType", {
 -- Wrap only file buffers (buftype ""): plugin views like the gitsigns blame
 -- sidebar are scratch/nofile and must stay unwrapped to line up with code.
 -- FileType re-checks because some plugins set buftype after the window opens.
-local function wrap_file_windows(buf)
+local function apply_file_window_options(buf)
 	local is_file = vim.bo[buf].buftype == ""
 	for _, win in ipairs(vim.fn.win_findbuf(buf)) do
 		if vim.api.nvim_win_get_config(win).relative == "" then
 			vim.wo[win].wrap = is_file
+			-- comfy-line-numbers draws signs through %s, so with the default "auto"
+			-- the gutter appears and vanishes as gitsigns/diagnostics come and go,
+			-- shifting the code sideways. Reserve it in file windows only. [0] is
+			-- :setlocal, so the global stays "auto" and a plugin panel opened from
+			-- a file window starts from that instead of inheriting an empty gutter.
+			if is_file then
+				vim.wo[win][0].signcolumn = "yes"
+			end
 		end
 	end
 end
 vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType" }, {
 	group = group,
-	desc = "Wrap only in file buffers",
+	desc = "Wrap and reserve the sign column only in file buffers",
 	callback = function(args)
-		wrap_file_windows(args.buf)
+		apply_file_window_options(args.buf)
 	end,
 })
 

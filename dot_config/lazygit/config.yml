@@ -3,3 +3,13 @@ gui:
   # scrollUpMain/scrollDownMain) barely move the diff/patch view. Raise it so
   # they behave like the half-page jumps most terminal tools use ctrl+d for.
   scrollHeight: 20
+  # Kitty renders Maple Mono NF, so file and branch icons draw correctly.
+  nerdFontsVersion: "3"
+
+git:
+  # Render diffs through delta so lazygit matches `git diff`: syntax colors,
+  # word-level changes and the line numbers/theme from ~/.gitconfig [delta].
+  # {{colorScheme}} expands to dark/light from the terminal background, and
+  # lazygit pages the output itself, so delta must not.
+  diffRenderers:
+    - command: delta --{{colorScheme}} --paging=never

@@ -75,6 +75,10 @@ require("lazy").setup({
 	-- Chezmoi owns this tree; it changes via `chezmoi apply` and a restart,
 	-- never by lazy noticing an edit. Drop the reloader and its file watcher.
 	change_detection = { enabled = false },
+	-- `dotfiles upgrade` points this at the chezmoi source's lockfile, so a
+	-- headless `Lazy! sync` records new commits in the checkout instead of the
+	-- deployed copy the next apply would overwrite. Unset, lazy's default stands.
+	lockfile = vim.env.DOTFILES_LAZY_LOCKFILE,
 	-- lazy's UI ignores 'winborder' (default "none"), so match the other floats.
 	ui = { border = vim.o.winborder },
 	performance = {

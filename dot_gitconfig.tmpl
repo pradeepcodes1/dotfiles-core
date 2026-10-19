@@ -16,6 +16,15 @@
 	# strips bare double quotes from a config value.
 	pager = LESS='-FRQ --no-vbell' delta
 	excludesfile = ~/.gitignore_global
+{{- if eq .chezmoi.os "darwin" }}
+	# Starship runs `git status` synchronously before every prompt, and lazygit
+	# and gitsigns poll it too. The built-in watcher daemon answers from an event
+	# log instead of re-scanning the tree, which is what large repos pay for.
+	# Darwin only: Git ships no fsmonitor daemon for Linux.
+	fsmonitor = true
+{{- end }}
+	# Caches untracked-directory mtimes so status skips unchanged directories.
+	untrackedCache = true
 
 [interactive]
 	diffFilter = delta --color-only
@@ -37,6 +46,9 @@
 
 [diff]
 	colorMoved = default
+	# Histogram keeps hunks anchored on unique lines instead of matching stray
+	# braces and blank lines, so moved or rewritten blocks read cleanly.
+	algorithm = histogram
 	# delta stays the pager for `git diff`/`show`/`log -p`; kitten diff cannot
 	# read a unified diff stream, it takes two paths. Reach for it via
 	# `git difftool` when you want side-by-side, image diffs, or directory
@@ -52,11 +64,21 @@
 	cmd = kitten diff "$LOCAL" "$REMOTE"
 
 [pull]
-	rebase = false
+	# Replay local commits on top of upstream instead of recording a merge
+	# commit every time a pull finds diverged history; rebase.autostash below
+	# already carries uncommitted work across.
+	rebase = true
 
 [rebase]
 	autostash = true
 	autoSquash = true
+	# Rebasing a stack of branches moves every branch pointer in it, not just
+	# the checked-out tip.
+	updateRefs = true
+
+[commit]
+	# Show the staged diff below the message in the commit editor.
+	verbose = true
 
 [credential]
 {{ if eq .chezmoi.os "darwin" }}

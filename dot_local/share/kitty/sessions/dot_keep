@@ -1,0 +1,3 @@
+# Keeps ~/.local/share/kitty/sessions in place for kitty's session bindings
+# (ctrl+p>s saves here, ctrl+p>p lists it; see kitty.conf). Session files
+# themselves are machine state and stay out of the repo.

@@ -277,6 +277,37 @@ M.scissors = {
 	},
 }
 
+-- Search-and-replace covers the same root <leader>fg greps, so a project
+-- entered from a subdirectory still rewrites the whole project. Without a
+-- project root grug-far falls back to Neovim's cwd.
+local function grug_far_prefills(prefills)
+	local root = require("project-manager.root").project_search()
+	if root and vim.fs.normalize(root) ~= vim.fs.normalize(vim.fn.getcwd()) then
+		-- The Paths input splits on spaces, so escape any inside the root.
+		prefills.paths = (root:gsub(" ", "\\ "))
+	end
+	return prefills
+end
+
+-- r for replace; <leader>lr stays the LSP symbol rename.
+M.grug_far = {
+	{
+		"<leader>r",
+		function()
+			require("grug-far").open({ prefills = grug_far_prefills({ search = vim.fn.expand("<cword>") }) })
+		end,
+		desc = "Search and replace in project",
+	},
+	{
+		"<leader>r",
+		function()
+			require("grug-far").with_visual_selection({ prefills = grug_far_prefills({}) })
+		end,
+		mode = "x",
+		desc = "Search and replace selection in project",
+	},
+}
+
 M.conform = {
 	{
 		"<leader>lf",
