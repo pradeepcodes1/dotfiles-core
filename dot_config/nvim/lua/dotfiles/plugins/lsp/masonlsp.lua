@@ -97,7 +97,30 @@ return {
 				},
 			})
 
+			-- lspconfig reuses a running client's root for files inside the rustup
+			-- sysroot or the cargo registry, but with no client running it falls
+			-- through to `cargo metadata` there, which fails on std's nightly-only
+			-- workspace manifest and pops an error. Leave those files unattached instead.
+			local default_rust_root_dir = vim.lsp.config.rust_analyzer.root_dir
+			local function rust_library_dirs()
+				local home = vim.fs.normalize(vim.env.HOME)
+				local cargo_home = vim.env.CARGO_HOME or (home .. "/.cargo")
+				local rustup_home = vim.env.RUSTUP_HOME or (home .. "/.rustup")
+				return { rustup_home .. "/toolchains", cargo_home .. "/registry/src", cargo_home .. "/git/checkouts" }
+			end
+
 			vim.lsp.config("rust_analyzer", {
+				root_dir = function(bufnr, on_dir)
+					local fname = vim.api.nvim_buf_get_name(bufnr)
+					if #vim.lsp.get_clients({ name = "rust_analyzer" }) == 0 then
+						for _, dir in ipairs(rust_library_dirs()) do
+							if vim.fs.relpath(dir, fname) then
+								return
+							end
+						end
+					end
+					default_rust_root_dir(bufnr, on_dir)
+				end,
 				settings = {
 					["rust-analyzer"] = {
 						-- fS should browse functions and constants too, without requiring a trailing # query.
