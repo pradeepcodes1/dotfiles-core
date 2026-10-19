@@ -36,7 +36,10 @@ return {
 				-- does not rewrite the buffer underneath you.
 				selection = { preselect = false, auto_insert = false },
 			},
-			documentation = { auto_show = true },
+			-- Borderless menu and docs: blink otherwise inherits the global
+			-- rounded winborder from core/options.lua, which looks heavy here.
+			menu = { border = "none" },
+			documentation = { auto_show = true, window = { border = "none" } },
 		},
 		sources = {
 			-- Deliberately not blink's default set, which also adds `path` and

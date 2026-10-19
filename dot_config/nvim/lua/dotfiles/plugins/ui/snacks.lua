@@ -136,6 +136,27 @@ return {
 						close_explorer = function()
 							require("dotfiles.ui.explorer").close()
 						end,
+						-- A single mouse click toggles a folder (files still open on
+						-- double-click). Bound to the release so Neovim's native click
+						-- has already moved the cursor onto the clicked row; releases
+						-- that end outside the list (e.g. after a drag) are ignored.
+						explorer_click = function(picker)
+							if vim.fn.getmousepos().winid ~= picker.list.win.win then
+								return
+							end
+							local item = picker:current()
+							if item and item.dir then
+								picker:action("confirm")
+							end
+						end,
+						-- The first click of a double-click already toggled the folder,
+						-- so only files react here; otherwise the folder would flip back.
+						explorer_double_click = function(picker)
+							local item = picker:current()
+							if item and not item.dir then
+								picker:action("confirm")
+							end
+						end,
 					},
 					win = {
 						list = {
@@ -147,6 +168,9 @@ return {
 								["<leader>x"] = "close_explorer",
 								["<C-w>c"] = "close_explorer",
 								["<C-w>q"] = "close_explorer",
+								-- Mouse only: keyboard confirm (<CR>/l) is unchanged.
+								["<LeftRelease>"] = "explorer_click",
+								["<2-LeftMouse>"] = "explorer_double_click",
 							},
 							-- Ignored files are the only thing left worth toggling
 							-- now that hidden is on by default, so `.` is a second,

@@ -64,6 +64,17 @@ return {
 	build = function()
 		require("fff.download").download_or_build_binary()
 	end,
+	config = function(_, opts)
+		require("fff").setup(opts)
+		-- Terminal icons cannot grow past one text row, so give them an extra
+		-- space of separation from the file name instead. Padding the icon itself
+		-- keeps fff's own width and highlight offsets consistent.
+		local name_renderer = require("fff.picker_ui.file_name_renderer")
+		local build = name_renderer.build
+		name_renderer.build = function(item, ctx, icon)
+			return build(item, ctx, icon and (icon .. " "))
+		end
+	end,
 	opts = {
 		-- Keep the prompt recognizable without FFF's mascot glyph.
 		prompt = "",

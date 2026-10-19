@@ -81,6 +81,30 @@ return {
 		"lewis6991/gitsigns.nvim",
 		event = "BufReadPre",
 		dependencies = { "nvimtools/hydra.nvim" },
+		init = function()
+			-- The blame sidebar has one row per source line, so plain j/k crawl
+			-- through a commit's │ rows. Jump between commit headers instead;
+			-- gitsigns starts each block with ┍ (or ╺ for a one-line block).
+			vim.api.nvim_create_autocmd("FileType", {
+				group = vim.api.nvim_create_augroup("dotfiles_gitsigns_blame", { clear = true }),
+				pattern = "gitsigns-blame",
+				desc = "j/k jump between commits in blame sidebar",
+				callback = function(args)
+					local function jump(flags)
+						return function()
+							for _ = 1, vim.v.count1 do
+								if vim.fn.search([[^\(┍\|╺\)]], flags) == 0 then
+									break
+								end
+							end
+						end
+					end
+					local opts = { buffer = args.buf, silent = true }
+					map("n", "j", jump("W"), vim.tbl_extend("force", opts, { desc = "Next blame commit" }))
+					map("n", "k", jump("bW"), vim.tbl_extend("force", opts, { desc = "Previous blame commit" }))
+				end,
+			})
+		end,
 
 		opts = {
 			-- Encode staging state in the glyph so it stays readable without relying on subtle colors.

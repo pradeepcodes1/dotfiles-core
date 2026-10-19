@@ -8,6 +8,16 @@ return {
 	-- installs, so it only has to be loaded once the UI exists.
 	event = "VeryLazy",
 
+	init = function()
+		-- Sessions save 'statuscolumn' via localoptions, so a restore that runs
+		-- before VeryLazy redraws `v:lua.get_label` while it is still undefined.
+		-- Plain numbers fill in until the plugin replaces this global on load.
+		_G.get_label = _G.get_label
+			or function(absnum)
+				return string.format("%" .. vim.wo.numberwidth .. "d", absnum)
+			end
+	end,
+
 	-- Defaults already blank the column for terminal and nofile buffers, which
 	-- covers terminal buffers, the Snacks explorer, dashboard and Aerial here.
 	opts = {},

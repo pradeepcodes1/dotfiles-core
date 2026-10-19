@@ -10,6 +10,9 @@ include themes.conf
 # Use a visibly different installed Nerd Font to verify Kitty honors family selection.
 font_family       Maple Mono NF
 font_size         15
+# A little extra line height gives Nerd Font icons VS Code-like breathing room,
+# since a terminal cannot size icons independently of the text grid.
+modify_font cell_height 120%
 # Ligatures on, but broken apart under the cursor so you see real characters.
 # disable_ligatures cursor
 {{- if eq .chezmoi.os "darwin" }}
@@ -28,7 +31,13 @@ input_delay     2
 sync_to_monitor yes
 
 # ── Window chrome and layout ──────────────────────────────────────────────
+{{- if eq .chezmoi.os "darwin" }}
+# Drop the macOS titlebar so the top tab bar takes its row; rounded corners and
+# shadow stay. Move the window with ctrl+cmd drag or the window manager.
+hide_window_decorations titlebar-only
+{{- else }}
 hide_window_decorations no
+{{- end }}
 window_padding_width    4
 window_border_width     1pt
 draw_minimal_borders    yes
@@ -41,6 +50,9 @@ confirm_os_window_close 0
 {{- if eq .chezmoi.os "darwin" }}
 macos_quit_when_last_window_closed yes
 # macos_titlebar_color               background
+# Keep the title out of the menu bar so it shows the app menus, not the
+# nvim/shell title.
+macos_show_window_title_in         window
 {{- end }}
 
 # ── Tab bar ───────────────────────────────────────────────────────────────
@@ -88,15 +100,29 @@ notify_on_cmd_finish invisible 10.0
 # ── Remote control ────────────────────────────────────────────────────────
 # Permit only the two colour operations used by `kitten themes` and the SSH
 # integration. Windows launched with `--allow-remote-control` retain their
-# private socketpair for scoped workflows such as returning Yazi's cwd; no
-# global socket is open.
+# private socketpair for scoped workflows such as returning Yazi's cwd. The
+# per-user `listen_on` socket below exists only for project-manager.nvim's
+# tab launches and accepts nothing beyond what the passwords allow.
 #
-# Palette switching deliberately does not come through here. With no
-# `listen_on`, remote control is unreachable from outside a kitty window, so a
-# colour-scheme hook run by the desktop could never use it; the theme adapter
-# reloads running instances with SIGUSR1 instead. See theme/apps/kitty.zsh.
+# Palette switching deliberately does not come through here. A colour-scheme
+# hook run by the desktop does not know the per-pid socket path, so the theme
+# adapter reloads running instances with SIGUSR1 instead. See
+# theme/apps/kitty.zsh.
 allow_remote_control password
 remote_control_password "" set-colors set-tab-color
+# project-manager.nvim opens projects as tabs with `kitty @ launch`; this
+# password is scoped to launch only and handed to kitty @ via the env below.
+remote_control_password "nvim-project-tab" launch
+env KITTY_RC_PASSWORD=nvim-project-tab
+# Neovim 0.12's `nvim --embed` server has no controlling tty, so kitty @ cannot
+# reach kitty over /dev/tty from it. A per-user socket (exported to children as
+# KITTY_LISTEN_ON) gives it a route; requests over it still pass the password
+# checks above, so the colour/launch-only scoping is unchanged.
+{{- if eq .chezmoi.os "darwin" }}
+listen_on unix:${TMPDIR}/kitty-{kitty_pid}
+{{- else }}
+listen_on unix:${XDG_RUNTIME_DIR}/kitty-{kitty_pid}
+{{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
 
@@ -224,7 +250,8 @@ map ctrl+p>h kitten hints --type hash --program -
 # ssh-aware versions (and adds shift+e and o) through local.d: a later `map`
 # for the same chord wins, and local.d is globincluded at the end of this file.
 map ctrl+e       send_text all \x20y\r
-map ctrl+g       launch --type=overlay --cwd=current zsh -ic lazygit
+# lazygit.sh titles the overlay "<repo> - lazygit" so the tab names the repo.
+map ctrl+g       launch --type=overlay --cwd=current zsh -ic {{ .chezmoi.homeDir }}/.config/kitty/lazygit.sh
 map ctrl+shift+g launch --type=overlay --cwd=current serie
 
 # Process explorer, whole machine rather than this window: btop has no PID-list

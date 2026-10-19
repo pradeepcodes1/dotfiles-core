@@ -31,8 +31,9 @@ opt.splitbelow = true
 opt.splitkeep = "screen"
 opt.ignorecase = true
 opt.cursorline = true
--- Wrap long lines everywhere so nothing scrolls off the right edge.
-opt.wrap = true
+-- Wrap is off by default; the autocmd below turns it on only in windows
+-- showing real file buffers, so sidebars and panels never wrap.
+opt.wrap = false
 -- Break at word boundaries and keep wrapped lines aligned with their indent.
 opt.linebreak = true
 opt.breakindent = true
@@ -63,10 +64,33 @@ vim.api.nvim_create_autocmd("FileType", {
 	end,
 })
 
+-- Wrap only file buffers (buftype ""): plugin views like the gitsigns blame
+-- sidebar are scratch/nofile and must stay unwrapped to line up with code.
+-- FileType re-checks because some plugins set buftype after the window opens.
+local function wrap_file_windows(buf)
+	local is_file = vim.bo[buf].buftype == ""
+	for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+		if vim.api.nvim_win_get_config(win).relative == "" then
+			vim.wo[win].wrap = is_file
+		end
+	end
+end
+vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType" }, {
+	group = group,
+	desc = "Wrap only in file buffers",
+	callback = function(args)
+		wrap_file_windows(args.buf)
+	end,
+})
+
 -- Smooth scrolling options
 opt.scrolloff = 8 -- Keep 8 lines visible above/below cursor
 opt.sidescrolloff = 8 -- Keep 8 columns visible left/right of cursor
 opt.smoothscroll = true -- Enable smooth scrolling (Neovim 0.10+)
+-- Trackpad swipes drift sideways and kitty turns that into horizontal wheel
+-- ticks; hor:0 drops them so vertical scrolling stays straight. zh/zl still
+-- scroll nowrap windows.
+opt.mousescroll = "ver:3,hor:0"
 
 -- Report the terminal title so kitty tabs name themselves after the buffer
 -- instead of showing the shell. Was disabled to avoid clashing with the tmux
@@ -83,8 +107,20 @@ else
 		local root = require("project-manager.root").current() or vim.fn.getcwd()
 		return vim.fn.fnamemodify(root, ":t") .. " · " .. root
 	end
-	-- Named workspace tabs (CodeDiff, Debug) keep their identity on utility buffers.
-	opt.titlestring = "%{get(t:, 'tabname', expand('%:t'))}%( %M%) · %{v:lua.MyConfig.project_title()}"
+	-- Kitty's tab bar is narrow, so the terminal title is just "<project> - vi",
+	-- falling back to the file name outside a project. Neovide has room for the
+	-- full filename · project · path title.
+	_G.MyConfig.short_title = function()
+		local root = require("project-manager.root").current()
+		local name = root and vim.fn.fnamemodify(root, ":t") or vim.fn.expand("%:t")
+		return (name ~= "" and name or "nvim") .. " - vi"
+	end
+	if vim.g.neovide then
+		-- Named workspace tabs (CodeDiff, Debug) keep their identity on utility buffers.
+		opt.titlestring = "%{get(t:, 'tabname', expand('%:t'))}%( %M%) · %{v:lua.MyConfig.project_title()}"
+	else
+		opt.titlestring = "%{v:lua.MyConfig.short_title()}"
+	end
 end
 vim.g.health = vim.tbl_deep_extend("force", vim.g.health or {}, { style = "float" })
 -- format_on_save is handled by plugins/lsp/conform.lua
