@@ -77,6 +77,17 @@ _prompt_preexec() {
   _PROMPT_CMD_START=$SECONDS
 }
 
+# Keys typed in a fresh tab before zsh is ready are echoed by the tty onto the
+# first line, then PROMPT_SP flags that partial line with `%`. ZLE still gets
+# the typeahead, so wipe the echoed copy once, just before the first prompt.
+# PROMPT_SP fires before precmd, so it is held off until this has cleared the
+# line and restored afterwards for real partial-line output.
+_prompt_clear_typeahead_echo() {
+  print -n -- $'\r\e[2K'
+  setopt prompt_sp
+  add-zsh-hook -d precmd _prompt_clear_typeahead_echo
+}
+
 _prompt_precmd() {
   emulate -L zsh
 
@@ -125,6 +136,9 @@ if (( ! ${+_PROMPT_INITIALIZED} )); then
 
   add-zsh-hook preexec _prompt_preexec
   add-zsh-hook precmd _prompt_precmd
+  # One-shot for the first prompt; PROMPT_SP is re-enabled by the hook.
+  unsetopt prompt_sp
+  add-zsh-hook precmd _prompt_clear_typeahead_echo
 
   # Use a separate widget instead of replacing canonical `accept-line`, which
   # lets autosuggestions and future plugins keep their wrappers.

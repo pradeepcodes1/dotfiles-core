@@ -35,10 +35,7 @@ return {
 			{ path = "auto-session" },
 			{ path = "blink.cmp" },
 			{ path = "overseer.nvim" },
-			-- hydra.nvim publishes the active hydra as `_G.Hydra`, annotated in
-			-- its own source; the keymap and lualine reads of it are undefined
-			-- fields on _G until those types are loaded.
-			{ path = "hydra.nvim" },
+			-- hydra.nvim's `_G.Hydra` types went with the plugin; ui/modal.lua uses which-key.
 		},
 	},
 }

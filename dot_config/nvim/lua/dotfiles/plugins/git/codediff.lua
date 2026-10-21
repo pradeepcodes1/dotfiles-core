@@ -24,22 +24,22 @@ end
 return {
 	"esmuellert/codediff.nvim",
 	cmd = "CodeDiff",
-	-- Diff buffers need the navigation Hydra even when Gitsigns has not attached.
-	dependencies = { "nvimtools/hydra.nvim" },
 	opts = function()
 		return {
 			diff = { layout = preferred_layout() },
 			-- Start reviewing the modified code immediately instead of focusing the navigation panel.
 			explorer = { initial_focus = "modified" },
 			history = { initial_focus = "modified" },
-			-- Hydra invokes these callbacks without longer leader-h mappings delaying its entry.
+			-- The <leader>h mode (ui/codediff) invokes these callbacks, so no longer
+			-- leader-h mappings delay its entry.
 			keymaps = {
 				view = {
-					-- Reserve q for leaving Hydra; closing the diff stays on leader-gc.
+					-- q leaves the <leader>h mode; an extra press must not also close
+					-- the diff, which stays on leader-gc.
 					quit = false,
-					stage_hunk = "<Plug>(CodeDiffHydra-stage)",
-					unstage_hunk = "<Plug>(CodeDiffHydra-unstage)",
-					discard_hunk = "<Plug>(CodeDiffHydra-discard)",
+					stage_hunk = "<Plug>(CodeDiff-stage)",
+					unstage_hunk = "<Plug>(CodeDiff-unstage)",
+					discard_hunk = "<Plug>(CodeDiff-discard)",
 				},
 			},
 		}

@@ -83,3 +83,13 @@
 .config/nvim/lua/dotfiles/project
 .config/nvim/lua/dotfiles/lsp/workspace_symbols.lua
 .config/nvim/lua/dotfiles/lsp/problems.lua
+
+# Replaced by project-manager.nvim helpers, which-key modes, Snacks.scroll,
+# visual-whitespace.nvim and inline autocmds.
+.config/nvim/lua/dotfiles/core/cli.lua
+.config/nvim/lua/dotfiles/core/path.lua
+.config/nvim/lua/dotfiles/plugins/editor/numbertoggle.lua
+.config/nvim/lua/dotfiles/plugins/editor/neoscroll.lua
+.config/nvim/lua/dotfiles/core/selection_whitespace.lua
+.config/nvim/lua/dotfiles/plugins/editor/hydra.lua
+.config/nvim/lua/dotfiles/ui/dashboard_session.lua

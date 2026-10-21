@@ -28,8 +28,7 @@ end
 vim.opt.rtp:prepend(project_manager_path)
 
 require("dotfiles.core.options")
--- Show whitespace only inside visual selections, like VSCode.
-require("dotfiles.core.selection_whitespace")
+-- Selection-only whitespace glyphs now come from plugins/editor/visual-whitespace.lua.
 require("dotfiles.keymaps")
 require("dotfiles.core.neovide")
 

@@ -12,14 +12,16 @@ return {
 			-- The f group finds things inside a project; p acts on the project itself.
 			{ "<leader>p", group = "Project" },
 			{ "<leader>g", group = "Git", mode = { "n", "x" } },
-			{ "<leader>h", group = "Hunk", mode = { "n", "x" } },
+			-- Visual only: in normal mode <leader>h is a plain key that opens the
+			-- hunk mode (ui/modal.lua), whose heads live under their own node.
+			{ "<leader>h", group = "Hunk", mode = "x" },
 			-- x too: adding a snippet from a visual selection prefills its body.
 			{ "<leader>i", group = "Snippets", mode = { "n", "x" } },
 			{ "<leader>l", group = "LSP", mode = { "n", "x" } },
 			{ "<leader>d", group = "Debug", mode = { "n", "x" } },
 			{ "<leader>t", group = "Test" },
 			{ "<leader>v", group = "View" },
-			{ "<leader>w", group = "Window" },
+			-- <leader>w is no longer a group: it opens the resize mode directly.
 			{ "<leader>u", group = "Toggle" },
 		},
 	},

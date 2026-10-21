@@ -1,8 +1,10 @@
 -- Copy useful context without disturbing the clipboard when it is unavailable.
 local M = {}
-local cli = require("dotfiles.core.cli")
+-- project-manager.nvim ships the same shell and path helpers, so reuse them
+-- rather than keeping a second copy in this config.
+local cli = require("project-manager.util.cli")
 local project_root = require("project-manager.root")
-local path_util = require("dotfiles.core.path")
+local path_util = require("project-manager.util.path")
 
 local function file_path()
 	local name = vim.api.nvim_buf_get_name(0)
@@ -26,8 +28,9 @@ function M.value(kind)
 		end
 		-- symbolic-ref rather than `rev-parse --abbrev-ref`: on a detached head
 		-- the latter answers the literal "HEAD", which is not a branch to yank.
-		local value = kind == "branch" and cli.git(root, "symbolic-ref", "--quiet", "--short", "HEAD")
-			or cli.git(root, "rev-parse", "--verify", "HEAD")
+		local value = kind == "branch"
+				and cli.capture({ "git", "-C", root, "symbolic-ref", "--quiet", "--short", "HEAD" })
+			or cli.capture({ "git", "-C", root, "rev-parse", "--verify", "HEAD" })
 		return value,
 			kind == "branch" and "No Git branch available (outside a repository or detached HEAD)"
 				or "No Git HEAD commit available"

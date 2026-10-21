@@ -67,64 +67,30 @@ return {
 					action(query, "textobjects")
 				end
 			end
-			local select_modes = { "x", "o" }
-			map(
-				select_modes,
-				"af",
-				textobject(select.select_textobject, "@function.outer"),
-				{ desc = "Around function" }
-			)
-			map(
-				select_modes,
-				"if",
-				textobject(select.select_textobject, "@function.inner"),
-				{ desc = "Inside function" }
-			)
-			map(select_modes, "ac", textobject(select.select_textobject, "@class.outer"), { desc = "Around class" })
-			map(select_modes, "ic", textobject(select.select_textobject, "@class.inner"), { desc = "Inside class" })
-			map(
-				select_modes,
-				"aa",
-				textobject(select.select_textobject, "@parameter.outer"),
-				{ desc = "Around parameter" }
-			)
-			map(
-				select_modes,
-				"ia",
-				textobject(select.select_textobject, "@parameter.inner"),
-				{ desc = "Inside parameter" }
-			)
-			local move_modes = { "n", "x", "o" }
-			map(move_modes, "]m", textobject(move.goto_next_start, "@function.outer"), { desc = "Next function start" })
-			map(move_modes, "]]", textobject(move.goto_next_start, "@class.outer"), { desc = "Next class start" })
-			map(move_modes, "]a", textobject(move.goto_next_start, "@parameter.inner"), { desc = "Next parameter" })
-			map(move_modes, "]M", textobject(move.goto_next_end, "@function.outer"), { desc = "Next function end" })
-			map(move_modes, "][", textobject(move.goto_next_end, "@class.outer"), { desc = "Next class end" })
-			map(
-				move_modes,
-				"[m",
-				textobject(move.goto_previous_start, "@function.outer"),
-				{ desc = "Previous function start" }
-			)
-			map(
-				move_modes,
-				"[[",
-				textobject(move.goto_previous_start, "@class.outer"),
-				{ desc = "Previous class start" }
-			)
-			map(
-				move_modes,
-				"[a",
-				textobject(move.goto_previous_start, "@parameter.inner"),
-				{ desc = "Previous parameter" }
-			)
-			map(
-				move_modes,
-				"[M",
-				textobject(move.goto_previous_end, "@function.outer"),
-				{ desc = "Previous function end" }
-			)
-			map(move_modes, "[]", textobject(move.goto_previous_end, "@class.outer"), { desc = "Previous class end" })
+			-- One row per binding instead of one map() call each; selections work in
+			-- visual and operator-pending mode, motions in normal mode too.
+			for _, spec in ipairs({
+				{ "af", select.select_textobject, "@function.outer", "Around function" },
+				{ "if", select.select_textobject, "@function.inner", "Inside function" },
+				{ "ac", select.select_textobject, "@class.outer", "Around class" },
+				{ "ic", select.select_textobject, "@class.inner", "Inside class" },
+				{ "aa", select.select_textobject, "@parameter.outer", "Around parameter" },
+				{ "ia", select.select_textobject, "@parameter.inner", "Inside parameter" },
+				{ "]m", move.goto_next_start, "@function.outer", "Next function start" },
+				{ "]]", move.goto_next_start, "@class.outer", "Next class start" },
+				{ "]a", move.goto_next_start, "@parameter.inner", "Next parameter" },
+				{ "]M", move.goto_next_end, "@function.outer", "Next function end" },
+				{ "][", move.goto_next_end, "@class.outer", "Next class end" },
+				{ "[m", move.goto_previous_start, "@function.outer", "Previous function start" },
+				{ "[[", move.goto_previous_start, "@class.outer", "Previous class start" },
+				{ "[a", move.goto_previous_start, "@parameter.inner", "Previous parameter" },
+				{ "[M", move.goto_previous_end, "@function.outer", "Previous function end" },
+				{ "[]", move.goto_previous_end, "@class.outer", "Previous class end" },
+			}) do
+				local lhs, action, query, desc = unpack(spec)
+				local modes = action == select.select_textobject and { "x", "o" } or { "n", "x", "o" }
+				map(modes, lhs, textobject(action, query), { desc = desc })
+			end
 		end,
 	},
 }

@@ -6,7 +6,8 @@ return {
 			local jdt = require("dotfiles.lsp.java.classfile")
 			local project_state = require("project-manager.state")
 			local project_root = require("project-manager.root")
-			local path_util = require("dotfiles.core.path")
+			-- project-manager.nvim's path helpers replace the duplicate core/path.lua.
+			local path_util = require("project-manager.util.path")
 			local theme_state = require("dotfiles.theme")
 			local statusline_disabled = {
 				"dap-repl",
@@ -147,11 +148,8 @@ return {
 						lualine_a = {
 							{
 								"mode",
+								-- No Hydra badge any more: the which-key modes show their own popup.
 								fmt = function(str)
-									-- Hydra owns the active key layer, so surface it before the editor mode.
-									if _G.Hydra then
-										return "H"
-									end
 									return str:sub(1, 1)
 								end,
 							},

@@ -24,6 +24,52 @@ return {
 				vim.bo[event.buf].filetype = "markdown"
 			end,
 		})
+
+		-- The dashboard is a menu, so hide the block cursor Snacks parks on the
+		-- selected key. A cursor highlight with blend=100 makes the TUI hide the
+		-- cursor (:h tui-cursor-shape). Normal mode only, so `:` still shows one.
+		-- The entry is appended and removed rather than saving/restoring the whole
+		-- option, because smear-cursor splices its own hide group into guicursor
+		-- the same way and a stale restore would clobber it.
+		local hidden_cursor = ",n:block-DashboardHiddenCursor"
+		-- One idempotent check of the current buffer replaces the separate
+		-- hide-on-enter and show-on-leave handlers: entering any other buffer
+		-- brings the cursor back.
+		local function sync_dashboard_cursor()
+			local hide = vim.bo.filetype == "snacks_dashboard" and vim.bo.buftype ~= "terminal"
+			local current = vim.o.guicursor
+			local present = current:find(hidden_cursor, 1, true) ~= nil
+			-- Re-set even when the entry is already in guicursor: a colorscheme
+			-- switch on the dashboard clears the group while the entry stays.
+			if hide then
+				vim.api.nvim_set_hl(0, "DashboardHiddenCursor", { blend = 100, nocombine = true })
+			end
+			if hide ~= present then
+				vim.o.guicursor = hide and current .. hidden_cursor or current:gsub(vim.pesc(hidden_cursor), "")
+			end
+		end
+		-- ColorScheme too, so `:colorscheme` run from the dashboard re-hides it.
+		vim.api.nvim_create_autocmd({ "BufEnter", "ColorScheme" }, {
+			desc = "Hide the cursor only while the dashboard is focused",
+			callback = sync_dashboard_cursor,
+		})
+		-- Snacks sets the dashboard filetype under eventignore=all, after the
+		-- buffer is already entered, so neither FileType nor that first BufEnter
+		-- sees it; its own Opened event covers the first show.
+		vim.api.nvim_create_autocmd("User", {
+			pattern = "SnacksDashboardOpened",
+			desc = "Hide the cursor when the dashboard opens",
+			callback = sync_dashboard_cursor,
+		})
+		-- Snacks closes lazygit and other auto-close terminals from inside its
+		-- own TermClose handler, where nested autocmds are off, so landing back
+		-- on the dashboard fires no BufEnter. Check once the float is gone.
+		vim.api.nvim_create_autocmd("TermClose", {
+			desc = "Hide the cursor when a terminal closes back onto the dashboard",
+			callback = function()
+				vim.schedule(sync_dashboard_cursor)
+			end,
+		})
 	end,
 	---@type snacks.Config
 	opts = {
@@ -43,33 +89,19 @@ return {
 		},
 		dashboard = {
 			enabled = not vim.g.nvim_preview,
-			preset = {
-				-- Dashboard entries, not global bindings: these keys exist only while the
-				-- dashboard buffer is on screen.
-				keys = {
-					{
-						icon = " ",
-						key = "o",
-						desc = "Open Project",
-						action = function()
-							require("project-manager.picker").open_directory()
-						end,
-					},
-					{ icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
-					{
-						icon = " ",
-						key = "r",
-						desc = "Recent Files",
-						action = function()
-							Snacks.picker.recent()
-						end,
-					},
-					{ icon = "", key = "p", desc = "Projects", action = "<leader>pp" },
-					{ icon = " ", key = "q", desc = "Quit", action = ":qa" },
-				},
+			-- Recent Files rows read relative to the cwd, or the open project.
+			formats = {
+				file = function(item, ctx)
+					return require("dotfiles.ui.dashboard_header").format_file(item, ctx)
+				end,
 			},
+			-- Home and project views live in ui/dashboard.lua; Snacks resolves this
+			-- function on every render, so switching views is just an update.
+			-- Snacks drops pane 2 below the keys when the window is too narrow.
 			sections = {
-				{ section = "keys", gap = 1, padding = 1 },
+				function()
+					return require("dotfiles.ui.dashboard").sections()
+				end,
 			},
 		},
 		explorer = {
@@ -216,6 +248,13 @@ return {
 			},
 		},
 		quickfile = { enabled = true },
+		-- Replaces neoscroll: Snacks animates every scroll (<C-u>/<C-d>,
+		-- <C-b>/<C-f>, zz/zt/zb, the <C-e>/<C-y> maps in keymaps/init.lua)
+		-- without per-key mappings. It leaves mouse-wheel scrolls unanimated.
+		scroll = {
+			enabled = true,
+			animate = { duration = { step = 10, total = 150 }, easing = "inOutSine" },
+		},
 		-- Scratch notes are persisted as ordinary files. Mark their buffers so
 		-- project-aware features do not treat Snacks' storage directory as the
 		-- active project when a scratch window receives focus.

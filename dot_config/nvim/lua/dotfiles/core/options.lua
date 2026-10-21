@@ -96,6 +96,55 @@ vim.api.nvim_create_autocmd({ "BufWinEnter", "FileType" }, {
 	end,
 })
 
+-- Relative numbers only in the focused window outside insert and cmdline mode;
+-- other splits show absolute lines, so a line someone quotes matches what you
+-- see. Inlined from nvim-numbertoggle, whose global checks needed more patching
+-- than the plugin had code. Windows that turned 'number' off (dashboard,
+-- pickers) never get a bare relative column.
+local function relative_numbers(win, on)
+	if vim.api.nvim_win_is_valid(win) then
+		vim.wo[win].relativenumber = on and vim.wo[win].number
+	end
+end
+vim.api.nvim_create_autocmd({ "BufEnter", "FocusGained", "InsertLeave", "CmdlineLeave", "WinEnter" }, {
+	group = group,
+	desc = "Relative numbers in the focused window",
+	callback = function()
+		relative_numbers(0, vim.api.nvim_get_mode().mode ~= "i")
+	end,
+})
+vim.api.nvim_create_autocmd({ "FocusLost", "InsertEnter", "CmdlineEnter" }, {
+	group = group,
+	desc = "Absolute numbers while typing or unfocused",
+	callback = function(args)
+		relative_numbers(0, false)
+		-- Repaint so a typed :range sees the absolute column; input() and
+		-- :insert must not redraw (neovim#32068).
+		if
+			args.event == "CmdlineEnter"
+			and vim.wo.number
+			and not vim.tbl_contains({ "@", "-" }, vim.v.event.cmdtype)
+		then
+			vim.cmd.redraw()
+		end
+	end,
+})
+vim.api.nvim_create_autocmd({ "BufLeave", "WinLeave" }, {
+	group = group,
+	desc = "Absolute numbers in the window you left",
+	callback = function()
+		local win = vim.api.nvim_get_current_win()
+		-- Decided once the loop settles and without a forced redraw:
+		-- nvim_win_call (Snacks building its explorer split) switches windows and
+		-- back without WinEnter, and a synchronous redraw painted that split half-built.
+		vim.schedule(function()
+			if win ~= vim.api.nvim_get_current_win() then
+				relative_numbers(win, false)
+			end
+		end)
+	end,
+})
+
 -- Smooth scrolling options
 opt.scrolloff = 8 -- Keep 8 lines visible above/below cursor
 opt.sidescrolloff = 8 -- Keep 8 columns visible left/right of cursor

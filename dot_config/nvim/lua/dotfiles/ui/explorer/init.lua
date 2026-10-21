@@ -1,7 +1,8 @@
 -- Keep the Snacks explorer rooted at the current file's nearest project root.
 local M = {}
 local library_paths = require("dotfiles.lsp.library_paths")
-local path_util = require("dotfiles.core.path")
+-- project-manager.nvim's path helpers replace the duplicate core/path.lua.
+local path_util = require("project-manager.util.path")
 local project_root = require("project-manager.root")
 
 local active_roots = {}

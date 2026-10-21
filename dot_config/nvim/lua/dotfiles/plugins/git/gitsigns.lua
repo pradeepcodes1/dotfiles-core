@@ -1,61 +1,50 @@
 -- surface line provenance inline so routine blame checks need no separate view.
 local map = vim.keymap.set
 
--- Hydra consumes this table itself, but its modal keys are still bindings and
--- belong beside the Hydra they drive.
-local function hunk_heads(gitsigns)
-	-- Hydra's modal keys belong with the bindings even though Hydra consumes this table itself.
+-- The <leader>h mode's heads, beside the gitsigns actions they drive. A
+-- which-key mode (ui/modal.lua) replaces the per-buffer Hydra: the heads act on
+-- whichever buffer is current, so one mode serves every attached buffer.
+local hunk_mode = require("dotfiles.ui.modal").new("<F35>", "Git hunks", function()
+	local gitsigns = require("gitsigns")
 	return {
-		-- The hint stays out of the way until it is explicitly requested.
-		{
-			"?",
-			function()
-				if _G.Hydra then
-					_G.Hydra.hint:show()
-				end
-			end,
-			{ desc = "show help" },
-		},
 		{
 			"j",
 			function()
 				gitsigns.nav_hunk("next")
 			end,
-			{ desc = "next" },
+			desc = "next",
 		},
 		{
 			"k",
 			function()
 				gitsigns.nav_hunk("prev")
 			end,
-			{ desc = "previous" },
+			desc = "previous",
 		},
-		{ "p", gitsigns.preview_hunk, { desc = "preview" } },
+		{ "p", gitsigns.preview_hunk, desc = "preview" },
 		{
 			"b",
 			function()
 				gitsigns.blame_line({ full = true })
 			end,
-			{ desc = "blame" },
+			desc = "blame",
 		},
-		{ "s", gitsigns.stage_hunk, { desc = "stage/unstage" } },
-		{ "u", gitsigns.undo_stage_hunk, { desc = "undo stage" } },
-		{ "r", gitsigns.reset_hunk, { desc = "reset" } },
-		{ "q", nil, { exit = true, nowait = true, desc = "exit" } },
-		{ "<Esc>", nil, { exit = true, nowait = true, desc = "exit" } },
+		{ "s", gitsigns.stage_hunk, desc = "stage/unstage" },
+		{ "u", gitsigns.undo_stage_hunk, desc = "undo stage" },
+		{ "r", gitsigns.reset_hunk, desc = "reset" },
 	}
-end
+end)
 
--- Buffer-local: these need the gitsigns handle and the Hydra, which only exist
--- once gitsigns has attached to this buffer.
-local function attach_keys(bufnr, gitsigns, hunk_hydra)
+-- Buffer-local: these need the gitsigns handle, which only exists once
+-- gitsigns has attached to this buffer.
+local function attach_keys(bufnr, gitsigns)
 	local buf_opts = { buffer = bufnr, silent = true }
 	-- Dispatch the shared prefix by tab so ordinary and CodeDiff buffers can coexist.
 	map("n", "<leader>h", function()
 		if vim.t.codediff_view then
 			require("dotfiles.ui.codediff").activate()
 		else
-			hunk_hydra:activate()
+			hunk_mode()
 		end
 	end, vim.tbl_extend("force", buf_opts, { desc = "Git / CodeDiff hunk navigation", nowait = true }))
 	for _, action in ipairs({
@@ -80,7 +69,6 @@ return {
 	{
 		"lewis6991/gitsigns.nvim",
 		event = "BufReadPre",
-		dependencies = { "nvimtools/hydra.nvim" },
 		init = function()
 			-- The blame sidebar has one row per source line, so plain j/k crawl
 			-- through a commit's │ rows. Jump between commit headers instead;
@@ -126,25 +114,8 @@ return {
 			current_line_blame = true,
 			current_line_blame_opts = { delay = 0 },
 			on_attach = function(bufnr)
-				local gitsigns = require("gitsigns")
-				-- Keep hunk review active so navigation and actions need only one leader prefix.
-				local hunk_hydra = require("hydra")({
-					name = "Git hunks",
-					config = {
-						buffer = bufnr,
-						color = "pink",
-						invoke_on_body = true,
-						-- Keep hunk navigation focused until the optional help is requested.
-						hint = { float_opts = { border = "rounded" }, hide_on_load = true },
-					},
-					hint = [[
- Git hunks
- _j_: next   _k_: previous   _p_: preview   _b_: blame
- _s_: stage  _u_: undo stage _r_: reset     _q_/_<Esc>_: exit
-]],
-					heads = hunk_heads(gitsigns),
-				})
-				attach_keys(bufnr, gitsigns, hunk_hydra)
+				-- The hunk mode is shared (see hunk_mode above); only the keys are per buffer.
+				attach_keys(bufnr, require("gitsigns"))
 			end,
 		},
 	},

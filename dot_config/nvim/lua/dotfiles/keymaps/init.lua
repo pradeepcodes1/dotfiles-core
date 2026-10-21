@@ -2,7 +2,7 @@
 --
 -- Two kinds deliberately live elsewhere. Keys whose only job is to load a
 -- plugin on first press are in keymaps/specs.lua, where lazy.nvim reads them.
--- Buffer-local maps and modal (Hydra) heads belong to the module that owns the
+-- Buffer-local maps and modal (which-key mode) heads belong to the module that owns the
 -- runtime object they act on -- an LSP attach, a gitsigns handle, a diff
 -- session -- because nothing can bind them before that owner exists.
 vim.g.mapleader = " "
@@ -44,6 +44,14 @@ map("v", "q", "<Esc>", { desc = "Exit visual mode with q" })
 -- relative-number jumps) still moves by real lines.
 map({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true, desc = "Down (screen line)" })
 map({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true, desc = "Up (screen line)" })
+-- <C-e>/<C-y> scroll a tenth of the window, as they did under neoscroll (the
+-- qutebrowser config is tuned against that); Snacks.scroll animates them. An
+-- explicit count keeps Vim's line-count meaning.
+for lhs, desc in pairs({ ["<C-e>"] = "Scroll down a tenth", ["<C-y>"] = "Scroll up a tenth" }) do
+	map({ "n", "x" }, lhs, function()
+		return (vim.v.count > 0 and "" or math.max(1, math.floor(vim.api.nvim_win_get_height(0) / 10))) .. lhs
+	end, { expr = true, desc = desc })
+end
 
 -- Keep native centering on zz; silently ignore fold toggles outside folds.
 map("n", "za", function()
@@ -215,7 +223,31 @@ map("t", "<C-h>", [[<C-\><C-n><C-w>h]], { desc = "Move to left split" })
 map("t", "<C-l>", [[<C-\><C-n><C-w>l]], { desc = "Move to right split" })
 map("t", "<C-k>", [[<C-\><C-n><C-w>k]], { desc = "Move to split above" })
 map("t", "<C-j>", [[<C-\><C-n><C-w>j]], { desc = "Move to split below" })
--- The resize Hydra owns <leader>w so one prefix can start several adjustments.
+-- <leader>w enters a resize mode (ui/modal.lua, which replaced the Hydra):
+-- h/l/j/k or the arrows repeat in steps of 10 until q or <Esc>.
+local function resize(command)
+	return function()
+		vim.cmd(command)
+	end
+end
+map(
+	"n",
+	"<leader>w",
+	require("dotfiles.ui.modal").new("<F33>", "Resize splits", function()
+		return {
+			{ "h", resize("vertical resize -10"), desc = "narrower" },
+			{ "<Left>", resize("vertical resize -10"), desc = "narrower" },
+			{ "l", resize("vertical resize +10"), desc = "wider" },
+			{ "<Right>", resize("vertical resize +10"), desc = "wider" },
+			{ "j", resize("resize -10"), desc = "shorter" },
+			{ "<Down>", resize("resize -10"), desc = "shorter" },
+			{ "k", resize("resize +10"), desc = "taller" },
+			{ "<Up>", resize("resize +10"), desc = "taller" },
+			{ "=", resize("wincmd ="), desc = "equalize" },
+		}
+	end),
+	{ desc = "Resize splits" }
+)
 
 local opts = { noremap = true, silent = true }
 

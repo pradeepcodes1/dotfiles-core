@@ -4,8 +4,20 @@ if not vim.g.neovide then
 end
 
 -- GUI launches on macOS do not reliably inherit the shell PATH.
-local paths = require("dotfiles.core.path")
 local path_sep = ":"
+
+-- A GUI launch may not inherit HOMEBREW_PREFIX either, so fall back to the
+-- platform's standard prefix; this was the only user of core/path.lua's helper.
+local function homebrew_prefix()
+	if vim.env.HOMEBREW_PREFIX and vim.env.HOMEBREW_PREFIX ~= "" then
+		return vim.env.HOMEBREW_PREFIX
+	end
+	local uname = vim.uv.os_uname()
+	if uname.sysname ~= "Darwin" then
+		return "/home/linuxbrew/.linuxbrew"
+	end
+	return uname.machine == "arm64" and "/opt/homebrew" or "/usr/local"
+end
 local path_entries = {}
 for _, path in ipairs(vim.split(vim.env.PATH or "", path_sep, { plain = true, trimempty = true })) do
 	path_entries[path] = true
@@ -33,7 +45,7 @@ end
 for _, path in ipairs({
 	vim.fn.expand("~/.local/bin"),
 	vim.fn.expand("~/.local/share/mise/shims"),
-	paths.homebrew("bin"),
+	homebrew_prefix() .. "/bin",
 }) do
 	prepend_path(path)
 end

@@ -5,7 +5,6 @@
 -- declaring/enabling servers -- rather than when this plugin loads. It worked,
 -- but it made LSP setup an invisible side effect of reading a file. init()
 -- takes what has to exist before any server attaches; config() takes the rest.
-local paths = require("dotfiles.core.path")
 
 -- cmd[1] is the bare name: vim.lsp resolves it through PATH, and PATH already
 -- answers /usr/bin/clangd -- an xcode-select shim onto the Xcode toolchain on
@@ -22,8 +21,8 @@ local paths = require("dotfiles.core.path")
 -- in compile_commands.json, not a driver to run, so one glob per prefix covers
 -- clang, clang++ and versioned names alike.
 local function clangd_cmd()
-	local xcode_clang =
-		paths.application("Xcode", "Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang*")
+	-- Spelled out: this was the only use of core/path.lua's application() helper.
+	local xcode_clang = "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang*"
 
 	return {
 		"clangd",

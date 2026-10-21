@@ -22,5 +22,9 @@ return {
 
 		-- Bound long jumps so window navigation stays closer to Neovide's compact trail.
 		max_length = 8,
+
+		-- The dashboard hides its cursor (see snacks.lua); a smear moving
+		-- between its keys would bring a visible cursor back.
+		filetypes_disabled = { "snacks_dashboard" },
 	},
 }

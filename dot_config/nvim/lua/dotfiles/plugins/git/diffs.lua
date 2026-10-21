@@ -1,4 +1,4 @@
--- Enhance the full blame popup already opened by the Git-hunk Hydra's b action.
+-- Enhance the full blame popup the git hunk mode's b head opens (plugins/git/gitsigns.lua).
 return {
 	-- Upstream moved to Forgejo; the GitHub repo is removed on 2026-10-31.
 	url = "https://forge.barrettruth.com/barrettruth/diffs.nvim",

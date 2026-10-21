@@ -88,11 +88,19 @@ for name, spec in pairs({
 	Whitespace = { link = "NonText" },
 	SpecialKey = { link = "NonText" },
 	EndOfBuffer = { fg = p.bg },
-	Visual = { fg = theme.selection_fg, bg = theme.selection },
+	-- Background only, so syntax colors still show through the selection.
+	Visual = { bg = theme.selection },
+	-- List-style selections keep a solid, high-contrast foreground.
+	VisualSolid = { fg = theme.selection_fg, bg = theme.selection },
+	-- Selection whitespace dots sit halfway between comment grey and the
+	-- selection background so they read as a faint hint, not text. This is
+	-- visual-whitespace.nvim's group; its overlay replaces the cell, so it
+	-- carries the selection background itself.
+	VisualNonText = { fg = blend(comment, theme.selection, 0.5), bg = theme.selection },
 	Pmenu = { link = "NormalFloat" },
-	PmenuSel = { link = "Visual" },
+	PmenuSel = { link = "VisualSolid" },
 	PmenuThumb = { bg = theme.border },
-	QuickFixLine = { link = "Visual" },
+	QuickFixLine = { link = "VisualSolid" },
 	MatchParen = { fg = accent, bg = theme.surface_high, bold = true },
 	-- Keep comments upright so GUI and terminal renderers use a consistent shape.
 	Comment = { fg = comment, italic = false },
@@ -155,7 +163,7 @@ for name, spec in pairs({
 	AerialClassIcon = { fg = syntax.yellow },
 	AerialFunctionIcon = { fg = syntax.blue },
 	AerialGuide = { fg = inactive },
-	AerialLine = { link = "Visual" },
+	AerialLine = { link = "VisualSolid" },
 	AerialMethodIcon = { fg = syntax.blue },
 	AerialVariableIcon = { fg = syntax.cyan },
 
@@ -172,7 +180,7 @@ for name, spec in pairs({
 	SnacksDashboardSpecial = { fg = syntax.magenta },
 	-- Keep directory paths readable without overriding the picker background.
 	SnacksPickerDir = { fg = p.fg },
-	SnacksPickerListCursorLine = { link = "Visual" },
+	SnacksPickerListCursorLine = { link = "VisualSolid" },
 	-- Match colors distinguish project results without changing their font weight.
 	SnacksPickerMatch = { fg = syntax.yellow, bold = false },
 	SnacksPickerBold = { fg = p.fg, bold = false },
