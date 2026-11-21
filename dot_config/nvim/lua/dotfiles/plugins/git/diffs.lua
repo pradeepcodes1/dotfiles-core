@@ -9,7 +9,8 @@ return {
 		vim.g.diffs = {
 			integrations = { gitsigns = true },
 			-- CodeDiff owns conflict review; this addition is for popup highlighting.
-			conflict = { enabled = false },
+			-- `conflict.enabled` is deprecated; a bare false disables conflict handling.
+			conflict = false,
 		}
 	end,
 }

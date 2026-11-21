@@ -63,7 +63,8 @@ M.snacks = {
 function M.harpoon()
 	local keys = {
 		{
-			"<leader>m",
+			-- Keep the Marks prefix free so adding a file never waits for a longer mapping.
+			"<leader>ma",
 			function()
 				require("harpoon"):list():add()
 			end,
@@ -159,6 +160,23 @@ M.flash = {
 
 M.overseer = {
 	{ "<leader>or", "<Cmd>OverseerRun<CR>", desc = "Overseer: Run task" },
+	{
+		"<leader>ol",
+		function()
+			-- Rerun the most recently finished task without interrupting any active task.
+			local overseer = require("overseer")
+			local tasks = overseer.list_tasks({
+				status = { overseer.STATUS.SUCCESS, overseer.STATUS.FAILURE, overseer.STATUS.CANCELED },
+				sort = require("overseer.task_list").sort_finished_recently,
+			})
+			if #tasks == 0 then
+				vim.notify("No finished tasks to rerun", vim.log.levels.WARN)
+				return
+			end
+			overseer.run_action(tasks[1], "restart")
+		end,
+		desc = "Overseer: Rerun last finished task",
+	},
 	{ "<leader>ot", "<Cmd>OverseerToggle<CR>", desc = "Overseer: Toggle tasks" },
 	{ "<leader>os", "<Cmd>OverseerShell<CR>", desc = "Overseer: Run shell command" },
 	{ "<leader>oa", "<Cmd>OverseerTaskAction<CR>", desc = "Overseer: Task action" },

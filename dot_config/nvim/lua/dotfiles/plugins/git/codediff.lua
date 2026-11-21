@@ -24,6 +24,9 @@ end
 return {
 	"esmuellert/codediff.nvim",
 	cmd = "CodeDiff",
+	-- Updates can require a new native diff library, which :CodeDiff otherwise
+	-- downloads synchronously on first use and freezes the editor until curl ends.
+	build = ":CodeDiff install",
 	opts = function()
 		return {
 			diff = { layout = preferred_layout() },

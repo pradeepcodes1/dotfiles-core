@@ -50,7 +50,9 @@ local function target_for_buffer(bufnr)
 		return nil, nil
 	end
 
-	local root = project_root.buffer(bufnr)
+	-- An open project wins over nested sub-crates/packages (e.g. vllm/proto's own
+	-- Cargo.toml); outside project mode this falls back to the buffer's deepest root.
+	local root = project_root.picker(bufnr)
 		-- buffer_root rejects URI names, so preserve file:// marker discovery after conversion.
 		or project_root.find(path)
 		or path_util.clean(vim.fs.dirname(path))

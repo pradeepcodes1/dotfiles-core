@@ -4,9 +4,9 @@
 vim.g.nvim_preview = vim.env.NVIM_PREVIEW == "1"
 
 -- AI completion backend for the blink menu: "copilot" (needs a Copilot
--- subscription) or "minuet" (local qwen2.5-coder:1.5b through ollama). Only
--- one is ever loaded so the menu never shows two near-identical suggestions.
-vim.g.ai_completion = "minuet"
+-- subscription), "minuet" (local Ollama), or "off". An environment override
+-- lets a launch disable inference without changing the shared config.
+vim.g.ai_completion = vim.env.NVIM_AI_COMPLETION or vim.g.ai_completion or "minuet"
 
 -- Keymaps require project-manager.nvim before lazy.setup runs, so clone it into
 -- lazy's own plugin directory on first start and put it on the rtp this early.

@@ -1360,7 +1360,10 @@ command_hooks() {
 
 pass_first_line() {
   secret_path=$1
-  pass show "$secret_path" 2>/dev/null | sed -n '1p'
+  # Capture before trimming: in a pipeline the status was sed's, so a pass or
+  # GPG failure surfaced only as "is empty" with its own error discarded.
+  secret_output=$(pass show "$secret_path") || return 1
+  printf '%s\n' "$secret_output" | sed -n '1p'
 }
 
 command_exec() {

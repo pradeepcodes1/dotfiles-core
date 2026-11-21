@@ -92,8 +92,9 @@ function up() {
   builtin cd "$target"
 }
 
-# Go binaries
-export PATH="$HOME/go/bin:$PATH"
+# Go binaries, appended: prepended, anything `go install`ed shadowed
+# ~/.local/bin, including the dotfiles controller.
+path+=("$HOME/go/bin")
 
 # Eza configuration - use ~/.config/eza for theme files
 export EZA_CONFIG_DIR="{{ .chezmoi.homeDir }}/.config/eza"

@@ -15,12 +15,20 @@ return {
 				"yaml",
 				"bash",
 				"javascript",
+				-- Cover the web and Kotlin languages already served by the LSP configuration.
+				"typescript",
+				"tsx",
+				"html",
+				"css",
+				"kotlin",
 				"go",
 				"proto",
 				"mermaid",
 				-- markview.nvim parses buffers with both Markdown parsers.
 				"markdown",
 				"markdown_inline",
+				-- markview only renders $…$ / $$…$$ math when it can parse the LaTeX inside.
+				"latex",
 				-- Swift gets the same syntax highlighting, indentation, and text objects as other source files.
 				"swift",
 				-- Rust projects had no parser, so ]m/[m and af/if crashed there.
@@ -28,12 +36,26 @@ return {
 				"toml",
 			})
 
+			-- Vim's own indent scripts handle these better than the experimental
+			-- treesitter indents on the main branch (dedent after return, block scalars).
+			local native_indent = { python = true, yaml = true }
 			vim.api.nvim_create_autocmd("FileType", {
+				group = vim.api.nvim_create_augroup("dotfiles_treesitter_start", { clear = true }),
 				pattern = "*",
 				callback = function(args)
 					local ok = pcall(vim.treesitter.start, args.buf)
-					if ok then
-						vim.wo[0][0].foldexpr = "v:lua.vim.treesitter.foldexpr()"
+					if not ok then
+						return
+					end
+					-- Every window showing this buffer, not the current one: FileType
+					-- also fires for buffers loaded off-screen (session restore, previews).
+					for _, win in ipairs(vim.fn.win_findbuf(args.buf)) do
+						vim.wo[win][0].foldexpr = "v:lua.vim.treesitter.foldexpr()"
+					end
+					-- Only where the parser ships an indents query; otherwise the
+					-- treesitter indentexpr replaces a working ftplugin with nothing.
+					local lang = vim.treesitter.language.get_lang(vim.bo[args.buf].filetype)
+					if lang and not native_indent[lang] and vim.treesitter.query.get(lang, "indents") then
 						vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
 					end
 				end,
@@ -56,6 +78,8 @@ return {
 
 			local select = require("nvim-treesitter-textobjects.select")
 			local move = require("nvim-treesitter-textobjects.move")
+			-- Swaps reuse the installed textobjects queries and retain dot-repeat support.
+			local swap = require("nvim-treesitter-textobjects.swap")
 			local map = vim.keymap.set
 			local function textobject(action, query)
 				return function()
@@ -91,6 +115,9 @@ return {
 				local modes = action == select.select_textobject and { "x", "o" } or { "n", "x", "o" }
 				map(modes, lhs, textobject(action, query), { desc = desc })
 			end
+			-- Uppercase A swaps arguments; lowercase [a/]a keep navigating between them.
+			map("n", "]A", textobject(swap.swap_next, "@parameter.inner"), { desc = "Swap argument with next" })
+			map("n", "[A", textobject(swap.swap_previous, "@parameter.inner"), { desc = "Swap argument with previous" })
 		end,
 	},
 }

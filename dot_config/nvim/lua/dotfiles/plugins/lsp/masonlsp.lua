@@ -62,6 +62,10 @@ return {
 				callback = function(ev)
 					local client = vim.lsp.get_client_by_id(ev.data.client_id)
 					if client then
+						-- Pyright owns Python hover; Ruff contributes lint fixes and import actions.
+						if client.name == "ruff" then
+							client.server_capabilities.hoverProvider = false
+						end
 						common.on_attach(client, ev.buf)
 						if client.name == "jdtls" then
 							require("dotfiles.lsp.java.navigation").on_attach(ev.buf)
@@ -79,6 +83,11 @@ return {
 				commands = {
 					["editor.action.showReferences"] = show_ts_references,
 				},
+			})
+
+			-- Ruff owns import organization while Pyright keeps its type diagnostics.
+			vim.lsp.config("pyright", {
+				settings = { pyright = { disableOrganizeImports = true } },
 			})
 
 			vim.lsp.config("clangd", {
@@ -132,6 +141,9 @@ return {
 			-- lspconfig definition directly and let xcrun select the active toolchain.
 			vim.lsp.config("sourcekit", {
 				cmd = { "xcrun", "sourcekit-lsp" },
+				-- lspconfig also claims c/cpp/objc for SourceKit; clangd owns those, so
+				-- attaching both duplicated every symbol, reference and diagnostic.
+				filetypes = { "swift" },
 			})
 
 			-- Neither of these is in ensure_installed, and automatic_enable only walks
@@ -150,6 +162,9 @@ return {
 					"lua_ls",
 					"gopls",
 					"pyright",
+					-- Add lint/import actions for Python and ShellCheck-backed Bash/POSIX support.
+					"ruff",
+					"bashls",
 					"kotlin_language_server",
 					"jsonls",
 					"taplo",

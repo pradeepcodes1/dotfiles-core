@@ -43,8 +43,18 @@ LOG_PREFIX=(
 )
 
 # ISO 8601 timestamp
+# zsh/datetime formats the time in-process instead of forking date per entry;
+# TZ=UTC keeps the trailing Z truthful, and %3. adds the real milliseconds.
+zmodload -F zsh/datetime b:strftime p:EPOCHREALTIME 2>/dev/null
 _log_timestamp() {
-  date -u '+%Y-%m-%dT%H:%M:%S.000Z'
+  if (( $+builtins[strftime] )); then
+    # The fraction's digit count varies by platform; pad or cut it to the
+    # nanoseconds strftime expects.
+    local frac=${(r:9::0:)EPOCHREALTIME#*.}
+    TZ=UTC strftime '%Y-%m-%dT%H:%M:%S.%3.Z' "${EPOCHREALTIME%.*}" "${frac[1,9]}"
+  else
+    date -u '+%Y-%m-%dT%H:%M:%S.000Z'
+  fi
 }
 
 # Build JSON log entry using jq (single call)
@@ -208,5 +218,7 @@ if (( ! ${_DOTFILES_ONESHOT:-0} )); then
   # Run cleanup on shell start (in background to avoid blocking)
   _cleanup_old_logs &!
 
-  debug_log "logging" "Logging initialized (console=${DEBUG_DOTFILES:-0}, json=${DOTFILES_JSON_LOG:-0})"
+  # Console debug only: the JSON copy forked date and jq in every shell just to
+  # record the same line, and that line made up most of a 4 MB log.
+  (( ${DEBUG_DOTFILES:-0} >= 1 )) && debug_log "logging" "Logging initialized (console=${DEBUG_DOTFILES:-0}, json=${DOTFILES_JSON_LOG:-0})"
 fi

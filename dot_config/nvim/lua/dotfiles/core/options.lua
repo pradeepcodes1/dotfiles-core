@@ -76,7 +76,13 @@ local function apply_file_window_options(buf)
 	local is_file = vim.bo[buf].buftype == ""
 	for _, win in ipairs(vim.fn.win_findbuf(buf)) do
 		if vim.api.nvim_win_get_config(win).relative == "" then
-			vim.wo[win].wrap = is_file
+			-- Remember each window's explicit choice for this buffer when it is revisited.
+			local overrides = vim.w[win].dotfiles_wrap_overrides or {}
+			local wrap = overrides[tostring(buf)]
+			if wrap == nil then
+				wrap = is_file
+			end
+			vim.wo[win].wrap = is_file and wrap
 			-- comfy-line-numbers draws signs through %s, so with the default "auto"
 			-- the gutter appears and vanishes as gitsigns/diagnostics come and go,
 			-- shifting the code sideways. Reserve it in file windows only. [0] is

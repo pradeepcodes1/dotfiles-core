@@ -53,6 +53,9 @@ return {
 	{
 		"theHamsta/nvim-dap-virtual-text",
 		dependencies = { "mfussenegger/nvim-dap", "nvim-treesitter/nvim-treesitter" },
+		-- With no trigger this loaded nvim-dap at every startup; nvim-dap's own
+		-- config (tools/dapui.lua) now pulls it in the first time DAP loads.
+		lazy = true,
 		opts = {},
 	},
 }

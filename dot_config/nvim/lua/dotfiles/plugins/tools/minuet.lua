@@ -10,6 +10,12 @@ return {
 		enabled = not vim.g.nvim_preview and vim.g.ai_completion == "minuet",
 		lazy = true,
 		opts = {
+			-- Recheck pauses before a deferred completion can send its inference request.
+			enable_predicates = {
+				function()
+					return not vim.g.ai_completion_disabled and not vim.b.ai_completion_disabled
+				end,
+			},
 			-- The base (not instruct) model speaks the FIM template that ollama's
 			-- OpenAI-compatible /v1/completions endpoint expects.
 			provider = "openai_fim_compatible",

@@ -33,7 +33,9 @@ jq
 yq
 openssh
 lazygit
-# mise
+# run_after_23 installs the pinned runtimes and fails without mise, and
+# nothing else provides it on Linux; it ships in Arch's extra repository.
+mise
 python
 starship
 zsh-syntax-highlighting
@@ -45,6 +47,13 @@ glow
 htop
 lnav
 tokei
+# conform.lua's formatters; Homebrew supplies them on macOS, and without them
+# format-on-save on Arch silently fell back to the LSP or did nothing.
+stylua
+prettier
+shfmt
+taplo-cli
+ruff
 onefetch
 serie
 termscp

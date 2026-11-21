@@ -29,7 +29,13 @@ path=("$HOME/.local/bin" $path)
 # and ssh.zsh guards the one compdef that would otherwise fire without it.
 if (( ! _DOTFILES_ONESHOT )); then
   autoload -Uz compinit
-  compinit -C
+  # -C alone never rebuilt the dump, so completions added by brew, mise or
+  # rustup stayed invisible until it was deleted by hand. Rebuild once a day.
+  if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
+    compinit
+  else
+    compinit -C
+  fi
 fi
 setopt PROMPT_SUBST
 
@@ -55,6 +61,30 @@ _dotfiles_lazy_source() {
   for cmd in "$@"; do
     eval "${cmd}() { unfunction ${cmd} 2>/dev/null; source ${quoted_file}; ${cmd} \"\$@\" }"
   done
+}
+
+# Source a tool's generated shell init from a cache instead of forking the tool
+# on every shell. The header records the resolved binary and arguments, so an
+# upgrade (a new Cellar path) or changed flags regenerates it; mtime alone is
+# not enough because poured bottles keep their build-time timestamps. Only for
+# output that is a pure function of the binary -- `mise activate` bakes the
+# current PATH into its output, so it must stay a live eval.
+_dotfiles_cached_init() {
+  local name=$1 bin=${commands[$2]}
+  shift 2
+  [[ -n $bin ]] || return 1
+  local cache="${XDG_CACHE_HOME:-$HOME/.cache}/zsh/init/$name.zsh"
+  local stamp="# ${bin:A} $*" header=
+  # A builtin read, not head: forking for the check would undo the saving.
+  [[ -r $cache ]] && IFS= read -r header < "$cache"
+  if [[ $header != "$stamp" || $cache -ot $bin ]]; then
+    mkdir -p -- "${cache:h}" || return 1
+    { print -r -- "$stamp"; "$bin" "$@" } >| "$cache.$$" && mv -f -- "$cache.$$" "$cache" || {
+      rm -f -- "$cache.$$"
+      return 1
+    }
+  fi
+  source "$cache"
 }
 
 # Source custom zsh files (lazy-load rarely used modules)

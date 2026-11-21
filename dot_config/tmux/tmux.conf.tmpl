@@ -98,7 +98,9 @@ set -g automatic-rename off
 set -g allow-rename on
 set -g set-titles off
 
-set -g history-limit 10000
+# Closer to kitty's 100k so a build log survives in either; tmux keeps
+# history uncompressed per pane, so not the full amount.
+set -g history-limit 50000
 
 # Window/pane numbering starts at 1, renumber on close
 set -g base-index 1

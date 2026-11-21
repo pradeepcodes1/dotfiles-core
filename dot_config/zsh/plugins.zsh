@@ -2,18 +2,16 @@
 # Plugin initialization
 
 # Make `cd` zoxide-aware; its chpwd hook records each directory exactly once.
-if command -v zoxide &>/dev/null; then
-  eval "$(zoxide init zsh --cmd cd)"
-  alias zi=cdi
-fi
+# Cached (see _dotfiles_cached_init in ~/.zshrc) so no shell forks zoxide.
+_dotfiles_cached_init zoxide zoxide init zsh --cmd cd && alias zi=cdi
 # Initialize atuin
-command -v atuin &>/dev/null && eval "$(atuin init zsh --disable-up-arrow)"
+_dotfiles_cached_init atuin atuin init zsh --disable-up-arrow
 
 # Carapace configuration
 export CARAPACE_BRIDGES='zsh,fish,bash,inshellisense'
-if command -v carapace &>/dev/null; then
-  source <(carapace _carapace zsh)
-fi
+# The generated script calls carapace at completion time, so caching the
+# setup itself is safe; CARAPACE_BRIDGES above is read then, not baked in.
+_dotfiles_cached_init carapace carapace _carapace zsh
 
 # Standard Zsh matching rules - helps with prefix handling and fuzzy matching
 # This allows fzf-tab to correctly identify path prefixes (like 'dir/') vs search queries

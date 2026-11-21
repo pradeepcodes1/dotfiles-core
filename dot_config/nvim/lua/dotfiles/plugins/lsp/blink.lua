@@ -1,9 +1,11 @@
 -- merge LSP and AI candidates into one completion UI with deliberate keys.
 
--- Exactly one AI source, chosen by vim.g.ai_completion in init.lua. None in
--- the preview window, where both AI plugins are disabled and their blink
--- modules would fail to load.
-local ai_source = not vim.g.nvim_preview and (vim.g.ai_completion == "copilot" and "copilot" or "minuet")
+-- At most one AI source, chosen by vim.g.ai_completion in init.lua. Preview
+-- windows and the "off" backend never load either provider's Blink module.
+-- Only known backends contribute a source; "off" must never fall back to Minuet.
+local ai_source = not vim.g.nvim_preview
+	and (vim.g.ai_completion == "copilot" or vim.g.ai_completion == "minuet")
+	and vim.g.ai_completion
 local default_sources = { "lsp", "snippets" }
 if ai_source then
 	table.insert(default_sources, 2, ai_source)
@@ -45,7 +47,13 @@ return {
 			-- Deliberately not blink's default set, which also adds `path` and
 			-- `buffer`. Completion here is the language server, one AI backend,
 			-- and the hand-written snippets under <config>/snippets.
-			default = default_sources,
+			-- Re-evaluate toggles for each completion without overriding provider availability checks.
+			default = function()
+				if vim.g.ai_completion_disabled or vim.b.ai_completion_disabled then
+					return { "lsp", "snippets" }
+				end
+				return default_sources
+			end,
 			providers = {
 				snippets = {
 					opts = {

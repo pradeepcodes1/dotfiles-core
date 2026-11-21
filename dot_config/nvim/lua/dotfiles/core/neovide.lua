@@ -53,6 +53,9 @@ end
 -- Use the same Maple Mono family as Kitty while preserving each Neovide mode's tuned size.
 -- Baking the sizes into guifont keeps <D-0> resetting to these values.
 vim.o.guifont = vim.g.nvim_preview and "Maple_Mono_NF:h15.7" or "Maple_Mono_NF:h15"
+-- Match Kitty's `modify_font cell_height 120%`: linespace is extra pixels, and
+-- ~4px is 20% of Maple Mono's ~19px cell at these sizes.
+vim.o.linespace = 4
 -- Neovide animates any large viewport jump as a scroll, so a buffer or tab
 -- switch slides the new file up into place while the old one is still on
 -- screen. Snap instead: this also covers Aerial replacing its Loading buffer

@@ -104,6 +104,16 @@ vim.api.nvim_create_autocmd("User", {
 	group = group,
 	pattern = "SnacksDashboardUpdatePost",
 	callback = function()
+		-- Snacks maps autokeys (1-9, 0, a...) without nowait, and comfy-line-numbers'
+		-- global 1j/11k/... maps make `1` wait out timeoutlen before opening a file.
+		-- Autokeys are single characters at this list size, so nowait is safe.
+		for _, buf in ipairs(dashboard_bufs()) do
+			for _, map in ipairs(vim.api.nvim_buf_get_keymap(buf, "n")) do
+				if map.desc == "Dashboard action" and map.nowait == 0 and map.callback then
+					vim.keymap.set("n", map.lhs, map.callback, { buffer = buf, nowait = true, desc = map.desc })
+				end
+			end
+		end
 		if not M.root then
 			return
 		end

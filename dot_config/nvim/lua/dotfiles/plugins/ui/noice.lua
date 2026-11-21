@@ -60,18 +60,19 @@ return {
 				},
 				opts = { skip = true },
 			},
+			-- Keep server warnings and errors visible while suppressing informational chatter.
 			{
 				filter = {
 					event = "lsp",
 					kind = "message",
+					["not"] = { any = { { warning = true }, { error = true } } },
 				},
 				opts = { skip = true },
 			},
 			-- Snacks pickers close themselves and warn when a finder comes back
 			-- empty ("No results found for `todo_comments`" on <leader>ft, and
 			-- the same for files/grep). That is the only feedback the picker
-			-- gives, so it has to outrank the blanket warning skip below --
-			-- routes are matched in order and the first match stops the search.
+			-- gives, so explicitly retain it as a notification.
 			{
 				filter = {
 					event = "notify",
@@ -91,19 +92,7 @@ return {
 				},
 				opts = { skip = true },
 			},
-			-- Scoped to Neovim's own warning messages. This used to match
-			-- `warning = true` alone, which also swallowed every deliberate
-			-- vim.notify(..., WARN) in this config (core/yank.lua, lsp/java,
-			-- project/actions) -- those were never reaching the screen. If a
-			-- specific warning gets noisy again, add a `find` route above this
-			-- one rather than widening it back.
-			{
-				filter = {
-					event = "msg_show",
-					warning = true,
-				},
-				opts = { skip = true },
-			},
+			-- Native warnings use Noice's normal routes; silence only specific known messages above.
 		},
 	},
 }

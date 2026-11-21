@@ -6,6 +6,11 @@ return {
 		keys = function()
 			return require("dotfiles.keymaps.specs").dap
 		end,
+		-- Inline variable values follow DAP itself, whichever path loads it
+		-- (keys, dap-ui, or a neotest debug run), instead of loading at startup.
+		config = function()
+			require("lazy").load({ plugins = { "nvim-dap-virtual-text" } })
+		end,
 	},
 	{
 		"rcarriga/nvim-dap-ui",

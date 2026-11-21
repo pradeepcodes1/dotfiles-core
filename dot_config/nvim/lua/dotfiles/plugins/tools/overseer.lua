@@ -14,5 +14,19 @@ return {
 	keys = function()
 		return require("dotfiles.keymaps.specs").overseer
 	end,
-	opts = {},
+	opts = function(_, opts)
+		-- Preserve the plugin's lifecycle components while parsing compiler output in the task's cwd.
+		opts.component_aliases = opts.component_aliases or {}
+		local components =
+			vim.deepcopy(opts.component_aliases.default or require("overseer.config").component_aliases.default)
+		table.insert(components, {
+			"on_output_quickfix",
+			-- Collect complete multiline diagnostics and open failures without stealing focus.
+			open_on_exit = "failure",
+			items_only = true,
+			tail = false,
+			focus = false,
+		})
+		opts.component_aliases.default = components
+	end,
 }

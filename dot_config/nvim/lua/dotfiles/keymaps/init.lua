@@ -178,7 +178,9 @@ map("n", "[d", function()
 	vim.diagnostic.jump({ count = -1 })
 end, { desc = "Previous diagnostic" })
 map("n", "<leader>lh", function()
-	vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
+	-- Toggling hints here must not change unrelated buffers or future attachments.
+	local filter = { bufnr = vim.api.nvim_get_current_buf() }
+	vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled(filter), filter)
 end, { desc = "Toggle inlay hints" })
 -- Buffer problems are the more frequent lookup, so they get the lowercase key.
 map("n", "<leader>vp", problems.show_buffer, { desc = "View: Problems (buffer)" })
@@ -190,10 +192,41 @@ map("n", "<leader>vr", project_state.only(problems.refresh_workspace), { desc = 
 map("n", "<leader>ud", function()
 	vim.diagnostic.enable(not vim.diagnostic.is_enabled())
 end, { desc = "Toggle diagnostics" })
+
+-- Buffer and global pauses compose, so a local opt-out survives a global re-enable.
+for lhs, scope in pairs({ ["<leader>uf"] = "buffer", ["<leader>uF"] = "global" }) do
+	map("n", lhs, function()
+		local state = scope == "buffer" and vim.b or vim.g
+		state.disable_autoformat = not state.disable_autoformat
+		vim.notify("Autoformat (" .. scope .. "): " .. (state.disable_autoformat and "off" or "on"))
+	end, { desc = "Toggle autoformat (" .. scope .. ")" })
+end
+
+-- Pausing AI leaves language-server and snippet completion available in Blink.
+if not vim.g.nvim_preview then
+	for lhs, scope in pairs({ ["<leader>ua"] = "buffer", ["<leader>uA"] = "global" }) do
+		map("n", lhs, function()
+			if vim.g.ai_completion ~= "minuet" and vim.g.ai_completion ~= "copilot" then
+				vim.notify("AI completion is off; choose a backend with NVIM_AI_COMPLETION before launching")
+				return
+			end
+			local state = scope == "buffer" and vim.b or vim.g
+			state.ai_completion_disabled = not state.ai_completion_disabled
+			-- Drop visible or cached suggestions from the previous completion context.
+			require("blink.cmp").hide()
+			vim.notify("AI completion (" .. scope .. "): " .. (state.ai_completion_disabled and "off" or "on"))
+		end, { desc = "Toggle AI completion (" .. scope .. ")" })
+	end
+end
+
 -- File buffers wrap by default; this flips it for the current window only, e.g. for
 -- wide tables or logs. linebreak/breakindent stay set and apply when it's on.
 map("n", "<leader>uw", function()
 	vim.wo.wrap = not vim.wo.wrap
+	-- Store the preference by buffer so switching files cannot reset this window's choice.
+	local overrides = vim.w.dotfiles_wrap_overrides or {}
+	overrides[tostring(vim.api.nvim_get_current_buf())] = vim.wo.wrap
+	vim.w.dotfiles_wrap_overrides = overrides
 end, { desc = "Toggle word wrap" })
 -- Sticky scroll can crowd short windows; flip it off without leaving the buffer.
 map("n", "<leader>uc", "<cmd>TSContext toggle<cr>", { desc = "Toggle sticky context" })
